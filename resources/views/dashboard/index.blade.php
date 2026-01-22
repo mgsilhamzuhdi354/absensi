@@ -349,6 +349,24 @@
     </div>
   </div>
   
+  <!-- Modal for KPI Detail (Admin) -->
+  <div class="modal fade" id="kpiAdminDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title" id="kpiAdminDetailTitle">Detail Kategori KPI</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="kpiAdminDetailBody">
+          <p>Loading...</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
   @push('script')
     <script>
       // KPI Charts Initialization
@@ -653,6 +671,12 @@
         
         // 4. KPI by Jenis Chart
         @if($kpi_by_jenis->count() > 0)
+        var kpiCategories = [
+          @foreach($kpi_by_jenis as $jenis)
+            '{{ $jenis->nama }}',
+          @endforeach
+        ];
+        
         var kpiByJenisOptions = {
           series: [{
             name: 'Total Nilai',
@@ -667,6 +691,12 @@
             height: 300,
             toolbar: {
               show: false
+            },
+            events: {
+              dataPointSelection: function(event, chartContext, config) {
+                var kategori = kpiCategories[config.dataPointIndex];
+                showKpiAdminDetail(kategori);
+              }
             }
           },
           plotOptions: {
@@ -711,7 +741,7 @@
           tooltip: {
             y: {
               formatter: function(val) {
-                return val + ' poin';
+                return val + ' poin (klik untuk detail)';
               }
             }
           },
@@ -724,6 +754,63 @@
         kpiByJenisChart.render();
         @endif
       });
+    </script>
+    
+    <script>
+      // Show KPI Detail Modal for Admin
+      function showKpiAdminDetail(kategori) {
+        var modal = new bootstrap.Modal(document.getElementById('kpiAdminDetailModal'));
+        document.getElementById('kpiAdminDetailTitle').textContent = 'Detail: ' + kategori;
+        document.getElementById('kpiAdminDetailBody').innerHTML = '<p class="text-center"><i class="fa fa-spinner fa-spin"></i> Loading...</p>';
+        modal.show();
+        
+        // Fetch detail data
+        $.ajax({
+          url: '{{ url("/kpi-detail-admin") }}',
+          type: 'GET',
+          data: { kategori: kategori },
+          success: function(response) {
+            var html = '<div class="table-responsive"><table class="table table-striped table-hover">';
+            html += '<thead class="table-dark"><tr><th>Pegawai</th><th>Tanggal</th><th>Nilai</th><th>Sumber</th></tr></thead>';
+            html += '<tbody>';
+            
+            if (response.data && response.data.length > 0) {
+              response.data.forEach(function(item) {
+                var sourceLabel = 'Lainnya';
+                var badgeClass = 'bg-secondary';
+                
+                if (item.reference == 'App\\Models\\MappingShift') {
+                  sourceLabel = 'Absensi';
+                  badgeClass = 'bg-info';
+                } else if (item.reference == 'Manual Adjustment') {
+                  sourceLabel = 'Manual';
+                  badgeClass = 'bg-warning text-dark';
+                } else if (item.reference == 'App\\Models\\Penugasan') {
+                  sourceLabel = 'Penugasan';
+                  badgeClass = 'bg-success';
+                }
+                
+                html += '<tr>';
+                html += '<td>' + (item.user_name || '-') + '</td>';
+                html += '<td>' + item.tanggal + '</td>';
+                html += '<td><span class="badge ' + (item.nilai <= 0 ? 'bg-danger' : 'bg-primary') + '">' + item.nilai + '</span></td>';
+                html += '<td><span class="badge ' + badgeClass + '">' + sourceLabel + '</span></td>';
+                html += '</tr>';
+              });
+            } else {
+              html += '<tr><td colspan="4" class="text-center">Tidak ada data</td></tr>';
+            }
+            
+            html += '</tbody></table></div>';
+            html += '<div class="alert alert-info mt-3"><strong>Total Poin: ' + response.total + '</strong> | Jumlah Entry: ' + (response.data ? response.data.length : 0) + '</div>';
+            
+            document.getElementById('kpiAdminDetailBody').innerHTML = html;
+          },
+          error: function() {
+            document.getElementById('kpiAdminDetailBody').innerHTML = '<p class="text-danger">Gagal memuat data</p>';
+          }
+        });
+      }
     </script>
     
     <script>

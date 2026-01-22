@@ -70,4 +70,10 @@ class JenisKinerjaController extends Controller
 
         return redirect('/jenis-kinerja')->with('success', 'Data Berhasil Di Update');
     }
+    public function delete($id)
+    {
+        $jenis_kinerja = JenisKinerja::find($id);
+        $jenis_kinerja->delete();
+        return redirect('/jenis-kinerja')->with('success', 'Data Berhasil Di Hapus');
+    }
 }

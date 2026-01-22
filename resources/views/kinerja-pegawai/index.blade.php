@@ -35,6 +35,7 @@
                                     <th>Nama Pegawai</th>
                                     <th>Kinerja</th>
                                     <th>Detail</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -61,6 +62,16 @@
                                                 <span class="badge badge-success">Kinerja Baik</span>
                                             @endif
                                         </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <a href="{{ url('/kinerja-pegawai/history/'.$user->id) }}" class="btn btn-info btn-sm" title="Lihat Riwayat">
+                                                    <i class="fa fa-history"></i>
+                                                </a>
+                                                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#adjustModal{{ $user->id }}" title="Tambah Poin">
+                                                    <i class="fa fa-plus"></i>
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -74,4 +85,45 @@
         </div>
     </div>
     <br>
+
+    <!-- Modals moved outside the table -->
+    @foreach ($users as $user)
+        <div class="modal fade" id="adjustModal{{ $user->id }}" tabindex="-1" role="dialog" aria-labelledby="adjustModalLabel{{ $user->id }}" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <form action="{{ url('/kinerja-pegawai/manual-store') }}" method="POST">
+                        @csrf
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="adjustModalLabel{{ $user->id }}">Adjust Poin: {{ $user->name }}</h5>
+                            <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" name="user_id" value="{{ $user->id }}">
+                            <div class="mb-3">
+                                <label for="tanggal">Tanggal</label>
+                                <input type="date" class="form-control" name="tanggal" value="{{ date('Y-m-d') }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="jenis_kinerja_id">Jenis Kinerja</label>
+                                <select class="form-select" name="jenis_kinerja_id" required>
+                                    @foreach($jenis_kinerja as $jk)
+                                        <option value="{{ $jk->id }}" data-bobot="{{ $jk->bobot }}">{{ $jk->nama }} (Bobot Default: {{ $jk->bobot }})</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="nilai">Nilai Poin (+/-)</label>
+                                <input type="number" class="form-control" name="nilai" placeholder="Contoh: -5 or 10" required>
+                                <small class="text-muted">Masukkan angka positif untuk menambah, negatif untuk mengurangi.</small>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Close</button>
+                            <button class="btn btn-primary" type="submit">Simpan</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endforeach
 @endsection

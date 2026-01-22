@@ -17,6 +17,8 @@ use App\Services\WhatsAppService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use RealRashid\SweetAlert\Facades\Alert;
+use App\Http\Controllers\AttendanceSecurityController;
+use Illuminate\Support\Facades\DB;
 
 class AbsenController extends Controller
 {
@@ -66,52 +68,77 @@ class AbsenController extends Controller
     {
         date_default_timezone_set('Asia/Jakarta');
 
-        $mapping_shift = MappingShift::find($id);
-        
-        // Cek apakah sudah absen masuk hari ini
-        if ($mapping_shift->jam_absen != null) {
-            Alert::error('Sudah Absen', 'Anda sudah melakukan absen masuk hari ini.');
+        // Helper function to return error response
+        $errorResponse = function($title, $message) use ($request) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 400);
+            }
+            Alert::error($title, $message);
             return redirect('/absen');
-        }
-        
-        // Cek apakah belum waktunya absen masuk (max 30 menit sebelum jadwal)
-        $shift = $mapping_shift->Shift->jam_masuk;
-        $tanggal = $mapping_shift->tanggal;
-        $waktu_shift = strtotime($tanggal . ' ' . $shift);
-        $waktu_sekarang = time();
-        $selisih_menit = ($waktu_shift - $waktu_sekarang) / 60;
-        
-        if ($selisih_menit > 30) {
-            Alert::error('Belum Waktunya', 'Anda hanya bisa absen masuk maksimal 30 menit sebelum jadwal shift.');
-            return redirect('/absen');
+        };
+
+        // Check IP restriction first (before transaction)
+        $ipCheck = AttendanceSecurityController::checkIpRestriction();
+        if (!$ipCheck['allowed']) {
+            return $errorResponse('Akses Ditolak', $ipCheck['message']);
         }
 
-        $lat_kantor = auth()->user()->Lokasi->lat_kantor;
-        $long_kantor = auth()->user()->Lokasi->long_kantor;
-        $radius = auth()->user()->Lokasi->radius;
-        $nama_lokasi = auth()->user()->Lokasi->nama_lokasi;
+        // Start database transaction for atomic operation
+        DB::beginTransaction();
+        try {
+            // Lock the record for update to prevent race condition
+            $mapping_shift = MappingShift::lockForUpdate()->find($id);
+            
+            if (!$mapping_shift) {
+                DB::rollBack();
+                return $errorResponse('Error', 'Data shift tidak ditemukan.');
+            }
+            
+            // Cek apakah sudah absen masuk hari ini
+            if ($mapping_shift->jam_absen != null) {
+                DB::rollBack();
+                return $errorResponse('Sudah Absen', 'Anda sudah melakukan absen masuk hari ini.');
+            }
+            
+            // Cek apakah belum waktunya absen masuk (max 30 menit sebelum jadwal)
+            $shift = $mapping_shift->Shift->jam_masuk;
+            $tanggal = $mapping_shift->tanggal;
+            $waktu_shift = strtotime($tanggal . ' ' . $shift);
+            $waktu_sekarang = time();
+            $selisih_menit = ($waktu_shift - $waktu_sekarang) / 60;
+            
+            if ($selisih_menit > 30) {
+                DB::rollBack();
+                return $errorResponse('Belum Waktunya', 'Anda hanya bisa absen masuk maksimal 30 menit sebelum jadwal shift.');
+            }
 
-        $request["jarak_masuk"] = $this->distance($request["lat_absen"], $request["long_absen"], $lat_kantor, $long_kantor, "K") * 1000;
+            $lat_kantor = auth()->user()->Lokasi->lat_kantor;
+            $long_kantor = auth()->user()->Lokasi->long_kantor;
+            $radius = auth()->user()->Lokasi->radius;
+            $nama_lokasi = auth()->user()->Lokasi->nama_lokasi;
 
-        $request["jam_absen"] = date('H:i');
+            $request["jarak_masuk"] = $this->distance($request["lat_absen"], $request["long_absen"], $lat_kantor, $long_kantor, "K") * 1000;
 
-        if($request["jarak_masuk"] > $radius && $mapping_shift->lock_location == 1) {
-            Alert::error('Diluar Jangkauan', 'Lokasi Anda Diluar Radius ' . $nama_lokasi);
-            return redirect('/absen');
-        } else {
+            $request["jam_absen"] = date('H:i');
+
+            if($request["jarak_masuk"] > $radius && $mapping_shift->lock_location == 1) {
+                DB::rollBack();
+                return $errorResponse('Diluar Jangkauan', 'Lokasi Anda Diluar Radius ' . $nama_lokasi);
+            }
+            
             $foto_jam_absen = $request["foto_jam_absen"];
 
             // Validasi foto tidak kosong dan memiliki format base64 yang valid
             if (empty($foto_jam_absen) || !str_contains($foto_jam_absen, ';base64,')) {
-                Alert::error('Error', 'Foto absen masuk tidak valid. Silakan ambil foto ulang.');
-                return redirect('/absen');
+                DB::rollBack();
+                return $errorResponse('Error', 'Foto absen masuk tidak valid. Silakan ambil foto ulang.');
             }
 
             $image_parts = explode(";base64,", $foto_jam_absen);
 
             if (!isset($image_parts[1])) {
-                Alert::error('Error', 'Format foto tidak valid. Silakan ambil foto ulang.');
-                return redirect('/absen');
+                DB::rollBack();
+                return $errorResponse('Error', 'Format foto tidak valid. Silakan ambil foto ulang.');
             }
 
             $image_base64 = base64_decode($image_parts[1]);
@@ -119,72 +146,52 @@ class AbsenController extends Controller
 
             Storage::put($fileName, $image_base64);
 
-
             $request["foto_jam_absen"] = $fileName;
-
             $request["status_absen"] = "Masuk";
 
             $shift = $mapping_shift->Shift->jam_masuk;
             $tanggal = $mapping_shift->tanggal;
-
             $tgl_skrg = date("Y-m-d");
 
             $awal  = strtotime($tanggal . $shift);
             $akhir = strtotime($tgl_skrg . $request["jam_absen"]);
             $diff  = $akhir - $awal;
 
+            // Determine jenis_kinerja based on telat status
             if ($diff <= 0) {
                 $request["telat"] = 0;
                 $jenis_kinerja = JenisKinerja::where('nama', 'Presensi Kehadiran Ontime')->first();
-                $laporan_kinerja_before = LaporanKinerja::where('user_id', auth()->user()->id)->latest()->first();
-                if ($laporan_kinerja_before) {
-                    LaporanKinerja::create([
-                        'user_id' => auth()->user()->id,
-                        'tanggal' => $tgl_skrg,
-                        'jenis_kinerja_id' => $jenis_kinerja->id,
-                        'nilai' => $jenis_kinerja->bobot,
-                        'penilaian_berjalan' => $laporan_kinerja_before->penilaian_berjalan + $jenis_kinerja->bobot,
-                        'reference' => 'App\Models\MappingShift',
-                        'reference_id' => $mapping_shift->id,
-                    ]);
-                } else {
-                    LaporanKinerja::create([
-                        'user_id' => auth()->user()->id,
-                        'tanggal' => $tgl_skrg,
-                        'jenis_kinerja_id' => $jenis_kinerja->id,
-                        'nilai' => $jenis_kinerja->bobot,
-                        'penilaian_berjalan' => $jenis_kinerja->bobot,
-                        'reference' => 'App\Models\MappingShift',
-                        'reference_id' => $mapping_shift->id,
-                    ]);
-                }
             } else {
                 $request["telat"] = $diff;
                 $jenis_kinerja = JenisKinerja::where('nama', 'Telat Presensi Masuk')->first();
-                $laporan_kinerja_before = LaporanKinerja::where('user_id', auth()->user()->id)->latest()->first();
-                if ($laporan_kinerja_before) {
-                    LaporanKinerja::create([
-                        'user_id' => auth()->user()->id,
-                        'tanggal' => $tgl_skrg,
-                        'jenis_kinerja_id' => $jenis_kinerja->id,
-                        'nilai' => $jenis_kinerja->bobot,
-                        'penilaian_berjalan' => $laporan_kinerja_before->penilaian_berjalan + $jenis_kinerja->bobot,
-                        'reference' => 'App\Models\MappingShift',
-                        'reference_id' => $mapping_shift->id,
-                    ]);
-                } else {
-                    LaporanKinerja::create([
-                        'user_id' => auth()->user()->id,
-                        'tanggal' => $tgl_skrg,
-                        'jenis_kinerja_id' => $jenis_kinerja->id,
-                        'nilai' => $jenis_kinerja->bobot,
-                        'penilaian_berjalan' => $jenis_kinerja->bobot,
-                        'reference' => 'App\Models\MappingShift',
-                        'reference_id' => $mapping_shift->id,
-                    ]);
-                }
             }
 
+            // Check if point already exists for this attendance (prevent duplicate points)
+            $existingPoint = LaporanKinerja::where('reference', 'App\Models\MappingShift')
+                ->where('reference_id', $mapping_shift->id)
+                ->whereIn('jenis_kinerja_id', function($query) {
+                    $query->select('id')
+                        ->from('jenis_kinerjas')
+                        ->whereIn('nama', ['Presensi Kehadiran Ontime', 'Telat Presensi Masuk']);
+                })
+                ->first();
+
+            if (!$existingPoint && $jenis_kinerja) {
+                $laporan_kinerja_before = LaporanKinerja::where('user_id', auth()->user()->id)->latest()->first();
+                $penilaian_berjalan = $laporan_kinerja_before ? $laporan_kinerja_before->penilaian_berjalan + $jenis_kinerja->bobot : $jenis_kinerja->bobot;
+                
+                LaporanKinerja::create([
+                    'user_id' => auth()->user()->id,
+                    'tanggal' => $tgl_skrg,
+                    'jenis_kinerja_id' => $jenis_kinerja->id,
+                    'nilai' => $jenis_kinerja->bobot,
+                    'penilaian_berjalan' => $penilaian_berjalan,
+                    'reference' => 'App\Models\MappingShift',
+                    'reference_id' => $mapping_shift->id,
+                ]);
+            }
+
+            // Validate and update MappingShift
             if ($mapping_shift->lock_location == 1) {
                 $validatedData = $request->validate([
                     'jam_absen' => 'required',
@@ -210,81 +217,116 @@ class AbsenController extends Controller
 
             MappingShift::where('id', $id)->update($validatedData);
 
+            DB::commit();
+
+            // Return JSON for AJAX requests, redirect for normal requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => true, 'message' => 'Berhasil Absen Masuk']);
+            }
+
             $request->session()->flash('success', 'Berhasil Absen Masuk');
-
             return redirect('/absen');
-        }
 
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Absen Masuk Error: ' . $e->getMessage());
+            return $errorResponse('Error', 'Terjadi kesalahan sistem. Silakan coba lagi.');
+        }
     }
 
     public function absenPulang(Request $request, $id)
     {
         date_default_timezone_set('Asia/Jakarta');
         
-        $mapping_shift = MappingShift::find($id);
-        
-        // Cek apakah sudah absen masuk
-        if ($mapping_shift->jam_absen == null) {
-            Alert::error('Belum Absen Masuk', 'Anda harus absen masuk terlebih dahulu.');
+        // Helper function to return error response
+        $errorResponse = function($title, $message) use ($request) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 400);
+            }
+            Alert::error($title, $message);
             return redirect('/absen');
-        }
-        
-        // Cek apakah sudah absen pulang hari ini
-        if ($mapping_shift->jam_pulang != null) {
-            Alert::error('Sudah Absen', 'Anda sudah melakukan absen pulang hari ini.');
-            return redirect('/absen');
-        }
-        
-        // Cek apakah belum waktunya pulang (max 30 menit sebelum jadwal)
-        $shiftmasuk = $mapping_shift->Shift->jam_masuk;
-        $shiftpulang = $mapping_shift->Shift->jam_keluar;
-        $tanggal = $mapping_shift->tanggal;
-        
-        // Handle shift malam (pulang hari berikutnya)
-        $timeMasuk = strtotime($shiftmasuk);
-        $timePulang = strtotime($shiftpulang);
-        if ($timePulang < $timeMasuk) {
-            $tanggal_pulang = date('Y-m-d', strtotime('+1 days', strtotime($tanggal)));
-        } else {
-            $tanggal_pulang = $tanggal;
-        }
-        
-        $waktu_pulang = strtotime($tanggal_pulang . ' ' . $shiftpulang);
-        $waktu_sekarang = time();
-        $selisih_menit = ($waktu_pulang - $waktu_sekarang) / 60;
-        
-        if ($selisih_menit > 30) {
-            $jam_boleh_pulang = date('H:i', strtotime($tanggal_pulang . ' ' . $shiftpulang . ' -30 minutes'));
-            Alert::error('Belum Waktunya', 'Anda bisa pulang mulai jam ' . $jam_boleh_pulang . ' (30 menit sebelum jadwal).');
-            return redirect('/absen');
-        }
-        
-        $request["jam_pulang"] = date('H:i');
+        };
 
-        $lat_kantor = auth()->user()->Lokasi->lat_kantor ?? null;
-        $long_kantor = auth()->user()->Lokasi->long_kantor ?? null;
-        $radius = auth()->user()->Lokasi->radius ?? null;
-        $nama_lokasi = auth()->user()->Lokasi->nama_lokasi ?? null;
+        // Check IP restriction first (before transaction)
+        $ipCheck = AttendanceSecurityController::checkIpRestriction();
+        if (!$ipCheck['allowed']) {
+            return $errorResponse('Akses Ditolak', $ipCheck['message']);
+        }
 
-        $request["jarak_pulang"] = $this->distance($request["lat_pulang"], $request["long_pulang"], $lat_kantor, $long_kantor, "K") * 1000;
+        // Start database transaction for atomic operation
+        DB::beginTransaction();
+        try {
+            // Lock the record for update to prevent race condition
+            $mapping_shift = MappingShift::lockForUpdate()->find($id);
+            
+            if (!$mapping_shift) {
+                DB::rollBack();
+                return $errorResponse('Error', 'Data shift tidak ditemukan.');
+            }
+            
+            // Cek apakah sudah absen masuk
+            if ($mapping_shift->jam_absen == null) {
+                DB::rollBack();
+                return $errorResponse('Belum Absen Masuk', 'Anda harus absen masuk terlebih dahulu.');
+            }
+            
+            // Cek apakah sudah absen pulang hari ini
+            if ($mapping_shift->jam_pulang != null) {
+                DB::rollBack();
+                return $errorResponse('Sudah Absen', 'Anda sudah melakukan absen pulang hari ini.');
+            }
+            
+            // Cek apakah belum waktunya pulang (max 30 menit sebelum jadwal)
+            $shiftmasuk = $mapping_shift->Shift->jam_masuk;
+            $shiftpulang = $mapping_shift->Shift->jam_keluar;
+            $tanggal = $mapping_shift->tanggal;
+            
+            // Handle shift malam (pulang hari berikutnya)
+            $timeMasuk = strtotime($shiftmasuk);
+            $timePulang = strtotime($shiftpulang);
+            if ($timePulang < $timeMasuk) {
+                $tanggal_pulang = date('Y-m-d', strtotime('+1 days', strtotime($tanggal)));
+            } else {
+                $tanggal_pulang = $tanggal;
+            }
+            
+            $waktu_pulang = strtotime($tanggal_pulang . ' ' . $shiftpulang);
+            $waktu_sekarang = time();
+            $selisih_menit = ($waktu_pulang - $waktu_sekarang) / 60;
+            
+            if ($selisih_menit > 30) {
+                DB::rollBack();
+                $jam_boleh_pulang = date('H:i', strtotime($tanggal_pulang . ' ' . $shiftpulang . ' -30 minutes'));
+                return $errorResponse('Belum Waktunya', 'Anda bisa pulang mulai jam ' . $jam_boleh_pulang . ' (30 menit sebelum jadwal).');
+            }
+            
+            $request["jam_pulang"] = date('H:i');
 
-        if($request["jarak_pulang"] > $radius && $mapping_shift->lock_location == 1) {
-            Alert::error('Diluar Jangkauan', 'Lokasi Anda Diluar Radius ' . $nama_lokasi);
-            return redirect('/absen');
-        } else {
+            $lat_kantor = auth()->user()->Lokasi->lat_kantor ?? null;
+            $long_kantor = auth()->user()->Lokasi->long_kantor ?? null;
+            $radius = auth()->user()->Lokasi->radius ?? null;
+            $nama_lokasi = auth()->user()->Lokasi->nama_lokasi ?? null;
+
+            $request["jarak_pulang"] = $this->distance($request["lat_pulang"], $request["long_pulang"], $lat_kantor, $long_kantor, "K") * 1000;
+
+            if($request["jarak_pulang"] > $radius && $mapping_shift->lock_location == 1) {
+                DB::rollBack();
+                return $errorResponse('Diluar Jangkauan', 'Lokasi Anda Diluar Radius ' . $nama_lokasi);
+            }
+            
             $foto_jam_pulang = $request["foto_jam_pulang"];
 
             // Validasi foto tidak kosong dan memiliki format base64 yang valid
             if (empty($foto_jam_pulang) || !str_contains($foto_jam_pulang, ';base64,')) {
-                Alert::error('Error', 'Foto absen pulang tidak valid. Silakan ambil foto ulang.');
-                return redirect('/absen');
+                DB::rollBack();
+                return $errorResponse('Error', 'Foto absen pulang tidak valid. Silakan ambil foto ulang.');
             }
 
             $image_parts = explode(";base64,", $foto_jam_pulang);
 
             if (!isset($image_parts[1])) {
-                Alert::error('Error', 'Format foto tidak valid. Silakan ambil foto ulang.');
-                return redirect('/absen');
+                DB::rollBack();
+                return $errorResponse('Error', 'Format foto tidak valid. Silakan ambil foto ulang.');
             }
 
             $image_base64 = base64_decode($image_parts[1]);
@@ -294,14 +336,12 @@ class AbsenController extends Controller
 
             $request["foto_jam_pulang"] = $fileName;
 
-
             $shiftmasuk = $mapping_shift->Shift->jam_masuk;
             $shiftpulang = $mapping_shift->Shift->jam_keluar;
             $tanggal = $mapping_shift->tanggal;
             $new_tanggal = "";
             $timeMasuk = strtotime($shiftmasuk);
             $timePulang = strtotime($shiftpulang);
-
 
             if ($timePulang < $timeMasuk) {
                 $new_tanggal = date('Y-m-d', strtotime('+1 days', strtotime($tanggal)));
@@ -315,58 +355,41 @@ class AbsenController extends Controller
             $awal  = strtotime($tgl_skrg . $request["jam_pulang"]);
             $diff  = $akhir - $awal;
 
+            // Determine jenis_kinerja based on pulang_cepat status
             if ($diff <= 0) {
                 $request["pulang_cepat"] = 0;
                 $jenis_kinerja = JenisKinerja::where('nama', 'Pulang tepat waktu')->first();
-                $laporan_kinerja_before = LaporanKinerja::where('user_id', auth()->user()->id)->latest()->first();
-                if ($laporan_kinerja_before) {
-                    LaporanKinerja::create([
-                        'user_id' => auth()->user()->id,
-                        'tanggal' => $tgl_skrg,
-                        'jenis_kinerja_id' => $jenis_kinerja->id,
-                        'nilai' => $jenis_kinerja->bobot,
-                        'penilaian_berjalan' => $laporan_kinerja_before->penilaian_berjalan + $jenis_kinerja->bobot,
-                        'reference' => 'App\Models\MappingShift',
-                        'reference_id' => $mapping_shift->id,
-                    ]);
-                } else {
-                    LaporanKinerja::create([
-                        'user_id' => auth()->user()->id,
-                        'tanggal' => $tgl_skrg,
-                        'jenis_kinerja_id' => $jenis_kinerja->id,
-                        'nilai' => $jenis_kinerja->bobot,
-                        'penilaian_berjalan' => $jenis_kinerja->bobot,
-                        'reference' => 'App\Models\MappingShift',
-                        'reference_id' => $mapping_shift->id,
-                    ]);
-                }
             } else {
                 $request["pulang_cepat"] = $diff;
                 $jenis_kinerja = JenisKinerja::where('nama', 'Pulang Sebelum waktunya')->first();
-                $laporan_kinerja_before = LaporanKinerja::where('user_id', auth()->user()->id)->latest()->first();
-                if ($laporan_kinerja_before) {
-                    LaporanKinerja::create([
-                        'user_id' => auth()->user()->id,
-                        'tanggal' => $tgl_skrg,
-                        'jenis_kinerja_id' => $jenis_kinerja->id,
-                        'nilai' => $jenis_kinerja->bobot,
-                        'penilaian_berjalan' => $laporan_kinerja_before->penilaian_berjalan + $jenis_kinerja->bobot,
-                        'reference' => 'App\Models\MappingShift',
-                        'reference_id' => $mapping_shift->id,
-                    ]);
-                } else {
-                    LaporanKinerja::create([
-                        'user_id' => auth()->user()->id,
-                        'tanggal' => $tgl_skrg,
-                        'jenis_kinerja_id' => $jenis_kinerja->id,
-                        'nilai' => $jenis_kinerja->bobot,
-                        'penilaian_berjalan' => $jenis_kinerja->bobot,
-                        'reference' => 'App\Models\MappingShift',
-                        'reference_id' => $mapping_shift->id,
-                    ]);
-                }
             }
 
+            // Check if point already exists for this attendance (prevent duplicate points for pulang)
+            $existingPoint = LaporanKinerja::where('reference', 'App\Models\MappingShift')
+                ->where('reference_id', $mapping_shift->id)
+                ->whereIn('jenis_kinerja_id', function($query) {
+                    $query->select('id')
+                        ->from('jenis_kinerjas')
+                        ->whereIn('nama', ['Pulang tepat waktu', 'Pulang Sebelum waktunya']);
+                })
+                ->first();
+
+            if (!$existingPoint && $jenis_kinerja) {
+                $laporan_kinerja_before = LaporanKinerja::where('user_id', auth()->user()->id)->latest()->first();
+                $penilaian_berjalan = $laporan_kinerja_before ? $laporan_kinerja_before->penilaian_berjalan + $jenis_kinerja->bobot : $jenis_kinerja->bobot;
+                
+                LaporanKinerja::create([
+                    'user_id' => auth()->user()->id,
+                    'tanggal' => $tgl_skrg,
+                    'jenis_kinerja_id' => $jenis_kinerja->id,
+                    'nilai' => $jenis_kinerja->bobot,
+                    'penilaian_berjalan' => $penilaian_berjalan,
+                    'reference' => 'App\Models\MappingShift',
+                    'reference_id' => $mapping_shift->id,
+                ]);
+            }
+
+            // Validate and update MappingShift
             if ($mapping_shift->lock_location == 1) {
                 $validatedData = $request->validate([
                     'jam_pulang' => 'required',
@@ -390,7 +413,19 @@ class AbsenController extends Controller
 
             MappingShift::where('id', $id)->update($validatedData);
 
+            DB::commit();
+
+            // Return JSON for AJAX requests, redirect for normal requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => true, 'message' => 'Berhasil Absen Pulang']);
+            }
+
             return redirect('/absen')->with('success', 'Berhasil Absen Pulang');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Absen Pulang Error: ' . $e->getMessage());
+            return $errorResponse('Error', 'Terjadi kesalahan sistem. Silakan coba lagi.');
         }
     }
 

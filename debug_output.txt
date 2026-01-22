@@ -1,0 +1,14 @@
+--- DATA START ---
+User: mgs ilham zuhdi (8) | Jenis: Telat Presensi Masuk | Nilai: -10
+User: mgs ilham zuhdi (8) | Jenis: Pulang Sebelum waktunya | Nilai: -5
+User: mgs ilham zuhdi (8) | Jenis: Telat Presensi Masuk | Nilai: -10
+User: mgs ilham zuhdi (8) | Jenis: Pulang Sebelum waktunya | Nilai: -5
+User: mgs ilham zuhdi (8) | Jenis: Telat Presensi Masuk | Nilai: -10
+User: mgs ilham zuhdi (8) | Jenis: Pulang tepat waktu | Nilai: 10
+User: mgs ilham zuhdi (8) | Jenis: Telat Presensi Masuk | Nilai: -10
+User: mgs ilham zuhdi (8) | Jenis: Menyelesaikan Penugasan Kerja | Nilai: -5
+User: mgs ilham zuhdi (8) | Jenis: Menyelesaikan Penugasan Kerja | Nilai: -30
+User: mgs ilham zuhdi (8) | Jenis: Telat Presensi Masuk | Nilai: 70
+User: mgs ilham zuhdi (8) | Jenis: Pulang tepat waktu | Nilai: 15
+User: Iqbal Mohammad Ramadhan (2) | Jenis: Pulang tepat waktu | Nilai: 10
+--- DATA END ---

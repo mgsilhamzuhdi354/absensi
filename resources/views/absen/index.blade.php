@@ -157,7 +157,7 @@
                                 </div>
                             </div>
                             <center>
-                                <button type="submit" class="btn btn-primary" value="Ambil Foto" onClick="take_snapshot()">Masuk</button>
+                                <button type="submit" class="btn btn-primary" id="btnMasuk" value="Ambil Foto" onClick="take_snapshot(); setTimeout(function(){ document.getElementById('btnMasuk').disabled=true; document.getElementById('btnMasuk').innerHTML='Memproses...'; }, 100);">Masuk</button>
                             </center>
                             </form>
                     </div>
@@ -221,7 +221,7 @@
                                 </div>
                             </div>
                             <center>
-                                <button type="submit" class="btn btn-primary" value="Ambil Foto" onClick="take_snapshot()">Pulang</button>
+                                <button type="submit" class="btn btn-primary" id="btnPulang" value="Ambil Foto" onClick="take_snapshot(); setTimeout(function(){ document.getElementById('btnPulang').disabled=true; document.getElementById('btnPulang').innerHTML='Memproses...'; }, 100);">Pulang</button>
                             </center>
                         </form>
                     </div>

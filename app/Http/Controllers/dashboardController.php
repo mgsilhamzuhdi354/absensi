@@ -188,4 +188,50 @@ class dashboardController extends Controller
             'title' => 'All Menu',
         ]);
     }
+
+    /**
+     * Get KPI detail by category for admin (AJAX)
+     */
+    public function kpiDetailAdmin(Request $request)
+    {
+        date_default_timezone_set('Asia/Jakarta');
+        $tahun_skrg = date('Y');
+        $bulan_skrg = date('m');
+        $jmlh_bulan = cal_days_in_month(CAL_GREGORIAN, $bulan_skrg, $tahun_skrg);
+        $tgl_mulai = date('Y-m-01');
+        $tgl_akhir = date('Y-m-' . $jmlh_bulan);
+        
+        $kategori = $request->input('kategori');
+        
+        // Get jenis_kinerja by name
+        $jenisKinerja = JenisKinerja::where('nama', $kategori)->first();
+        
+        if (!$jenisKinerja) {
+            return response()->json(['data' => [], 'total' => 0]);
+        }
+        
+        // Get all laporan for this kategori within this month
+        $data = LaporanKinerja::where('jenis_kinerja_id', $jenisKinerja->id)
+            ->whereBetween('tanggal', [$tgl_mulai, $tgl_akhir])
+            ->with('user:id,name')
+            ->orderBy('tanggal', 'DESC')
+            ->get(['id', 'user_id', 'tanggal', 'nilai', 'reference', 'reference_id'])
+            ->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'user_name' => $item->user->name ?? '-',
+                    'tanggal' => $item->tanggal,
+                    'nilai' => $item->nilai,
+                    'reference' => $item->reference,
+                    'reference_id' => $item->reference_id,
+                ];
+            });
+        
+        $total = $data->sum('nilai');
+        
+        return response()->json([
+            'data' => $data,
+            'total' => $total
+        ]);
+    }
 }

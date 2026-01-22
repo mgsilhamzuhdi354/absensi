@@ -49,6 +49,11 @@
                                         <td>
                                             <center>
                                                 <a href="{{ url('/jenis-kinerja/edit/'.$jk->id) }}"><i class="fa fa-solid fa-edit"></i></a>
+                                                <form action="{{ url('/jenis-kinerja/delete/'.$jk->id) }}" method="post" class="d-inline">
+                                                    @method('delete')
+                                                    @csrf
+                                                    <button class="border-0 bg-transparent text-danger p-0 m-0" onclick="return confirm('Yakin ingin menghapus data ini?')"><i class="fa fa-solid fa-trash"></i></button>
+                                                </form>
                                             </center>
                                         </td>
                                     </tr>

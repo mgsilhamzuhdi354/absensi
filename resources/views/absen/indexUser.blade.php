@@ -100,7 +100,8 @@
                     <div class="tf-container">
                         <center>
                             <h2>Absen Masuk: </h2>
-                            <div class="webcam mb-4" id="results"></div>
+                            <div class="webcam mb-4" id="my_camera"></div>
+                            <div id="results" style="display:none;"></div>
                         </center>
                         @if ($shift_karyawan->lock_location == null)
                             <div class="group-input">
@@ -120,7 +121,7 @@
                             <input type="hidden" name="telat">
                             <input type="hidden" name="jarak_masuk">
                             <input type="hidden" name="status_absen">
-                        <button type="submit" class="tf-btn accent large" onClick="take_snapshot()">Save</button>
+                        <button type="submit" class="tf-btn accent large" id="btnMasuk" onClick="take_snapshot(); setTimeout(function(){ document.getElementById('btnMasuk').disabled=true; document.getElementById('btnMasuk').innerHTML='Memproses...'; }, 100);">Save</button>
                     </div>
                 </form>
                 <br>
@@ -161,14 +162,15 @@
                     });
                 });
                 
-                Webcam.attach( '.webcam' );
+                Webcam.attach( '#my_camera' );
                 </script>
                 <script language="JavaScript">
                 function take_snapshot() {
                     Webcam.snap( function(data_uri) {
-                            $(".image-tag").val(data_uri);
-                    document.getElementById('results').innerHTML =
-                        '<img src="'+data_uri+'"/>';
+                        $(".image-tag").val(data_uri);
+                        document.getElementById('my_camera').style.display = 'none';
+                        document.getElementById('results').style.display = 'block';
+                        document.getElementById('results').innerHTML = '<img src="'+data_uri+'"/>';
                     } );
                 }
                 </script>
@@ -179,7 +181,8 @@
                     <div class="tf-container">
                         <center>
                             <h2>Absen Pulang: </h2>
-                            <div class="webcam mb-4" id="results"></div>
+                            <div class="webcam mb-4" id="my_camera"></div>
+                            <div id="results" style="display:none;"></div>
                         </center>
                         @if ($shift_karyawan->lock_location == null)
                             <div class="group-input">
@@ -198,7 +201,7 @@
                             <input type="hidden" name="long_pulang" id="long">
                             <input type="hidden" name="pulang_cepat">
                             <input type="hidden" name="jarak_pulang">
-                        <button type="submit" class="tf-btn accent large" onClick="take_snapshot()">Save</button>
+                        <button type="submit" class="tf-btn accent large" id="btnPulang" onClick="take_snapshot(); setTimeout(function(){ document.getElementById('btnPulang').disabled=true; document.getElementById('btnPulang').innerHTML='Memproses...'; }, 100);">Save</button>
                     </div>
                 </form>
                 <br>
@@ -239,14 +242,15 @@
                     });
                 });
                 
-                Webcam.attach( '.webcam' );
+                Webcam.attach( '#my_camera' );
                 </script>
                 <script language="JavaScript">
                 function take_snapshot() {
                     Webcam.snap( function(data_uri) {
-                            $(".image-tag").val(data_uri);
-                    document.getElementById('results').innerHTML =
-                        '<img src="'+data_uri+'"/>';
+                        $(".image-tag").val(data_uri);
+                        document.getElementById('my_camera').style.display = 'none';
+                        document.getElementById('results').style.display = 'block';
+                        document.getElementById('results').innerHTML = '<img src="'+data_uri+'"/>';
                     } );
                 }
                 </script>
@@ -279,6 +283,3 @@
     @endpush
 
 @endsection
-
-
-

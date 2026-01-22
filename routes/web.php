@@ -80,6 +80,9 @@ Route::post('/attendance/qr-regenerate', [App\Http\Controllers\AttendanceSecurit
 Route::get('/attendance/qr-data', [App\Http\Controllers\AttendanceSecurityController::class, 'getQrCodeData'])->middleware('admin');
 Route::post('/attendance/verify-qr', [App\Http\Controllers\AttendanceSecurityController::class, 'verifyQrCode'])->middleware('auth');
 
+// KPI Detail Route for Admin Dashboard
+Route::get('/kpi-detail-admin', [App\Http\Controllers\dashboardController::class, 'kpiDetailAdmin'])->middleware('admin');
+
 Route::get('/forgot-password', [authController::class, 'forgotPassword']);
 Route::post('/forgot-password/link', [authController::class, 'forgotPasswordLink']);
 
@@ -407,12 +410,19 @@ Route::get('/jenis-kinerja/tambah', [JenisKinerjaController::class, 'tambah'])->
 Route::post('/jenis-kinerja/store', [JenisKinerjaController::class, 'store'])->middleware('auth');
 Route::get('/jenis-kinerja/edit/{id}', [JenisKinerjaController::class, 'edit'])->middleware('auth');
 Route::put('/jenis-kinerja/update/{id}', [JenisKinerjaController::class, 'update'])->middleware('auth');
+Route::delete('/jenis-kinerja/delete/{id}', [JenisKinerjaController::class, 'delete'])->middleware('auth');
 
 Route::get('/laporan-kinerja', [LaporanKinerjaController::class, 'index'])->middleware('auth');
 Route::get('/laporan-kinerja-user', [KinerjaPegawaiController::class, 'indexUser'])->middleware('auth');
 
 Route::get('/kinerja-pegawai', [KinerjaPegawaiController::class, 'index'])->middleware('auth');
+Route::post('/kinerja-pegawai/manual-store', [KinerjaPegawaiController::class, 'storeManual'])->middleware('admin');
+Route::get('/kinerja-pegawai/history/{userId}', [KinerjaPegawaiController::class, 'history'])->middleware('admin');
+Route::get('/kinerja-pegawai/edit/{id}', [KinerjaPegawaiController::class, 'edit'])->middleware('admin');
+Route::put('/kinerja-pegawai/update/{id}', [KinerjaPegawaiController::class, 'update'])->middleware('admin');
+Route::delete('/kinerja-pegawai/delete/{id}', [KinerjaPegawaiController::class, 'destroy'])->middleware('admin');
 Route::get('/kinerja-pegawai-user', [KinerjaPegawaiController::class, 'indexUser'])->middleware('auth');
+Route::get('/kinerja-pegawai-user/detail-kategori', [KinerjaPegawaiController::class, 'detailKategori'])->middleware('auth');
 
 Route::get('/penugasan', [PenugasanController::class, 'index'])->middleware('admin');
 Route::get('/penugasan/tambah', [PenugasanController::class, 'tambah'])->middleware('admin');
