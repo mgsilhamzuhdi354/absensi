@@ -68,7 +68,7 @@
                     <div class="form-row">
                         <div class="col">
                             <label for="tanggal_mulai">Tanggal Mulai</label>
-                            <input type="datetime" class="form-control @error('tanggal_mulai') is-invalid @enderror" name="tanggal_mulai" id="tanggal_mulai" value="{{ old('tanggal_mulai') }}">
+                            <input type="date" class="form-control @error('tanggal_mulai') is-invalid @enderror" name="tanggal_mulai" id="tanggal_mulai" value="{{ old('tanggal_mulai') }}">
                             @error('tanggal_mulai')
                             <div class="invalid-feedback">
                                 {{ $message }}
@@ -77,7 +77,7 @@
                         </div>
                         <div class="col">
                             <label for="tanggal_akhir">Tanggal Akhir</label>
-                            <input type="datetime" class="form-control @error('tanggal_akhir') is-invalid @enderror" name="tanggal_akhir" id="tanggal_akhir" value="{{ old('tanggal_akhir') }}">
+                            <input type="date" class="form-control @error('tanggal_akhir') is-invalid @enderror" name="tanggal_akhir" id="tanggal_akhir" value="{{ old('tanggal_akhir') }}">
                             @error('tanggal_akhir')
                             <div class="invalid-feedback">
                                 {{ $message }}
@@ -125,10 +125,10 @@
                 <form action="{{ url('/cuti') }}">
                         <div class="form-row">
                         <div class="col-3">
-                            <input type="datetime" class="form-control" name="mulai" placeholder="Tanggal Mulai" id="mulai" value="{{ request('mulai') }}">
+                            <input type="date" class="form-control" name="mulai" placeholder="Tanggal Mulai" id="mulai" value="{{ request('mulai') }}">
                         </div>
                         <div class="col-3">
-                            <input type="datetime" class="form-control" name="akhir" placeholder="Tanggal Akhir" id="akhir" value="{{ request('akhir') }}">
+                            <input type="date" class="form-control" name="akhir" placeholder="Tanggal Akhir" id="akhir" value="{{ request('akhir') }}">
                         </div>
                         <div>
                             <button type="submit" id="search" class="form-control btn btn-secondary"><i class="fas fa-search"></i></button>

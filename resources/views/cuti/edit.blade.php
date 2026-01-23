@@ -81,7 +81,7 @@
                         <div class="form-row">
                             <div class="col">
                                 <label for="tanggal">Tanggal</label>
-                                <input type="datetime" class="form-control @error('tanggal') is-invalid @enderror" name="tanggal" id="tanggal" value="{{ old('tanggal', $data_cuti_user->tanggal) }}">
+                                <input type="date" class="form-control @error('tanggal') is-invalid @enderror" name="tanggal" id="tanggal" value="{{ old('tanggal', $data_cuti_user->tanggal) }}">
                                 @error('tanggal')
                                 <div class="invalid-feedback">
                                     {{ $message }}

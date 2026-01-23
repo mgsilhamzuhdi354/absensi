@@ -41,7 +41,7 @@
                     <div class="form-row">
                         <div class="col mb-4">
                             <label for="tanggal_mulai">Tanggal Mulai</label>
-                            <input type="datetime" class="form-control @error('tanggal_mulai') is-invalid @enderror" name="tanggal_mulai" id="tanggal_mulai" value="{{ old('tanggal_mulai') }}">
+                            <input type="date" class="form-control @error('tanggal_mulai') is-invalid @enderror" name="tanggal_mulai" id="tanggal_mulai" value="{{ old('tanggal_mulai') }}">
                             @error('tanggal_mulai')
                             <div class="invalid-feedback">
                                 {{ $message }}
@@ -50,7 +50,7 @@
                         </div>
                         <div class="col mb-4">
                             <label for="tanggal_akhir">Tanggal Akhir</label>
-                            <input type="datetime" class="form-control @error('tanggal_akhir') is-invalid @enderror" name="tanggal_akhir" id="tanggal_akhir" value="{{ old('tanggal_akhir') }}">
+                            <input type="date" class="form-control @error('tanggal_akhir') is-invalid @enderror" name="tanggal_akhir" id="tanggal_akhir" value="{{ old('tanggal_akhir') }}">
                             @error('tanggal_akhir')
                             <div class="invalid-feedback">
                                 {{ $message }}

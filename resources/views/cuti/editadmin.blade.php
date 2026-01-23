@@ -32,7 +32,7 @@
                     <div class="form-row">
                         <div class="col mb-4">
                             <label for="tanggal">Tanggal</label>
-                            <input type="datetime" class="form-control @error('tanggal') is-invalid @enderror" name="tanggal" id="tanggal" value="{{ $data_cuti_karyawan->tanggal }}">
+                            <input type="date" class="form-control @error('tanggal') is-invalid @enderror" name="tanggal" id="tanggal" value="{{ $data_cuti_karyawan->tanggal }}">
                             @error('tanggal')
                             <div class="invalid-feedback">
                                 {{ $message }}
