@@ -31,6 +31,15 @@ class karyawanController extends Controller
     public function index()
     {
         $search = request()->input('search');
+        $sortBy = request()->input('sort_by', 'name');
+        $sortOrder = request()->input('sort_order', 'asc');
+
+        // Valid sortable columns
+        $validSortColumns = ['name', 'username', 'is_admin', 'masa_berlaku', 'created_at', 'urutan'];
+        if (!in_array($sortBy, $validSortColumns)) {
+            $sortBy = 'urutan';
+        }
+        $sortOrder = in_array($sortOrder, ['asc', 'desc']) ? $sortOrder : 'asc';
 
         $data = User::when($search, function ($query) use ($search) {
                     $query->where('name', 'LIKE', '%'.$search.'%')
@@ -41,9 +50,10 @@ class karyawanController extends Controller
                               $query->where('nama_jabatan', 'LIKE', '%'.$search.'%');
                           });
                 })
-                ->orderBy('name', 'ASC')
+                ->orderBy($sortBy, $sortOrder)
                 ->paginate(10)
                 ->withQueryString();
+
 
         if (auth()->user()->is_admin == 'admin') {
             return view('karyawan.index', [
@@ -864,5 +874,20 @@ class karyawanController extends Controller
         session()->forget('dashboard_view');
 
         return redirect('/dashboard')->with('success', 'Berhasil Pindah Dashboard Admin');
+    }
+
+    public function updateUrutan(Request $request)
+    {
+        $request->validate([
+            'orders' => 'required|array',
+            'orders.*.id' => 'required|integer|exists:users,id',
+            'orders.*.urutan' => 'required|integer|min:1',
+        ]);
+
+        foreach ($request->orders as $item) {
+            User::where('id', $item['id'])->update(['urutan' => $item['urutan']]);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Urutan berhasil diupdate']);
     }
 }

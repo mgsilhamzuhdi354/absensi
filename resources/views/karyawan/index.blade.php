@@ -61,29 +61,70 @@
                     <div class="table-responsive" style="border-radius: 10px">
                         <table class="table table-bordered" style="vertical-align: middle">
                             <thead>
+                                @php
+                                    $currentSort = request('sort_by', 'name');
+                                    $currentOrder = request('sort_order', 'asc');
+                                    
+                                    if (!function_exists('sortUrl')) {
+                                        function sortUrl($column) {
+                                            $currentSort = request('sort_by', 'name');
+                                            $currentOrder = request('sort_order', 'asc');
+                                            $newOrder = ($currentSort === $column && $currentOrder === 'asc') ? 'desc' : 'asc';
+                                            return request()->fullUrlWithQuery(['sort_by' => $column, 'sort_order' => $newOrder]);
+                                        }
+                                    }
+                                    
+                                    if (!function_exists('sortIcon')) {
+                                        function sortIcon($column) {
+                                            $currentSort = request('sort_by', 'name');
+                                            $currentOrder = request('sort_order', 'asc');
+                                            if ($currentSort !== $column) return '<i class="fas fa-sort text-muted"></i>';
+                                            return $currentOrder === 'asc' ? '<i class="fas fa-sort-up"></i>' : '<i class="fas fa-sort-down"></i>';
+                                        }
+                                    }
+                                @endphp
                                 <tr>
                                     <th class="text-center" style="position: sticky; left: 0; background-color: rgb(215, 215, 215); z-index: 2;">No.</th>
-                                    <th style="position: sticky; left: 40px; background-color: rgb(215, 215, 215); z-index: 2; min-width: 230px;" class="text-center">Nama</th>
+                                    <th style="position: sticky; left: 40px; background-color: rgb(215, 215, 215); z-index: 2; min-width: 230px;" class="text-center">
+                                        <a href="{{ sortUrl('name') }}" class="text-dark text-decoration-none d-flex align-items-center justify-content-center gap-1">
+                                            Nama {!! sortIcon('name') !!}
+                                        </a>
+                                    </th>
                                     <th style="min-width: 170px; background-color:rgb(243, 243, 243);" class="text-center">Foto</th>
-                                    <th style="min-width: 170px; background-color:rgb(243, 243, 243);" class="text-center">Username</th>
+                                    <th style="min-width: 170px; background-color:rgb(243, 243, 243);" class="text-center">
+                                        <a href="{{ sortUrl('username') }}" class="text-dark text-decoration-none d-flex align-items-center justify-content-center gap-1">
+                                            Username {!! sortIcon('username') !!}
+                                        </a>
+                                    </th>
                                     <th style="min-width: 170px; background-color:rgb(243, 243, 243);" class="text-center">Lokasi</th>
                                     <th style="min-width: 170px; background-color:rgb(243, 243, 243);" class="text-center">Divisi</th>
                                     <th style="min-width: 170px; background-color:rgb(243, 243, 243);" class="text-center">Role</th>
-                                    <th style="min-width: 170px; background-color:rgb(243, 243, 243);" class="text-center">Dashboard</th>
-                                    <th style="min-width: 170px; background-color:rgb(243, 243, 243);" class="text-center">Masa Berlaku</th>
+                                    <th style="min-width: 170px; background-color:rgb(243, 243, 243);" class="text-center">
+                                        <a href="{{ sortUrl('is_admin') }}" class="text-dark text-decoration-none d-flex align-items-center justify-content-center gap-1">
+                                            Dashboard {!! sortIcon('is_admin') !!}
+                                        </a>
+                                    </th>
+                                    <th style="min-width: 170px; background-color:rgb(243, 243, 243);" class="text-center">
+                                        <a href="{{ sortUrl('masa_berlaku') }}" class="text-dark text-decoration-none d-flex align-items-center justify-content-center gap-1">
+                                            Masa Berlaku {!! sortIcon('masa_berlaku') !!}
+                                        </a>
+                                    </th>
                                     <th style="min-width: 170px; background-color:rgb(243, 243, 243);" class="text-center">Kartu</th>
                                     <th class="text-center" style="position: sticky; right: 0; background-color: rgb(215, 215, 215); z-index: 2;">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="sortable-pegawai">
                                 @if (count($data_user) <= 0)
                                     <tr>
-                                        <td colspan="10" class="text-center">Tidak Ada Data</td>
+                                        <td colspan="11" class="text-center">Tidak Ada Data</td>
                                     </tr>
                                 @else
                                     @foreach ($data_user as $key => $du)
-                                        <tr>
-                                            <td class="text-center" style="position: sticky; left: 0; background-color: rgb(235, 235, 235); z-index: 1;">{{ ($data_user->currentpage() - 1) * $data_user->perpage() + $key + 1 }}.</td>
+                                        <tr data-id="{{ $du->id }}" class="draggable-row">
+                                            <td class="text-center" style="position: sticky; left: 0; background-color: rgb(235, 235, 235); z-index: 1;">
+                                                <span class="drag-handle" style="cursor: grab; margin-right: 5px;"><i class="fas fa-grip-vertical text-muted"></i></span>
+                                                <span class="row-number">{{ $du->urutan ?? (($data_user->currentpage() - 1) * $data_user->perpage() + $key + 1) }}</span>.
+                                            </td>
                                             <td style="position: sticky; left: 40px; background-color: rgb(235, 235, 235); z-index: 1;">{{ $du->name }}</td>
                                             <td class="text-center">
                                                 @if($du->foto_karyawan == null)
@@ -163,6 +204,74 @@
     </div>
 @endsection
 
+@push('script')
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+$(document).ready(function() {
+    var el = document.getElementById('sortable-pegawai');
+    if (el) {
+        var sortable = Sortable.create(el, {
+            animation: 150,
+            handle: '.drag-handle',
+            ghostClass: 'bg-warning',
+            onEnd: function(evt) {
+                updateRowNumbers();
+                saveOrder();
+            }
+        });
+    }
 
+    function updateRowNumbers() {
+        $('#sortable-pegawai tr.draggable-row').each(function(index) {
+            $(this).find('.row-number').text(index + 1);
+        });
+    }
 
+    function saveOrder() {
+        var orders = [];
+        $('#sortable-pegawai tr.draggable-row').each(function(index) {
+            orders.push({
+                id: $(this).data('id'),
+                urutan: index + 1
+            });
+        });
 
+        $.ajax({
+            url: '{{ url("/pegawai/update-urutan") }}',
+            method: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}',
+                orders: orders
+            },
+            success: function(response) {
+                // Show success toast using SweetAlert
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Urutan Tersimpan!',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2000
+                });
+            },
+            error: function(xhr) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal menyimpan urutan',
+                    text: xhr.responseJSON?.message || 'Terjadi kesalahan'
+                });
+            }
+        });
+    }
+});
+</script>
+<style>
+.drag-handle:hover {
+    cursor: grabbing;
+    color: #333 !important;
+}
+.draggable-row.sortable-ghost {
+    opacity: 0.5;
+}
+</style>
+@endpush

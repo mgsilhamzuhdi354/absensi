@@ -148,6 +148,7 @@ Route::get('/pegawai/print/{id}', [karyawanController::class, 'print'])->middlew
 Route::get('/kartu-pegawai', [karyawanController::class, 'kartuPegawai'])->middleware('auth');
 
 Route::get('/pegawai/export', [karyawanController::class, 'export'])->middleware('admin');
+Route::post('/pegawai/update-urutan', [karyawanController::class, 'updateUrutan'])->middleware('admin');
 
 Route::get('/exit', [PegawaiKeluarController::class, 'index'])->middleware('auth');
 Route::get('/exit/tambah', [PegawaiKeluarController::class, 'tambah'])->middleware('auth');
