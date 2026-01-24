@@ -284,7 +284,7 @@ class authController extends Controller
                             }
                         }
 
-                        Storage::put($fileName, $image_base64);
+                        Storage::disk('public')->put($fileName, $image_base64);
                         $ms->update([
                             'jam_absen' => $jam_absen,
                             'telat' => $telat,
@@ -405,7 +405,7 @@ class authController extends Controller
                             }
                         }
 
-                        Storage::put($fileName, $image_base64);
+                        Storage::disk('public')->put($fileName, $image_base64);
                         $ms->update([
                             'jam_pulang' => $jam_pulang,
                             'pulang_cepat' => $pulang_cepat,
@@ -581,7 +581,7 @@ class authController extends Controller
         ]);
 
         if ($request->file('foto_karyawan')) {
-            $validatedData['foto_karyawan'] = $request->file('foto_karyawan')->store('foto_karyawan');
+            $validatedData['foto_karyawan'] = $request->file('foto_karyawan')->store('foto_karyawan', 'public');
         }
 
         $validatedData['is_admin'] = 'user';

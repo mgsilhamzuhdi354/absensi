@@ -144,7 +144,7 @@ class AbsenController extends Controller
             $image_base64 = base64_decode($image_parts[1]);
             $fileName = 'foto_jam_absen/' . uniqid() . '.png';
 
-            Storage::put($fileName, $image_base64);
+            Storage::disk('public')->put($fileName, $image_base64);
 
             $request["foto_jam_absen"] = $fileName;
             $request["status_absen"] = "Masuk";
@@ -332,7 +332,7 @@ class AbsenController extends Controller
             $image_base64 = base64_decode($image_parts[1]);
             $fileName = 'foto_jam_pulang/' . uniqid() . '.png';
 
-            Storage::put($fileName, $image_base64);
+            Storage::disk('public')->put($fileName, $image_base64);
 
             $request["foto_jam_pulang"] = $fileName;
 
@@ -536,9 +536,9 @@ class AbsenController extends Controller
 
         if ($request->file('foto_jam_absen')) {
             if ($request->foto_jam_absen_lama) {
-                Storage::delete($request->foto_jam_absen_lama);
+                Storage::disk('public')->delete($request->foto_jam_absen_lama);
             }
-            $validatedData['foto_jam_absen'] = $request->file('foto_jam_absen')->store('foto_jam_absen');
+            $validatedData['foto_jam_absen'] = $request->file('foto_jam_absen')->store('foto_jam_absen', 'public');
         }
 
         MappingShift::where('id', $id)->update($validatedData);
@@ -604,9 +604,9 @@ class AbsenController extends Controller
 
         if ($request->file('foto_jam_pulang')) {
             if ($request->foto_jam_pulang_lama) {
-                Storage::delete($request->foto_jam_pulang_lama);
+                Storage::disk('public')->delete($request->foto_jam_pulang_lama);
             }
-            $validatedData['foto_jam_pulang'] = $request->file('foto_jam_pulang')->store('foto_jam_pulang');
+            $validatedData['foto_jam_pulang'] = $request->file('foto_jam_pulang')->store('foto_jam_pulang', 'public');
         }
 
         MappingShift::where('id', $id)->update($validatedData);
@@ -617,8 +617,8 @@ class AbsenController extends Controller
     public function deleteAdmin($id)
     {
         $delete = MappingShift::find($id);
-        Storage::delete($delete->foto_jam_absen);
-        Storage::delete($delete->foto_jam_pulang);
+        Storage::disk('public')->delete($delete->foto_jam_absen);
+        Storage::disk('public')->delete($delete->foto_jam_pulang);
         $delete->delete();
         return redirect('/data-absen')->with('success', 'Data Berhasil di Delete');
     }

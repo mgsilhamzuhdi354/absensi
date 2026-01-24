@@ -55,7 +55,7 @@ class DinasLuar extends Controller
             $image_base64 = base64_decode($image_parts[1]);
             $fileName = 'foto_dinas_luar_masuk/' . uniqid() . '.png';
     
-            Storage::put($fileName, $image_base64);
+            Storage::disk('public')->put($fileName, $image_base64);
     
     
             $request["foto_jam_absen"] = $fileName;
@@ -109,7 +109,7 @@ class DinasLuar extends Controller
             $image_base64 = base64_decode($image_parts[1]);
             $fileName = 'foto_dinas_luar_pulang/' . uniqid() . '.png';
     
-            Storage::put($fileName, $image_base64);
+            Storage::disk('public')->put($fileName, $image_base64);
     
             $request["foto_jam_pulang"] = $fileName;
     
