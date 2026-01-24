@@ -39,6 +39,11 @@
                             </div>
                         </div>
                         <a href="{{ url('/pegawai/export') }}{{ $_GET?'?'.$_SERVER['QUERY_STRING']: '' }}" class="btn btn-sm btn-success me-2"><i class="fa fa-file-excel me-2"></i> Export</a>
+                        @if(request('reorder_mode'))
+                            <a href="{{ url('/pegawai') }}" class="btn btn-sm btn-secondary"><i class="fas fa-times me-2"></i>Selesai Atur</a>
+                        @else
+                            <a href="{{ url('/pegawai?reorder_mode=1&sort_by=urutan&sort_order=asc') }}" class="btn btn-sm btn-info"><i class="fas fa-arrows-alt me-2"></i>Atur Urutan</a>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -62,12 +67,12 @@
                         <table class="table table-bordered" style="vertical-align: middle">
                             <thead>
                                 @php
-                                    $currentSort = request('sort_by', 'name');
+                                    $currentSort = request('sort_by', 'urutan');
                                     $currentOrder = request('sort_order', 'asc');
                                     
                                     if (!function_exists('sortUrl')) {
                                         function sortUrl($column) {
-                                            $currentSort = request('sort_by', 'name');
+                                            $currentSort = request('sort_by', 'urutan');
                                             $currentOrder = request('sort_order', 'asc');
                                             $newOrder = ($currentSort === $column && $currentOrder === 'asc') ? 'desc' : 'asc';
                                             return request()->fullUrlWithQuery(['sort_by' => $column, 'sort_order' => $newOrder]);
@@ -76,7 +81,7 @@
                                     
                                     if (!function_exists('sortIcon')) {
                                         function sortIcon($column) {
-                                            $currentSort = request('sort_by', 'name');
+                                            $currentSort = request('sort_by', 'urutan');
                                             $currentOrder = request('sort_order', 'asc');
                                             if ($currentSort !== $column) return '<i class="fas fa-sort text-muted"></i>';
                                             return $currentOrder === 'asc' ? '<i class="fas fa-sort-up"></i>' : '<i class="fas fa-sort-down"></i>';
@@ -120,10 +125,12 @@
                                     </tr>
                                 @else
                                     @foreach ($data_user as $key => $du)
-                                        <tr data-id="{{ $du->id }}" class="draggable-row">
+                                        <tr data-id="{{ $du->id }}" data-urutan="{{ $du->urutan ?? ($key + 1) }}" class="draggable-row">
                                             <td class="text-center" style="position: sticky; left: 0; background-color: rgb(235, 235, 235); z-index: 1;">
-                                                <span class="drag-handle" style="cursor: grab; margin-right: 5px;"><i class="fas fa-grip-vertical text-muted"></i></span>
-                                                <span class="row-number">{{ $du->urutan ?? (($data_user->currentpage() - 1) * $data_user->perpage() + $key + 1) }}</span>.
+                                                @if(request('reorder_mode'))
+                                                    <span class="drag-handle" style="cursor: grab; margin-right: 5px;"><i class="fas fa-grip-vertical text-muted"></i></span>
+                                                @endif
+                                                <span class="row-number">{{ $du->urutan ?? ($key + 1) }}</span>.
                                             </td>
                                             <td style="position: sticky; left: 40px; background-color: rgb(235, 235, 235); z-index: 1;">{{ $du->name }}</td>
                                             <td class="text-center">
@@ -195,9 +202,17 @@
                             </tbody>
                         </table>
                     </div>
+                    @if(!request('reorder_mode') && method_exists($data_user, 'links'))
                     <div class="d-flex justify-content-end me-4 mt-4">
                         {{ $data_user->links() }}
                     </div>
+                    @endif
+                    @if(request('reorder_mode'))
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Mode Atur Urutan:</strong> Drag pegawai ke posisi yang diinginkan menggunakan icon <i class="fas fa-grip-vertical"></i>. Urutan akan otomatis tersimpan.
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>

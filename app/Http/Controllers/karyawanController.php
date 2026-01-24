@@ -31,7 +31,7 @@ class karyawanController extends Controller
     public function index()
     {
         $search = request()->input('search');
-        $sortBy = request()->input('sort_by', 'name');
+        $sortBy = request()->input('sort_by', 'urutan');
         $sortOrder = request()->input('sort_order', 'asc');
 
         // Valid sortable columns
@@ -50,9 +50,15 @@ class karyawanController extends Controller
                               $query->where('nama_jabatan', 'LIKE', '%'.$search.'%');
                           });
                 })
-                ->orderBy($sortBy, $sortOrder)
-                ->paginate(10)
-                ->withQueryString();
+                ->orderBy($sortBy, $sortOrder);
+        
+        // Check if reorder mode (show all without pagination)
+        $reorderMode = request()->input('reorder_mode', false);
+        if ($reorderMode) {
+            $data = $data->get();
+        } else {
+            $data = $data->paginate(10)->withQueryString();
+        }
 
 
         if (auth()->user()->is_admin == 'admin') {
