@@ -143,7 +143,9 @@
           </div>
 
           <div class="left-header col horizontal-wrapper ps-0">
-            <a href="{{ url('/switch/user') }}" class="btn btn-warning" onclick="return confirm('Are You Sure ?')">Dashboard User</a>
+            @if(auth()->user()->is_admin == 'admin')
+              <a href="{{ url('/switch/user') }}" class="btn btn-warning" onclick="return confirm('Are You Sure ?')">Dashboard User</a>
+            @endif
           </div>
 
           <div class="nav-right col-8 pull-right right-header p-0">

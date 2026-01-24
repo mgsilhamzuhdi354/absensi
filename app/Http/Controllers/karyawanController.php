@@ -850,20 +850,18 @@ class karyawanController extends Controller
 
     public function switchUser()
     {
-        $user = User::find(auth()->user()->id);
-        $user->update([
-            'is_admin' => 'user'
-        ]);
+        // Store view preference in session - don't modify the actual is_admin column
+        // This ensures admin status is preserved after logout/login
+        session(['dashboard_view' => 'user']);
 
         return redirect('/dashboard')->with('success', 'Berhasil Pindah Dashboard User');
     }
 
     public function switchAdmin()
     {
-        $user = User::find(auth()->user()->id);
-        $user->update([
-            'is_admin' => 'admin'
-        ]);
+        // Clear session view preference to show admin dashboard
+        // This doesn't need to modify the database since is_admin remains 'admin'
+        session()->forget('dashboard_view');
 
         return redirect('/dashboard')->with('success', 'Berhasil Pindah Dashboard Admin');
     }

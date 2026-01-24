@@ -26,7 +26,7 @@ class dashboardController extends Controller
         $tgl_mulai = date('Y-m-01');
         $tgl_akhir = date('Y-m-'.$jmlh_bulan);
 
-        if(auth()->user()->is_admin == "admin"){
+        if(auth()->user()->is_admin == "admin" && session('dashboard_view') !== 'user'){
             // KPI Data - Top 10 Performers (berdasarkan total nilai kinerja bulan ini)
             $top_performers = User::with(['jabatan'])
                 ->get()
