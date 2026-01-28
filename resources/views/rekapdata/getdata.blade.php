@@ -10,42 +10,7 @@
                     <div class="col-md-6 p-0">
                         <a href="{{ url('/rekap-data') }}" class="btn btn-danger btn-sm ms-2">Back</a>
                         <button class="btn btn-primary ms-2" type="button" data-bs-toggle="modal" data-original-title="test" data-bs-target="#exampleModal2">Export Rekap</button>
-                        <div class="modal fade" id="exampleModal2" tabindex="-1" role="dialog" aria-labelledby="exampleModal2Label" aria-hidden="true">
-                            <div class="modal-dialog" role="document">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="exampleModal2Label">Export Rekap</h5>
-                                        <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body d-flex justify-content-center gap-2">
-                                        <a href="{{ url('/rekap-data/export') }}{{ $_GET?'?'.$_SERVER['QUERY_STRING']: '' }}" class="btn btn-success ms-2"><i class="fa fa-file-excel me-2"></i> Excel</a>
-                                        <a href="{{ url('/rekap-data/rekap-pdf') }}{{ $_GET?'?'.$_SERVER['QUERY_STRING']: '' }}" class="btn btn-danger" target="_blank"><i class="fa fa-file-pdf me-2"></i> Pdf</a>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button class="btn btn-grey" type="button" data-bs-dismiss="modal">Close</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
                         <button class="btn btn-success" type="button" data-bs-toggle="modal" data-original-title="test" data-bs-target="#exampleModal">Export Details</button>
-                        <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
-                            <div class="modal-dialog" role="document">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="exampleModalLabel">Export Details</h5>
-                                        <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body d-flex justify-content-center gap-2">
-                                        <a href="{{ url('/data-absen/export') }}{{ $_GET?'?'.$_SERVER['QUERY_STRING']: '' }}" class="btn btn-success ms-2"><i class="fa fa-file-excel me-2"></i> Excel</a>
-                                        <a href="{{ url('/rekap-data/detail-pdf') }}{{ $_GET?'?'.$_SERVER['QUERY_STRING']: '' }}" class="btn btn-danger" target="_blank"><i class="fa fa-file-pdf me-2"></i> Pdf</a>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button class="btn btn-grey" type="button" data-bs-dismiss="modal">Close</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -223,6 +188,44 @@
                     <div class="d-flex justify-content-end mr-4">
                         {{ $data_user->links() }}
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Export Rekap -->
+    <div class="modal fade" id="exampleModal2" tabindex="-1" role="dialog" aria-labelledby="exampleModal2Label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModal2Label">Export Rekap</h5>
+                    <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body d-flex justify-content-center gap-2">
+                    <a href="{{ url('/rekap-data/export') }}{{ $_GET?'?'.$_SERVER['QUERY_STRING']: '' }}" class="btn btn-success ms-2"><i class="fa fa-file-excel me-2"></i> Excel</a>
+                    <a href="{{ url('/rekap-data/rekap-pdf') }}{{ $_GET?'?'.$_SERVER['QUERY_STRING']: '' }}" class="btn btn-danger" target="_blank"><i class="fa fa-file-pdf me-2"></i> Pdf</a>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-grey" type="button" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Export Details -->
+    <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Export Details</h5>
+                    <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body d-flex justify-content-center gap-2">
+                    <a href="{{ url('/data-absen/export') }}{{ $_GET?'?'.$_SERVER['QUERY_STRING']: '' }}" class="btn btn-success ms-2"><i class="fa fa-file-excel me-2"></i> Excel</a>
+                    <a href="{{ url('/rekap-data/detail-pdf') }}{{ $_GET?'?'.$_SERVER['QUERY_STRING']: '' }}" class="btn btn-danger" target="_blank"><i class="fa fa-file-pdf me-2"></i> Pdf</a>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-grey" type="button" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>

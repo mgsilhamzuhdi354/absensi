@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Slip Gaji - {{ $data->user->name ?? 'Karyawan' }}</title>
     <style>
         * {
@@ -10,6 +11,7 @@
             padding: 0;
             box-sizing: border-box;
         }
+
         body {
             font-family: 'DejaVu Sans', sans-serif;
             font-size: 11px;
@@ -17,11 +19,13 @@
             color: #333;
             background: #fff;
         }
+
         .container {
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
         }
+
         /* Header */
         .header {
             text-align: center;
@@ -29,23 +33,27 @@
             padding-bottom: 15px;
             border-bottom: 3px solid #4a6fa5;
         }
+
         .company-name {
             font-size: 18px;
             font-weight: bold;
             color: #2c3e50;
             margin-bottom: 5px;
         }
+
         .slip-title {
             font-size: 14px;
             font-weight: bold;
             color: #4a6fa5;
             margin-top: 10px;
         }
+
         .period {
             font-size: 12px;
             color: #666;
             margin-top: 5px;
         }
+
         /* Employee Info */
         .employee-info {
             background: #f8f9fa;
@@ -53,32 +61,39 @@
             border-radius: 5px;
             margin-bottom: 15px;
         }
+
         .employee-info table {
             width: 100%;
         }
+
         .employee-info td {
             padding: 3px 5px;
         }
+
         .employee-info .label {
             width: 130px;
             font-weight: bold;
             color: #555;
         }
+
         /* Main Content */
         .content {
             display: table;
             width: 100%;
             margin-bottom: 15px;
         }
+
         .column {
             display: table-cell;
             width: 50%;
             vertical-align: top;
             padding: 5px;
         }
+
         .section {
             margin-bottom: 15px;
         }
+
         .section-title {
             font-size: 12px;
             font-weight: bold;
@@ -86,34 +101,47 @@
             padding: 8px 10px;
             margin-bottom: 0;
         }
+
         .section-title.pendapatan {
-            background: #27ae60;
+            background: #d4af37;
+            /* Gold color matching reference */
+            color: #000;
         }
+
         .section-title.potongan {
-            background: #e74c3c;
+            background: #d4af37;
+            /* Gold color matching reference */
+            color: #000;
         }
+
         .data-table {
             width: 100%;
             border-collapse: collapse;
         }
+
         .data-table td {
             padding: 6px 10px;
             border-bottom: 1px solid #eee;
         }
+
         .data-table td:last-child {
             text-align: right;
             font-weight: 500;
         }
+
         .data-table tr:nth-child(even) {
             background: #f9f9f9;
         }
+
         .subtotal-row {
             background: #f0f0f0 !important;
             font-weight: bold;
         }
+
         .subtotal-row td {
             border-top: 2px solid #ddd;
         }
+
         /* Grand Total */
         .grand-total {
             background: linear-gradient(135deg, #4a6fa5, #2c3e50);
@@ -122,47 +150,57 @@
             border-radius: 5px;
             margin-top: 15px;
         }
+
         .grand-total table {
             width: 100%;
         }
+
         .grand-total td {
             padding: 5px 0;
         }
+
         .grand-total .label {
             font-size: 14px;
             font-weight: bold;
         }
+
         .grand-total .amount {
             font-size: 18px;
             font-weight: bold;
             text-align: right;
         }
+
         /* Footer */
         .footer {
             margin-top: 25px;
             padding-top: 15px;
             border-top: 1px solid #ddd;
         }
+
         .signature-area {
             display: table;
             width: 100%;
         }
+
         .signature-box {
             display: table-cell;
             width: 33%;
             text-align: center;
             padding: 10px;
         }
+
         .signature-box .title {
             font-size: 10px;
             color: #666;
             margin-bottom: 50px;
         }
+
         .signature-box .line {
             border-top: 1px solid #333;
             margin-top: 50px;
             padding-top: 5px;
         }
+
         .note {
             font-size: 9px;
             color: #888;
@@ -170,18 +208,22 @@
             margin-top: 15px;
             font-style: italic;
         }
+
         /* Helpers */
         .text-right {
             text-align: right;
         }
+
         .text-success {
             color: #27ae60;
         }
+
         .text-danger {
             color: #e74c3c;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <!-- Header -->
@@ -190,9 +232,18 @@
             <div class="slip-title">SLIP GAJI KARYAWAN</div>
             @php
                 $bulanNames = [
-                    1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
-                    5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
-                    9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+                    1 => 'Januari',
+                    2 => 'Februari',
+                    3 => 'Maret',
+                    4 => 'April',
+                    5 => 'Mei',
+                    6 => 'Juni',
+                    7 => 'Juli',
+                    8 => 'Agustus',
+                    9 => 'September',
+                    10 => 'Oktober',
+                    11 => 'November',
+                    12 => 'Desember'
                 ];
                 $bulanName = $bulanNames[$data->bulan] ?? $data->bulan;
             @endphp
@@ -247,15 +298,15 @@
                             <td>Rp {{ number_format($data->total_lembur ?? 0, 0, ',', '.') }}</td>
                         </tr>
                         <tr>
-                            <td>Bonus Pribadi</td>
+                            <td>Tunjangan Makan</td>
                             <td>Rp {{ number_format($data->bonus_pribadi ?? 0, 0, ',', '.') }}</td>
                         </tr>
                         <tr>
-                            <td>Bonus Team</td>
+                            <td>Tunjangan Transport</td>
                             <td>Rp {{ number_format($data->bonus_team ?? 0, 0, ',', '.') }}</td>
                         </tr>
                         <tr>
-                            <td>Bonus Jackpot</td>
+                            <td>Tunjangan Komunikasi</td>
                             <td>Rp {{ number_format($data->bonus_jackpot ?? 0, 0, ',', '.') }}</td>
                         </tr>
                         <tr>
@@ -263,12 +314,13 @@
                             <td>Rp {{ number_format($data->total_kehadiran ?? 0, 0, ',', '.') }}</td>
                         </tr>
                         <tr>
-                            <td>THR ({{ $data->jumlah_thr ?? 0 }}x)</td>
+                            <td>Thr/Bonus/Insentif ({{ $data->jumlah_thr ?? 0 }}x)</td>
                             <td>Rp {{ number_format($data->total_thr ?? 0, 0, ',', '.') }}</td>
                         </tr>
                         <tr class="subtotal-row">
                             <td>Total Pendapatan</td>
-                            <td class="text-success">Rp {{ number_format($data->total_penjumlahan ?? 0, 0, ',', '.') }}</td>
+                            <td class="text-success">Rp {{ number_format($data->total_penjumlahan ?? 0, 0, ',', '.') }}
+                            </td>
                         </tr>
                     </table>
                 </div>
@@ -299,9 +351,14 @@
                             <td>Loss</td>
                             <td>Rp {{ number_format($data->loss ?? 0, 0, ',', '.') }}</td>
                         </tr>
+                        <tr>
+                            <td>BPJS Ketenagakerjaan (2%)</td>
+                            <td>Rp {{ number_format($data->bpjs_tk_karyawan ?? 0, 0, ',', '.') }}</td>
+                        </tr>
                         <tr class="subtotal-row">
                             <td>Total Potongan</td>
-                            <td class="text-danger">Rp {{ number_format($data->total_pengurangan ?? 0, 0, ',', '.') }}</td>
+                            <td class="text-danger">Rp {{ number_format($data->total_pengurangan ?? 0, 0, ',', '.') }}
+                            </td>
                         </tr>
                     </table>
 
@@ -310,45 +367,67 @@
                         <table style="width: 100%;">
                             <tr>
                                 <td style="font-size: 10px; color: #856404;">Saldo Kasbon</td>
-                                <td style="text-align: right; font-weight: bold; color: #856404;">Rp {{ number_format($data->saldo_kasbon ?? 0, 0, ',', '.') }}</td>
+                                <td style="text-align: right; font-weight: bold; color: #856404;">Rp
+                                    {{ number_format($data->saldo_kasbon ?? 0, 0, ',', '.') }}</td>
                             </tr>
                         </table>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Grand Total -->
-        <div class="grand-total">
-            <table>
-                <tr>
-                    <td class="label">GAJI YANG DITERIMA</td>
-                    <td class="amount">Rp {{ number_format($data->grand_total ?? 0, 0, ',', '.') }}</td>
-                </tr>
-            </table>
-        </div>
-
-        <!-- Footer with Signatures -->
-        <div class="footer">
-            <div class="signature-area">
-                <div class="signature-box">
-                    <div class="title">Disiapkan oleh,</div>
-                    <div class="line">HRD</div>
+                <!-- BPJS Info -->
+                <div style="margin-top: 10px; padding: 5px; font-size: 9px; color: #666; border: 1px dashed #ccc;">
+                    <strong>Info Tunjangan BPJS Perusahaan (Tidak dipotong dari gaji):</strong><br>
+                    <table style="width: 100%;">
+                        <tr>
+                            <td>BPJS JKK (0.24%)</td>
+                            <td align="right">Rp {{ number_format($data->bpjs_jkk ?? 0, 0, ',', '.') }}</td>
+                        </tr>
+                        <tr>
+                            <td>BPJS JKM (0.3%)</td>
+                            <td align="right">Rp {{ number_format($data->bpjs_jkm ?? 0, 0, ',', '.') }}</td>
+                        </tr>
+                        <tr>
+                            <td>BPJS JHT Perusahaan (3.7%)</td>
+                            <td align="right">Rp {{ number_format($data->bpjs_tk_perusahaan ?? 0, 0, ',', '.') }}</td>
+                        </tr>
+                    </table>
                 </div>
-                <div class="signature-box">
-                    <div class="title">Disetujui oleh,</div>
-                    <div class="line">Manager</div>
-                </div>
-                <div class="signature-box">
-                    <div class="title">Diterima oleh,</div>
-                    <div class="line">{{ $data->user->name ?? 'Karyawan' }}</div>
-                </div>
-            </div>
-            <div class="note">
-                Dokumen ini dicetak secara elektronik dan sah tanpa tanda tangan basah.<br>
-                Dicetak pada: {{ date('d/m/Y H:i') }}
             </div>
         </div>
     </div>
+
+    <!-- Grand Total -->
+    <div class="grand-total">
+        <table>
+            <tr>
+                <td class="label">GAJI YANG DITERIMA</td>
+                <td class="amount">Rp {{ number_format($data->grand_total ?? 0, 0, ',', '.') }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Footer with Signatures -->
+    <div class="footer">
+        <div class="signature-area">
+            <div class="signature-box">
+                <div class="title">Disiapkan oleh,</div>
+                <div class="line">HRD</div>
+            </div>
+            <div class="signature-box">
+                <div class="title">Disetujui oleh,</div>
+                <div class="line">Manager</div>
+            </div>
+            <div class="signature-box">
+                <div class="title">Diterima oleh,</div>
+                <div class="line">{{ $data->user->name ?? 'Karyawan' }}</div>
+            </div>
+        </div>
+        <div class="note">
+            Dokumen ini dicetak secara elektronik dan sah tanpa tanda tangan basah.<br>
+            Dicetak pada: {{ date('d/m/Y H:i') }}
+        </div>
+    </div>
+    </div>
 </body>
+
 </html>

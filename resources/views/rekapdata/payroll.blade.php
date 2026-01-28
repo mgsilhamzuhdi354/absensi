@@ -3,69 +3,72 @@
     <div class="row">
         <div class="col-md-12">
             <div class="card">
-                <form method="post" action="{{ url('/rekap-data/payroll/tambah') }}" enctype="multipart/form-data" class="p-4">
+                <form method="post" action="{{ url('/rekap-data/payroll/tambah') }}" enctype="multipart/form-data"
+                    class="p-4">
                     @csrf
                     <div class="row">
                         <div class="col mb-4">
                             <label for="pegawai">Pegawai</label>
-                            <input type="text" class="form-control @error('pegawai') is-invalid @enderror" id="pegawai" name="pegawai" value="{{ old('pegawai', $user->name) }}" readonly>
+                            <input type="text" class="form-control @error('pegawai') is-invalid @enderror" id="pegawai"
+                                name="pegawai" value="{{ old('pegawai', $user->name) }}" readonly>
                             @error('pegawai')
-                            <div class="invalid-feedback">
-                                {{ $message }}
-                            </div>
+                                <div class="invalid-feedback">
+                                    {{ $message }}
+                                </div>
                             @enderror
                             <input type="hidden" name="user_id" value="{{ $user->id }}">
                         </div>
                         @php
                             $bulan = array(
-                            [
-                                "id" => "1",
-                                "bulan" => "Januari"
-                            ],
-                            [
-                                "id" => "2",
-                                "bulan" => "Februari"
-                            ],
-                            [
-                                "id" => "3",
-                                "bulan" => "Maret"
-                            ],
-                            [
-                                "id" => "4",
-                                "bulan" => "April"
-                            ],
-                            [
-                                "id" => "5",
-                                "bulan" => "Mei"
-                            ],
-                            [
-                                "id" => "6",
-                                "bulan" => "Juni"
-                            ],
-                            [
-                                "id" => "7",
-                                "bulan" => "Juli"
-                            ],
-                            [
-                                "id" => "8",
-                                "bulan" => "Agustus"
-                            ],
-                            [
-                                "id" => "9",
-                                "bulan" => "September"
-                            ],
-                            [
-                                "id" => "10",
-                                "bulan" => "Oktober"
-                            ],
-                            [
-                                "id" => "11",
-                                "bulan" => "November"
-                            ],
-                            [
-                                "id" => "12",
-                                "bulan" => "Desember"
-                            ]);
+                                [
+                                    "id" => "1",
+                                    "bulan" => "Januari"
+                                ],
+                                [
+                                    "id" => "2",
+                                    "bulan" => "Februari"
+                                ],
+                                [
+                                    "id" => "3",
+                                    "bulan" => "Maret"
+                                ],
+                                [
+                                    "id" => "4",
+                                    "bulan" => "April"
+                                ],
+                                [
+                                    "id" => "5",
+                                    "bulan" => "Mei"
+                                ],
+                                [
+                                    "id" => "6",
+                                    "bulan" => "Juni"
+                                ],
+                                [
+                                    "id" => "7",
+                                    "bulan" => "Juli"
+                                ],
+                                [
+                                    "id" => "8",
+                                    "bulan" => "Agustus"
+                                ],
+                                [
+                                    "id" => "9",
+                                    "bulan" => "September"
+                                ],
+                                [
+                                    "id" => "10",
+                                    "bulan" => "Oktober"
+                                ],
+                                [
+                                    "id" => "11",
+                                    "bulan" => "November"
+                                ],
+                                [
+                                    "id" => "12",
+                                    "bulan" => "Desember"
+                                ]
+                            );
                         @endphp
                         <div class="col mb-4">
                             @php
@@ -74,7 +77,9 @@
                                 $bulan_filter = $pecah_tanggal[1];
                             @endphp
                             <label for="bulan">Bulan</label>
-                            <select name="bulan" id="bulan" class="form-control @error('bulan') is-invalid @enderror selectpicker" data-live-search="true">
+                            <select name="bulan" id="bulan"
+                                class="form-control @error('bulan') is-invalid @enderror selectpicker"
+                                data-live-search="true">
                                 <option value="">Pilih Bulan</option>
                                 @foreach ($bulan as $bu)
                                     @if(old('bulan', $bulan_filter) == $bu['id'])
@@ -85,20 +90,22 @@
                                 @endforeach
                             </select>
                             @error('bulan')
-                            <div class="invalid-feedback">
-                                {{ $message }}
-                            </div>
+                                <div class="invalid-feedback">
+                                    {{ $message }}
+                                </div>
                             @enderror
                         </div>
                     </div>
                     <div class="row">
                         @php
-                            $last = date('Y')-10;
+                            $last = date('Y') - 10;
                             $now = date('Y');
                         @endphp
                         <div class="col mb-4">
                             <label for="tahun">Tahun</label>
-                            <select name="tahun" id="tahun" class="form-control @error('tahun') is-invalid @enderror selectpicker" data-live-search="true">
+                            <select name="tahun" id="tahun"
+                                class="form-control @error('tahun') is-invalid @enderror selectpicker"
+                                data-live-search="true">
                                 <option value="">Pilih Tahun</option>
                                 @for ($i = $now; $i >= $last; $i--)
                                     @if(old('tahun', $tahun_filter) == $i)
@@ -109,9 +116,9 @@
                                 @endfor
                             </select>
                             @error('tahun')
-                            <div class="invalid-feedback">
-                                {{ $message }}
-                            </div>
+                                <div class="invalid-feedback">
+                                    {{ $message }}
+                                </div>
                             @enderror
                         </div>
                         <div class="col mb-4">
@@ -123,11 +130,13 @@
                                 $timestamp_mulai = strtotime($tanggal_mulai);
                                 $timestamp_akhir = strtotime($tanggal_akhir);
                                 $selisih_timestamp = $timestamp_akhir - $timestamp_mulai;
-                                $jumlah_hari = (floor($selisih_timestamp / (60 * 60 * 24)))+1;
+                                $jumlah_hari = (floor($selisih_timestamp / (60 * 60 * 24))) + 1;
                                 $persentase_kehadiran = number_format((($jumlah_hadir + $jumlah_izin_telat + $jumlah_izin_pulang_cepat + $libur) / $jumlah_hari) * 100, 2);
                             @endphp
                             <label for="persentase_kehadiran">Persentase Kehadiran</label>
-                            <input type="text" class="form-control @error('persentase_kehadiran') is-invalid @enderror" id="persentase_kehadiran" name="persentase_kehadiran" value="{{ old('persentase_kehadiran', $persentase_kehadiran) }}" readonly>
+                            <input type="text" class="form-control @error('persentase_kehadiran') is-invalid @enderror"
+                                id="persentase_kehadiran" name="persentase_kehadiran"
+                                value="{{ old('persentase_kehadiran', $persentase_kehadiran) }}" readonly>
                             @error('persentase_kehadiran')
                                 <div class="invalid-feedback">
                                     {{ $message }}
@@ -138,7 +147,8 @@
                     <div class="row">
                         <div class="col mb-4">
                             <label for="jabatan">Jabatan</label>
-                            <input type="text" class="form-control @error('jabatan') is-invalid @enderror" id="jabatan" name="jabatan" value="{{ old('jabatan', $user->Jabatan->nama_jabatan) }}" readonly>
+                            <input type="text" class="form-control @error('jabatan') is-invalid @enderror" id="jabatan"
+                                name="jabatan" value="{{ old('jabatan', $user->Jabatan->nama_jabatan) }}" readonly>
                             @error('jabatan')
                                 <div class="invalid-feedback">
                                     {{ $message }}
@@ -147,7 +157,8 @@
                         </div>
                         <div class="col mb-4">
                             <label for="no_gaji">Nomor Gaji</label>
-                            <input type="text" class="form-control @error('no_gaji') is-invalid @enderror" id="no_gaji" name="no_gaji" value="{{ old('no_gaji', $no_gaji) }}" readonly>
+                            <input type="text" class="form-control @error('no_gaji') is-invalid @enderror" id="no_gaji"
+                                name="no_gaji" value="{{ old('no_gaji', $no_gaji) }}" readonly>
                             @error('no_gaji')
                                 <div class="invalid-feedback">
                                     {{ $message }}
@@ -158,7 +169,9 @@
                     <div class="row">
                         <div class="col mb-4">
                             <label for="tanggal_mulai">Tanggal Mulai</label>
-                            <input type="text" class="form-control @error('tanggal_mulai') is-invalid @enderror" id="tanggal_mulai" name="tanggal_mulai" value="{{ old('tanggal_mulai', $tanggal_mulai) }}" readonly>
+                            <input type="text" class="form-control @error('tanggal_mulai') is-invalid @enderror"
+                                id="tanggal_mulai" name="tanggal_mulai" value="{{ old('tanggal_mulai', $tanggal_mulai) }}"
+                                readonly>
                             @error('tanggal_mulai')
                                 <div class="invalid-feedback">
                                     {{ $message }}
@@ -167,7 +180,9 @@
                         </div>
                         <div class="col mb-4">
                             <label for="tanggal_akhir">Tanggal Akhir</label>
-                            <input type="text" class="form-control @error('tanggal_akhir') is-invalid @enderror" id="tanggal_akhir" name="tanggal_akhir" value="{{ old('tanggal_akhir', $tanggal_akhir) }}" readonly>
+                            <input type="text" class="form-control @error('tanggal_akhir') is-invalid @enderror"
+                                id="tanggal_akhir" name="tanggal_akhir" value="{{ old('tanggal_akhir', $tanggal_akhir) }}"
+                                readonly>
                             @error('tanggal_akhir')
                                 <div class="invalid-feedback">
                                     {{ $message }}
@@ -178,7 +193,8 @@
                     <div class="row">
                         <div class="col mb-4">
                             <label for="gaji_pokok">Gaji Pokok</label>
-                            <input type="text" class="form-control money @error('gaji_pokok') is-invalid @enderror" id="gaji_pokok" name="gaji_pokok" value="{{ old('gaji_pokok', $user->gaji_pokok) }}">
+                            <input type="text" class="form-control money @error('gaji_pokok') is-invalid @enderror"
+                                id="gaji_pokok" name="gaji_pokok" value="{{ old('gaji_pokok', $user->gaji_pokok) }}">
                             @error('gaji_pokok')
                                 <div class="invalid-feedback">
                                     {{ $message }}
@@ -187,7 +203,9 @@
                         </div>
                         <div class="col mb-4">
                             <label for="uang_transport">Uang Transport</label>
-                            <input type="text" class="form-control money @error('uang_transport') is-invalid @enderror" id="uang_transport" name="uang_transport" value="{{ old('uang_transport', $user->makan_transport) }}">
+                            <input type="text" class="form-control money @error('uang_transport') is-invalid @enderror"
+                                id="uang_transport" name="uang_transport"
+                                value="{{ old('uang_transport', $user->makan_transport) }}">
                             @error('uang_transport')
                                 <div class="invalid-feedback">
                                     {{ $message }}
@@ -207,7 +225,11 @@
                                 @endphp
                                 <label for="total_reimbursement">Reimbursement</label>
                                 <div class="input-group mb-3">
-                                    <input type="text" class="form-control money @error('total_reimbursement') is-invalid @enderror" name="total_reimbursement" value="{{ old('total_reimbursement', $total_reimbursement) }}" id="total_reimbursement" style="background-color: orange">
+                                    <input type="text"
+                                        class="form-control money @error('total_reimbursement') is-invalid @enderror"
+                                        name="total_reimbursement"
+                                        value="{{ old('total_reimbursement', $total_reimbursement) }}"
+                                        id="total_reimbursement" style="background-color: orange">
                                     <div class="input-group-text">
                                         <span>Total Reimbursement</span>
                                     </div>
@@ -222,17 +244,19 @@
                         <div class="col mb-4">
                             <div class="card p-4">
                                 @php
-                                $cuti = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Cuti')->count();
-                                $izin_masuk = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Izin Masuk')->count();
-                                $sakit = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Sakit')->count();
-                                $mulai = new \DateTime($tanggal_mulai);
-                                $akhir = new \DateTime($tanggal_akhir);
-                                $interval = $mulai->diff($akhir);
-                                $total_alfa = $interval->days + 1 - $jumlah_hadir - $cuti - $izin_masuk - $libur - $sakit;
+                                    $cuti = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Cuti')->count();
+                                    $izin_masuk = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Izin Masuk')->count();
+                                    $sakit = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Sakit')->count();
+                                    $mulai = new \DateTime($tanggal_mulai);
+                                    $akhir = new \DateTime($tanggal_akhir);
+                                    $interval = $mulai->diff($akhir);
+                                    $total_alfa = $interval->days + 1 - $jumlah_hadir - $cuti - $izin_masuk - $libur - $sakit;
                                 @endphp
                                 <label for="jumlah_mangkir">Mangkir</label>
                                 <div class="input-group mb-3">
-                                    <input type="number" class="form-control @error('jumlah_mangkir') is-invalid @enderror" name="jumlah_mangkir" value="{{ old('jumlah_mangkir', $total_alfa) }}" id="jumlah_mangkir" style="background-color: orange">
+                                    <input type="number" class="form-control @error('jumlah_mangkir') is-invalid @enderror"
+                                        name="jumlah_mangkir" value="{{ old('jumlah_mangkir', $total_alfa) }}"
+                                        id="jumlah_mangkir" style="background-color: orange">
                                     <div class="input-group-text">
                                         <span>/ Kali</span>
                                     </div>
@@ -243,7 +267,10 @@
                                     @enderror
                                 </div>
                                 <div class="input-group mb-3">
-                                    <input type="text" class="form-control money @error('uang_mangkir') is-invalid @enderror" id="uang_mangkir" name="uang_mangkir" value="{{ old('uang_mangkir', $user->mangkir) }}">
+                                    <input type="text"
+                                        class="form-control money @error('uang_mangkir') is-invalid @enderror"
+                                        id="uang_mangkir" name="uang_mangkir"
+                                        value="{{ old('uang_mangkir', $user->mangkir) }}">
                                     <div class="input-group-text">
                                         <span>Uang Mangkir</span>
                                     </div>
@@ -253,20 +280,23 @@
                                         </div>
                                     @enderror
                                 </div>
-                                <input type="hidden" name="total_mangkir" id="total_mangkir" value="{{ old('total_mangkir') }}">
+                                <input type="hidden" name="total_mangkir" id="total_mangkir"
+                                    value="{{ old('total_mangkir') }}">
                             </div>
                         </div>
                     </div>
                     <div class="row">
-                         <div class="col mb-4">
+                        <div class="col mb-4">
                             <div class="card p-4">
                                 @php
                                     $total_lembur = $user->Lembur->where('status', 'Approved')->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->sum('total_lembur');
-                                    $jam   = floor($total_lembur / (60 * 60));
+                                    $jam = floor($total_lembur / (60 * 60));
                                 @endphp
                                 <label for="jumlah_lembur">Lembur</label>
                                 <div class="input-group mb-3">
-                                    <input type="number" class="form-control @error('jumlah_lembur') is-invalid @enderror" name="jumlah_lembur" value="{{ old('jumlah_lembur', $jam) }}" id="jumlah_lembur" style="background-color: orange">
+                                    <input type="number" class="form-control @error('jumlah_lembur') is-invalid @enderror"
+                                        name="jumlah_lembur" value="{{ old('jumlah_lembur', $jam) }}" id="jumlah_lembur"
+                                        style="background-color: orange">
                                     <div class="input-group-text">
                                         <span>/ Jam</span>
                                     </div>
@@ -277,7 +307,8 @@
                                     @enderror
                                 </div>
                                 <div class="input-group mb-3">
-                                    <input type="text" class="form-control money @error('uang_lembur') is-invalid @enderror" id="uang_lembur" name="uang_lembur" value="{{ old('uang_lembur', $user->lembur) }}">
+                                    <input type="text" class="form-control money @error('uang_lembur') is-invalid @enderror"
+                                        id="uang_lembur" name="uang_lembur" value="{{ old('uang_lembur', $user->lembur) }}">
                                     <div class="input-group-text">
                                         <span>Uang Lembur</span>
                                     </div>
@@ -287,7 +318,8 @@
                                         </div>
                                     @enderror
                                 </div>
-                                <input type="hidden" name="total_lembur" id="total_lembur" value="{{ old('total_lembur') }}">
+                                <input type="hidden" name="total_lembur" id="total_lembur"
+                                    value="{{ old('total_lembur') }}">
                             </div>
                         </div>
                         <div class="col mb-4">
@@ -297,7 +329,9 @@
                                 @endphp
                                 <label for="jumlah_izin">Izin Masuk</label>
                                 <div class="input-group mb-3">
-                                    <input type="number" class="form-control @error('jumlah_izin') is-invalid @enderror" name="jumlah_izin" value="{{ old('jumlah_izin', $jumlah_izin) }}" id="jumlah_izin" style="background-color: orange">
+                                    <input type="number" class="form-control @error('jumlah_izin') is-invalid @enderror"
+                                        name="jumlah_izin" value="{{ old('jumlah_izin', $jumlah_izin) }}" id="jumlah_izin"
+                                        style="background-color: orange">
                                     <div class="input-group-text">
                                         <span>/ Kali</span>
                                     </div>
@@ -308,7 +342,8 @@
                                     @enderror
                                 </div>
                                 <div class="input-group mb-3">
-                                    <input type="text" class="form-control money @error('uang_izin') is-invalid @enderror" id="uang_izin" name="uang_izin" value="{{ old('uang_izin', $user->izin) }}">
+                                    <input type="text" class="form-control money @error('uang_izin') is-invalid @enderror"
+                                        id="uang_izin" name="uang_izin" value="{{ old('uang_izin', $user->izin) }}">
                                     <div class="input-group-text">
                                         <span>Uang Izin</span>
                                     </div>
@@ -323,13 +358,16 @@
                         </div>
                     </div>
                     <div class="row">
-                         <div class="col mb-4">
+                        <div class="col mb-4">
                             <div class="card p-4">
-                                <label for="bonus_pribadi">Bonus</label>
+                                <label for="bonus_pribadi">Tunjangan Makan</label>
                                 <div class="input-group mb-3">
-                                    <input type="text" class="form-control money @error('bonus_pribadi') is-invalid @enderror" id="bonus_pribadi" style="background-color: orange" name="bonus_pribadi" value="{{ old('bonus_pribadi', $user->bonus_pribadi) }}">
+                                    <input type="text"
+                                        class="form-control money @error('bonus_pribadi') is-invalid @enderror"
+                                        id="bonus_pribadi" style="background-color: orange" name="bonus_pribadi"
+                                        value="{{ old('bonus_pribadi', $user->bonus_pribadi) }}">
                                     <div class="input-group-text">
-                                        <span>Bonus Pribadi</span>
+                                        <span>Tunjangan Makan</span>
                                     </div>
                                     @error('bonus_pribadi')
                                         <div class="invalid-feedback">
@@ -338,9 +376,11 @@
                                     @enderror
                                 </div>
                                 <div class="input-group mb-3">
-                                    <input type="text" class="form-control money @error('bonus_team') is-invalid @enderror" id="bonus_team" name="bonus_team" style="background-color: orange" value="{{ old('bonus_team', $user->bonus_team) }}">
+                                    <input type="text" class="form-control money @error('bonus_team') is-invalid @enderror"
+                                        id="bonus_team" name="bonus_team" style="background-color: orange"
+                                        value="{{ old('bonus_team', $user->bonus_team) }}">
                                     <div class="input-group-text">
-                                        <span>Bonus Team</span>
+                                        <span>Tunjangan Transport</span>
                                     </div>
                                     @error('bonus_team')
                                         <div class="invalid-feedback">
@@ -349,9 +389,12 @@
                                     @enderror
                                 </div>
                                 <div class="input-group mb-3">
-                                    <input type="text" class="form-control money @error('bonus_jackpot') is-invalid @enderror" id="bonus_jackpot" style="background-color: orange" name="bonus_jackpot" value="{{ old('bonus_jackpot', $user->bonus_jackpot) }}">
+                                    <input type="text"
+                                        class="form-control money @error('bonus_jackpot') is-invalid @enderror"
+                                        id="bonus_jackpot" style="background-color: orange" name="bonus_jackpot"
+                                        value="{{ old('bonus_jackpot', $user->bonus_jackpot) }}">
                                     <div class="input-group-text">
-                                        <span>Bonus Jackpot</span>
+                                        <span>Tunjangan Komunikasi</span>
                                     </div>
                                     @error('bonus_jackpot')
                                         <div class="invalid-feedback">
@@ -369,7 +412,10 @@
 
                                 <label for="jumlah_terlambat">Terlambat</label>
                                 <div class="input-group mb-3">
-                                    <input type="number" class="form-control @error('jumlah_terlambat') is-invalid @enderror" name="jumlah_terlambat" value="{{ old('jumlah_terlambat', $jumlah_terlambat) }}" id="jumlah_terlambat" style="background-color: orange">
+                                    <input type="number"
+                                        class="form-control @error('jumlah_terlambat') is-invalid @enderror"
+                                        name="jumlah_terlambat" value="{{ old('jumlah_terlambat', $jumlah_terlambat) }}"
+                                        id="jumlah_terlambat" style="background-color: orange">
                                     <div class="input-group-text">
                                         <span>/ Kali</span>
                                     </div>
@@ -380,7 +426,10 @@
                                     @enderror
                                 </div>
                                 <div class="input-group mb-3">
-                                    <input type="text" class="form-control money @error('uang_terlambat') is-invalid @enderror" id="uang_terlambat" name="uang_terlambat" value="{{ old('uang_terlambat', $user->terlambat) }}">
+                                    <input type="text"
+                                        class="form-control money @error('uang_terlambat') is-invalid @enderror"
+                                        id="uang_terlambat" name="uang_terlambat"
+                                        value="{{ old('uang_terlambat', $user->terlambat) }}">
                                     <div class="input-group-text">
                                         <span>Uang Terlambat</span>
                                     </div>
@@ -390,12 +439,13 @@
                                         </div>
                                     @enderror
                                 </div>
-                                <input type="hidden" name="total_terlambat" id="total_terlambat" value="{{ old('total_terlambat') }}">
+                                <input type="hidden" name="total_terlambat" id="total_terlambat"
+                                    value="{{ old('total_terlambat') }}">
                             </div>
                         </div>
                     </div>
                     <div class="row">
-                         <div class="col mb-4">
+                        <div class="col mb-4">
                             @php
                                 if ($persentase_kehadiran == 100) {
                                     $jumlah_kehadiran = 1;
@@ -406,7 +456,10 @@
                             <div class="card p-4">
                                 <label for="jumlah_kehadiran">100% Kehadiran</label>
                                 <div class="input-group mb-3">
-                                    <input type="number" class="form-control @error('jumlah_kehadiran') is-invalid @enderror" name="jumlah_kehadiran" value="{{ old('jumlah_kehadiran', $jumlah_kehadiran) }}" id="jumlah_kehadiran" style="background-color: orange">
+                                    <input type="number"
+                                        class="form-control @error('jumlah_kehadiran') is-invalid @enderror"
+                                        name="jumlah_kehadiran" value="{{ old('jumlah_kehadiran', $jumlah_kehadiran) }}"
+                                        id="jumlah_kehadiran" style="background-color: orange">
                                     <div class="input-group-text">
                                         <span>/ Kali</span>
                                     </div>
@@ -417,7 +470,10 @@
                                     @enderror
                                 </div>
                                 <div class="input-group mb-3">
-                                    <input type="text" class="form-control money @error('uang_kehadiran') is-invalid @enderror" id="uang_kehadiran" name="uang_kehadiran" value="{{ old('uang_kehadiran', $user->kehadiran) }}">
+                                    <input type="text"
+                                        class="form-control money @error('uang_kehadiran') is-invalid @enderror"
+                                        id="uang_kehadiran" name="uang_kehadiran"
+                                        value="{{ old('uang_kehadiran', $user->kehadiran) }}">
                                     <div class="input-group-text">
                                         <span>Uang 100% Kehadiran</span>
                                     </div>
@@ -427,14 +483,18 @@
                                         </div>
                                     @enderror
                                 </div>
-                                <input type="hidden" name="total_kehadiran" id="total_kehadiran" value="{{ old('total_kehadiran') }}">
+                                <input type="hidden" name="total_kehadiran" id="total_kehadiran"
+                                    value="{{ old('total_kehadiran') }}">
                             </div>
                         </div>
                         <div class="col mb-4">
                             <div class="card p-4">
                                 <label for="saldo_kasbon">Kasbon</label>
                                 <div class="input-group mb-3">
-                                    <input type="text" class="form-control money @error('saldo_kasbon') is-invalid @enderror" name="saldo_kasbon" value="{{ old('saldo_kasbon', $user->saldo_kasbon) }}" id="saldo_kasbon" style="background-color: orange" readonly>
+                                    <input type="text"
+                                        class="form-control money @error('saldo_kasbon') is-invalid @enderror"
+                                        name="saldo_kasbon" value="{{ old('saldo_kasbon', $user->saldo_kasbon) }}"
+                                        id="saldo_kasbon" style="background-color: orange" readonly>
                                     <div class="input-group-text">
                                         <span>Total Kasbon</span>
                                     </div>
@@ -445,7 +505,10 @@
                                     @enderror
                                 </div>
                                 <div class="input-group mb-3">
-                                    <input type="text" class="form-control money @error('bayar_kasbon') is-invalid @enderror" id="bayar_kasbon" name="bayar_kasbon" value="{{ old('bayar_kasbon', intval($user->saldo_kasbon/2)) }}">
+                                    <input type="text"
+                                        class="form-control money @error('bayar_kasbon') is-invalid @enderror"
+                                        id="bayar_kasbon" name="bayar_kasbon"
+                                        value="{{ old('bayar_kasbon', intval($user->saldo_kasbon / 2)) }}">
                                     <div class="input-group-text">
                                         <span>Bayar Kasbon</span>
                                     </div>
@@ -459,11 +522,13 @@
                         </div>
                     </div>
                     <div class="row">
-                         <div class="col mb-4">
+                        <div class="col mb-4">
                             <div class="card p-4">
-                                <label for="jumlah_thr">Tunjangan Hari Raya</label>
+                                <label for="jumlah_thr">Thr/Bonus/Insentif</label>
                                 <div class="input-group mb-3">
-                                    <input type="number" class="form-control @error('jumlah_thr') is-invalid @enderror" name="jumlah_thr" value="{{ old('jumlah_thr', '0') }}" id="jumlah_thr" style="background-color: orange">
+                                    <input type="number" class="form-control @error('jumlah_thr') is-invalid @enderror"
+                                        name="jumlah_thr" value="{{ old('jumlah_thr', '0') }}" id="jumlah_thr"
+                                        style="background-color: orange">
                                     <div class="input-group-text">
                                         <span>/ Kali</span>
                                     </div>
@@ -474,7 +539,8 @@
                                     @enderror
                                 </div>
                                 <div class="input-group mb-3">
-                                    <input type="text" class="form-control money @error('uang_thr') is-invalid @enderror" id="uang_thr" name="uang_thr" value="{{ old('uang_thr', $user->thr) }}">
+                                    <input type="text" class="form-control money @error('uang_thr') is-invalid @enderror"
+                                        id="uang_thr" name="uang_thr" value="{{ old('uang_thr', $user->thr) }}">
                                     <div class="input-group-text">
                                         <span>Uang THR</span>
                                     </div>
@@ -489,14 +555,49 @@
                         </div>
                         <div class="col mb-4">
                             <label for="loss">Loss</label>
-                            <input type="text" class="form-control money @error('loss') is-invalid @enderror" id="loss" name="loss" value="{{ old('loss', '0') }}">
+                            <input type="text" class="form-control money @error('loss') is-invalid @enderror" id="loss"
+                                name="loss" value="{{ old('loss', '0') }}">
                             @error('loss')
-                            <div class="invalid-feedback">
-                                {{ $message }}
-                            </div>
+                                <div class="invalid-feedback">
+                                    {{ $message }}
+                                </div>
                             @enderror
+
+                            <!-- BPJS Inputs -->
+                            <div class="card p-4 mt-4">
+                                <label style="font-weight:bold; color:teal;">Perhitungan BPJS</label>
+
+                                <label for="bpjs_tk_karyawan">BPJS TK Karyawan (JHT 2%) <small
+                                        class="text-danger">*Potongan</small></label>
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control money" name="bpjs_tk_karyawan"
+                                        id="bpjs_tk_karyawan" style="background-color: #ffe6e6" readonly>
+                                </div>
+
+                                <label for="bpjs_perusahaan">BPJS Perusahaan (Info) <small class="text-muted">*Tidak
+                                        memotong gajin</small></label>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <small>JKK (0.24%)</small>
+                                        <input type="text" class="form-control money" name="bpjs_jkk" id="bpjs_jkk"
+                                            style="background-color: #e6f7ff" readonly>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <small>JKM (0.3%)</small>
+                                        <input type="text" class="form-control money" name="bpjs_jkm" id="bpjs_jkm"
+                                            style="background-color: #e6f7ff" readonly>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <small>JHT Prsh (3.7%)</small>
+                                        <input type="text" class="form-control money" name="bpjs_tk_perusahaan"
+                                            id="bpjs_tk_perusahaan" style="background-color: #e6f7ff" readonly>
+                                    </div>
+                                </div>
+                            </div>
+
                             <button class="btn form-control btn-secondary mt-3 mb-3" id="proses">Proses</button>
-                            <button type="submit" class="btn form-control btn-primary mt-3 mb-3" id="submit" disabled>Simpan</button>
+                            <button type="submit" class="btn form-control btn-primary mt-3 mb-3" id="submit"
+                                disabled>Simpan</button>
                         </div>
                     </div>
                     <div class="row">
@@ -504,7 +605,11 @@
                             <div class="card p-4">
                                 <center>
                                     <label style="color:green">TOTAL PENJUMLAHAN</label>
-                                    <input type="text" class="form-control border-white text-center money @error('total_penjumlahan') is-invalid @enderror" id="total_penjumlahan" name="total_penjumlahan" value="{{ old('total_penjumlahan') }}" readonly style="background-color: white; color:black">
+                                    <input type="text"
+                                        class="form-control border-white text-center money @error('total_penjumlahan') is-invalid @enderror"
+                                        id="total_penjumlahan" name="total_penjumlahan"
+                                        value="{{ old('total_penjumlahan') }}" readonly
+                                        style="background-color: white; color:black">
                                 </center>
                             </div>
                         </div>
@@ -512,7 +617,11 @@
                             <div class="card p-4">
                                 <center>
                                     <label style="color:red">TOTAL PENGURANGAN</label>
-                                    <input type="text" class="form-control border-white text-center money @error('total_pengurangan') is-invalid @enderror" id="total_pengurangan" name="total_pengurangan" value="{{ old('total_pengurangan') }}" readonly style="background-color: white; color:black">
+                                    <input type="text"
+                                        class="form-control border-white text-center money @error('total_pengurangan') is-invalid @enderror"
+                                        id="total_pengurangan" name="total_pengurangan"
+                                        value="{{ old('total_pengurangan') }}" readonly
+                                        style="background-color: white; color:black">
                                 </center>
                             </div>
                         </div>
@@ -521,11 +630,14 @@
                         <div class="col">
                             <div class="card p-4">
                                 <label style="color:blue">GRAND TOTAL</label>
-                                <input type="text" class="form-control border-white text-center money @error('grand_total') is-invalid @enderror" id="grand_total" name="grand_total" value="{{ old('grand_total') }}" readonly style="background-color: white; color:black">
+                                <input type="text"
+                                    class="form-control border-white text-center money @error('grand_total') is-invalid @enderror"
+                                    id="grand_total" name="grand_total" value="{{ old('grand_total') }}" readonly
+                                    style="background-color: white; color:black">
                             </div>
                         </div>
                     </center>
-                  </form>
+                </form>
             </div>
         </div>
     </div>
@@ -540,12 +652,12 @@
             }
         </script>
         <script>
-            $(document).ready(function(){
+            $(document).ready(function () {
                 $('.money').mask('000,000,000,000,000', {
                     reverse: true
                 });
 
-                $("#proses").click(function(e) {
+                $("#proses").click(function (e) {
                     e.preventDefault();
 
                     //Penambahan Gaji
@@ -595,7 +707,20 @@
                     var bayar_kasbon = $('#bayar_kasbon').val() ? parseFloat(replaceCurrency($('#bayar_kasbon').val())) : 0;
                     var loss = $('#loss').val() ? parseFloat(replaceCurrency($('#loss').val())) : 0;
 
-                    var total_pengurangan = total_mangkir + total_izin + total_terlambat + bayar_kasbon + loss;
+                    // Hitung BPJS
+                    var bpjs_tk_karyawan = gaji_pokok * 0.02;
+                    var bpjs_jkk = gaji_pokok * 0.0024;
+                    var bpjs_jkm = gaji_pokok * 0.003;
+                    var bpjs_tk_perusahaan = gaji_pokok * 0.037;
+
+                    // Set nilai BPJS ke input (format uang)
+                    $('#bpjs_tk_karyawan').val(accounting.formatMoney(bpjs_tk_karyawan, '', 0, ",", "."));
+                    $('#bpjs_jkk').val(accounting.formatMoney(bpjs_jkk, '', 0, ",", "."));
+                    $('#bpjs_jkm').val(accounting.formatMoney(bpjs_jkm, '', 0, ",", "."));
+                    $('#bpjs_tk_perusahaan').val(accounting.formatMoney(bpjs_tk_perusahaan, '', 0, ",", "."));
+
+                    // Total Pengurangan Termasuk BPJS Karyawan
+                    var total_pengurangan = total_mangkir + total_izin + total_terlambat + bayar_kasbon + loss + bpjs_tk_karyawan;
 
                     $('#total_pengurangan').val(accounting.formatMoney(total_pengurangan, '', 0, ",", "."));
 
@@ -604,7 +729,7 @@
                     var grand_total = total_penjumlahan - total_pengurangan;
                     $('#grand_total').val(accounting.formatMoney(grand_total, '', 0, ",", "."));
                     Swal.fire('Berhasil Proses Data, Klik Simpan Untuk Melanjutkan', '', 'success');
-                    setTimeout(function() {
+                    setTimeout(function () {
                         Swal.close();
                     }, 2000);
                 });

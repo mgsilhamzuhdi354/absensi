@@ -74,7 +74,7 @@ class RekapDataController extends Controller
         $cek = Payroll::where('user_id', $request['user_id'])->where('bulan', $request['bulan'])->where('tahun', $request['tahun'])->first();
         if ($cek) {
             Alert::error('Failed', 'Sudah Ada Data Pada Bulan Dan Tahun Tersebut!');
-            return redirect('/rekap-data/get-data?mulai='.$request['tanggal_mulai'].'&akhir='.$request['tanggal_akhir'])->with('failed', 'Data Berhasil Disimpan');
+            return redirect('/rekap-data/get-data?mulai=' . $request['tanggal_mulai'] . '&akhir=' . $request['tanggal_akhir'])->with('failed', 'Data Berhasil Disimpan');
         } else {
             $validated = $request->validate([
                 'user_id' => 'required',
@@ -114,6 +114,10 @@ class RekapDataController extends Controller
                 'total_penjumlahan' => 'required',
                 'total_pengurangan' => 'required',
                 'grand_total' => 'required',
+                'bpjs_tk_karyawan' => 'required',
+                'bpjs_jkk' => 'required',
+                'bpjs_jkm' => 'required',
+                'bpjs_tk_perusahaan' => 'required',
             ]);
 
             $validated['gaji_pokok'] = str_replace(',', '', $validated['gaji_pokok']);
@@ -140,6 +144,10 @@ class RekapDataController extends Controller
             $validated['total_penjumlahan'] = str_replace(',', '', $validated['total_penjumlahan']);
             $validated['total_pengurangan'] = str_replace(',', '', $validated['total_pengurangan']);
             $validated['grand_total'] = str_replace(',', '', $validated['grand_total']);
+            $validated['bpjs_tk_karyawan'] = str_replace(',', '', $validated['bpjs_tk_karyawan']);
+            $validated['bpjs_jkk'] = str_replace(',', '', $validated['bpjs_jkk']);
+            $validated['bpjs_jkm'] = str_replace(',', '', $validated['bpjs_jkm']);
+            $validated['bpjs_tk_perusahaan'] = str_replace(',', '', $validated['bpjs_tk_perusahaan']);
 
             $user = User::find($request['user_id']);
             $user->update([
@@ -150,7 +158,7 @@ class RekapDataController extends Controller
             ]);
 
             Payroll::create($validated);
-            return redirect('/rekap-data/get-data?mulai='.$request['tanggal_mulai'].'&akhir='.$request['tanggal_akhir'])->with('success', 'Data Berhasil Disimpan');
+            return redirect('/rekap-data/get-data?mulai=' . $request['tanggal_mulai'] . '&akhir=' . $request['tanggal_akhir'])->with('success', 'Data Berhasil Disimpan');
         }
     }
 
