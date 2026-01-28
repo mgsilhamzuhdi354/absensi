@@ -26,24 +26,9 @@ class AbsenController extends Controller
     {
         date_default_timezone_set('Asia/Jakarta');
         $user_login = auth()->user()->id;
-        $tanggal = "";
-        $tglskrg = date('Y-m-d');
-        $tglkmrn = date('Y-m-d', strtotime('-1 days'));
-        $mapping_shift = MappingShift::where('user_id', $user_login)->where('tanggal', $tglkmrn)->get();
-        if($mapping_shift->count() > 0) {
-            foreach($mapping_shift as $mp) {
-                $jam_absen = $mp->jam_absen;
-                $jam_pulang = $mp->jam_pulang;
-            }
-        } else {
-            $jam_absen = "-";
-            $jam_pulang = "-";
-        }
-        if($jam_absen != null && $jam_pulang == null) {
-            $tanggal = $tglkmrn;
-        } else {
-            $tanggal = $tglskrg;
-        }
+        // Always use today's date - if employee didn't clock out yesterday,
+        // admin should manually correct it, rather than blocking today's attendance
+        $tanggal = date('Y-m-d');
 
         if (auth()->user()->is_admin == 'admin') {
             return view('absen.index', [
@@ -61,7 +46,7 @@ class AbsenController extends Controller
 
     public function myLocation(Request $request)
     {
-        return redirect('maps/'.$request["lat"].'/'.$request['long'].'/'.$request['userid']);
+        return redirect('maps/' . $request["lat"] . '/' . $request['long'] . '/' . $request['userid']);
     }
 
     public function absenMasuk(Request $request, $id)
@@ -69,7 +54,7 @@ class AbsenController extends Controller
         date_default_timezone_set('Asia/Jakarta');
 
         // Helper function to return error response
-        $errorResponse = function($title, $message) use ($request) {
+        $errorResponse = function ($title, $message) use ($request) {
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => $message], 400);
             }
@@ -88,44 +73,50 @@ class AbsenController extends Controller
         try {
             // Lock the record for update to prevent race condition
             $mapping_shift = MappingShift::lockForUpdate()->find($id);
-            
+
             if (!$mapping_shift) {
                 DB::rollBack();
                 return $errorResponse('Error', 'Data shift tidak ditemukan.');
             }
-            
+
             // Cek apakah sudah absen masuk hari ini
             if ($mapping_shift->jam_absen != null) {
                 DB::rollBack();
                 return $errorResponse('Sudah Absen', 'Anda sudah melakukan absen masuk hari ini.');
             }
-            
+
             // Cek apakah belum waktunya absen masuk (max 30 menit sebelum jadwal)
             $shift = $mapping_shift->Shift->jam_masuk;
             $tanggal = $mapping_shift->tanggal;
             $waktu_shift = strtotime($tanggal . ' ' . $shift);
             $waktu_sekarang = time();
             $selisih_menit = ($waktu_shift - $waktu_sekarang) / 60;
-            
+
             if ($selisih_menit > 30) {
                 DB::rollBack();
                 return $errorResponse('Belum Waktunya', 'Anda hanya bisa absen masuk maksimal 30 menit sebelum jadwal shift.');
             }
 
-            $lat_kantor = auth()->user()->Lokasi->lat_kantor;
-            $long_kantor = auth()->user()->Lokasi->long_kantor;
-            $radius = auth()->user()->Lokasi->radius;
-            $nama_lokasi = auth()->user()->Lokasi->nama_lokasi;
+            // Check if Lokasi relation exists to prevent null exception
+            $lokasi = auth()->user()->Lokasi;
+            if (!$lokasi) {
+                DB::rollBack();
+                return $errorResponse('Error', 'Lokasi kerja belum diatur. Hubungi admin.');
+            }
+            $lat_kantor = $lokasi->lat_kantor;
+            $long_kantor = $lokasi->long_kantor;
+            $radius = $lokasi->radius;
+            $nama_lokasi = $lokasi->nama_lokasi;
 
             $request["jarak_masuk"] = $this->distance($request["lat_absen"], $request["long_absen"], $lat_kantor, $long_kantor, "K") * 1000;
 
             $request["jam_absen"] = date('H:i');
 
-            if($request["jarak_masuk"] > $radius && $mapping_shift->lock_location == 1) {
+            if ($request["jarak_masuk"] > $radius && $mapping_shift->lock_location == 1) {
                 DB::rollBack();
                 return $errorResponse('Diluar Jangkauan', 'Lokasi Anda Diluar Radius ' . $nama_lokasi);
             }
-            
+
             $foto_jam_absen = $request["foto_jam_absen"];
 
             // Validasi foto tidak kosong dan memiliki format base64 yang valid
@@ -153,9 +144,9 @@ class AbsenController extends Controller
             $tanggal = $mapping_shift->tanggal;
             $tgl_skrg = date("Y-m-d");
 
-            $awal  = strtotime($tanggal . $shift);
+            $awal = strtotime($tanggal . $shift);
             $akhir = strtotime($tgl_skrg . $request["jam_absen"]);
-            $diff  = $akhir - $awal;
+            $diff = $akhir - $awal;
 
             // Determine jenis_kinerja based on telat status
             if ($diff <= 0) {
@@ -169,7 +160,7 @@ class AbsenController extends Controller
             // Check if point already exists for this attendance (prevent duplicate points)
             $existingPoint = LaporanKinerja::where('reference', 'App\Models\MappingShift')
                 ->where('reference_id', $mapping_shift->id)
-                ->whereIn('jenis_kinerja_id', function($query) {
+                ->whereIn('jenis_kinerja_id', function ($query) {
                     $query->select('id')
                         ->from('jenis_kinerjas')
                         ->whereIn('nama', ['Presensi Kehadiran Ontime', 'Telat Presensi Masuk']);
@@ -179,7 +170,7 @@ class AbsenController extends Controller
             if (!$existingPoint && $jenis_kinerja) {
                 $laporan_kinerja_before = LaporanKinerja::where('user_id', auth()->user()->id)->latest()->first();
                 $penilaian_berjalan = $laporan_kinerja_before ? $laporan_kinerja_before->penilaian_berjalan + $jenis_kinerja->bobot : $jenis_kinerja->bobot;
-                
+
                 LaporanKinerja::create([
                     'user_id' => auth()->user()->id,
                     'tanggal' => $tgl_skrg,
@@ -237,9 +228,9 @@ class AbsenController extends Controller
     public function absenPulang(Request $request, $id)
     {
         date_default_timezone_set('Asia/Jakarta');
-        
+
         // Helper function to return error response
-        $errorResponse = function($title, $message) use ($request) {
+        $errorResponse = function ($title, $message) use ($request) {
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => $message], 400);
             }
@@ -258,29 +249,29 @@ class AbsenController extends Controller
         try {
             // Lock the record for update to prevent race condition
             $mapping_shift = MappingShift::lockForUpdate()->find($id);
-            
+
             if (!$mapping_shift) {
                 DB::rollBack();
                 return $errorResponse('Error', 'Data shift tidak ditemukan.');
             }
-            
+
             // Cek apakah sudah absen masuk
             if ($mapping_shift->jam_absen == null) {
                 DB::rollBack();
                 return $errorResponse('Belum Absen Masuk', 'Anda harus absen masuk terlebih dahulu.');
             }
-            
+
             // Cek apakah sudah absen pulang hari ini
             if ($mapping_shift->jam_pulang != null) {
                 DB::rollBack();
                 return $errorResponse('Sudah Absen', 'Anda sudah melakukan absen pulang hari ini.');
             }
-            
+
             // Cek apakah belum waktunya pulang (max 30 menit sebelum jadwal)
             $shiftmasuk = $mapping_shift->Shift->jam_masuk;
             $shiftpulang = $mapping_shift->Shift->jam_keluar;
             $tanggal = $mapping_shift->tanggal;
-            
+
             // Handle shift malam (pulang hari berikutnya)
             $timeMasuk = strtotime($shiftmasuk);
             $timePulang = strtotime($shiftpulang);
@@ -289,31 +280,37 @@ class AbsenController extends Controller
             } else {
                 $tanggal_pulang = $tanggal;
             }
-            
+
             $waktu_pulang = strtotime($tanggal_pulang . ' ' . $shiftpulang);
             $waktu_sekarang = time();
             $selisih_menit = ($waktu_pulang - $waktu_sekarang) / 60;
-            
+
             if ($selisih_menit > 30) {
                 DB::rollBack();
                 $jam_boleh_pulang = date('H:i', strtotime($tanggal_pulang . ' ' . $shiftpulang . ' -30 minutes'));
                 return $errorResponse('Belum Waktunya', 'Anda bisa pulang mulai jam ' . $jam_boleh_pulang . ' (30 menit sebelum jadwal).');
             }
-            
+
             $request["jam_pulang"] = date('H:i');
 
-            $lat_kantor = auth()->user()->Lokasi->lat_kantor ?? null;
-            $long_kantor = auth()->user()->Lokasi->long_kantor ?? null;
-            $radius = auth()->user()->Lokasi->radius ?? null;
-            $nama_lokasi = auth()->user()->Lokasi->nama_lokasi ?? null;
+            // Check if Lokasi relation exists to prevent null exception
+            $lokasi = auth()->user()->Lokasi;
+            if (!$lokasi) {
+                DB::rollBack();
+                return $errorResponse('Error', 'Lokasi kerja belum diatur. Hubungi admin.');
+            }
+            $lat_kantor = $lokasi->lat_kantor;
+            $long_kantor = $lokasi->long_kantor;
+            $radius = $lokasi->radius;
+            $nama_lokasi = $lokasi->nama_lokasi;
 
             $request["jarak_pulang"] = $this->distance($request["lat_pulang"], $request["long_pulang"], $lat_kantor, $long_kantor, "K") * 1000;
 
-            if($request["jarak_pulang"] > $radius && $mapping_shift->lock_location == 1) {
+            if ($request["jarak_pulang"] > $radius && $mapping_shift->lock_location == 1) {
                 DB::rollBack();
                 return $errorResponse('Diluar Jangkauan', 'Lokasi Anda Diluar Radius ' . $nama_lokasi);
             }
-            
+
             $foto_jam_pulang = $request["foto_jam_pulang"];
 
             // Validasi foto tidak kosong dan memiliki format base64 yang valid
@@ -352,8 +349,8 @@ class AbsenController extends Controller
             $tgl_skrg = date("Y-m-d");
 
             $akhir = strtotime($new_tanggal . $shiftpulang);
-            $awal  = strtotime($tgl_skrg . $request["jam_pulang"]);
-            $diff  = $akhir - $awal;
+            $awal = strtotime($tgl_skrg . $request["jam_pulang"]);
+            $diff = $akhir - $awal;
 
             // Determine jenis_kinerja based on pulang_cepat status
             if ($diff <= 0) {
@@ -367,7 +364,7 @@ class AbsenController extends Controller
             // Check if point already exists for this attendance (prevent duplicate points for pulang)
             $existingPoint = LaporanKinerja::where('reference', 'App\Models\MappingShift')
                 ->where('reference_id', $mapping_shift->id)
-                ->whereIn('jenis_kinerja_id', function($query) {
+                ->whereIn('jenis_kinerja_id', function ($query) {
                     $query->select('id')
                         ->from('jenis_kinerjas')
                         ->whereIn('nama', ['Pulang tepat waktu', 'Pulang Sebelum waktunya']);
@@ -377,7 +374,7 @@ class AbsenController extends Controller
             if (!$existingPoint && $jenis_kinerja) {
                 $laporan_kinerja_before = LaporanKinerja::where('user_id', auth()->user()->id)->latest()->first();
                 $penilaian_berjalan = $laporan_kinerja_before ? $laporan_kinerja_before->penilaian_berjalan + $jenis_kinerja->bobot : $jenis_kinerja->bobot;
-                
+
                 LaporanKinerja::create([
                     'user_id' => auth()->user()->id,
                     'tanggal' => $tgl_skrg,
@@ -432,7 +429,7 @@ class AbsenController extends Controller
     public function distance($lat1, $lon1, $lat2, $lon2, $unit)
     {
         $theta = $lon1 - $lon2;
-        $dist = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) +  cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
+        $dist = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
         $dist = acos($dist);
         $dist = rad2deg($dist);
         $miles = $dist * 60 * 1.1515;
@@ -508,9 +505,9 @@ class AbsenController extends Controller
             $user_id = $mp->user_id;
         }
 
-        $awal  = strtotime($tanggal . $shift);
+        $awal = strtotime($tanggal . $shift);
         $akhir = strtotime($tanggal . $request["jam_absen"]);
-        $diff  = $akhir - $awal;
+        $diff = $akhir - $awal;
 
         if ($diff <= 0) {
             $request["telat"] = 0;
@@ -578,8 +575,8 @@ class AbsenController extends Controller
         }
 
         $akhir = strtotime($new_tanggal . $shiftpulang);
-        $awal  = strtotime($new_tanggal . $request["jam_pulang"]);
-        $diff  = $akhir - $awal;
+        $awal = strtotime($new_tanggal . $request["jam_pulang"]);
+        $diff = $akhir - $awal;
 
         if ($diff <= 0) {
             $request["pulang_cepat"] = 0;
@@ -629,11 +626,11 @@ class AbsenController extends Controller
         $tglskrg = date('Y-m-d');
         $data_absen = MappingShift::where('tanggal', $tglskrg)->where('user_id', auth()->user()->id);
 
-        if($request["mulai"] == null) {
+        if ($request["mulai"] == null) {
             $request["mulai"] = $request["akhir"];
         }
 
-        if($request["akhir"] == null) {
+        if ($request["akhir"] == null) {
             $request["akhir"] = $request["mulai"];
         }
 
@@ -686,13 +683,13 @@ class AbsenController extends Controller
 
         $type = 'Approval';
         $notif = 'Pengajuan Absensi Dari ' . auth()->user()->name . ' Butuh Approval Anda';
-        $url = url('/pengajuan-absensi/edit/'.$ms->id);
+        $url = url('/pengajuan-absensi/edit/' . $ms->id);
 
         $user->messages = [
-            'user_id'   =>  auth()->user()->id,
-            'from'   =>  auth()->user()->name,
-            'message'   =>  $notif,
-            'action'   =>  '/pengajuan-absensi/edit/'.$ms->id
+            'user_id' => auth()->user()->id,
+            'from' => auth()->user()->name,
+            'message' => $notif,
+            'action' => '/pengajuan-absensi/edit/' . $ms->id
         ];
         $user->notify(new \App\Notifications\UserNotification);
 
@@ -710,23 +707,23 @@ class AbsenController extends Controller
         $jabatan = Jabatan::find(auth()->user()->jabatan_id);
         $user_id = User::where('jabatan_id', auth()->user()->jabatan_id)->pluck('id');
         $mapping_shift = MappingShift::where('status_pengajuan', '!=', null)
-                                    ->when($jabatan->manager == auth()->user()->id, function ($query) use ($user_id) {
-                                        $query->where(function ($q) use ($user_id) {
-                                            $q->whereIn('user_id', $user_id)
-                                                ->orWhere('user_id', auth()->user()->id);
-                                        });
-                                    })
-                                    ->when($jabatan->manager !== auth()->user()->id, function ($query) {
-                                        $query->where('user_id', auth()->user()->id);
-                                    })
-                                    ->when($search, function ($query) use ($search) {
-                                        $query->whereHas('User', function ($query) use ($search) {
-                                            $query->where('name', 'LIKE', '%'.$search.'%');
-                                        });
-                                    })
-                                    ->orderBy('tanggal', 'DESC')
-                                    ->paginate(10)
-                                    ->withQueryString();
+            ->when($jabatan->manager == auth()->user()->id, function ($query) use ($user_id) {
+                $query->where(function ($q) use ($user_id) {
+                    $q->whereIn('user_id', $user_id)
+                        ->orWhere('user_id', auth()->user()->id);
+                });
+            })
+            ->when($jabatan->manager !== auth()->user()->id, function ($query) {
+                $query->where('user_id', auth()->user()->id);
+            })
+            ->when($search, function ($query) use ($search) {
+                $query->whereHas('User', function ($query) use ($search) {
+                    $query->where('name', 'LIKE', '%' . $search . '%');
+                });
+            })
+            ->orderBy('tanggal', 'DESC')
+            ->paginate(10)
+            ->withQueryString();
 
         return view('absen.indexPengajuan', compact(
             'mapping_shift',
@@ -764,9 +761,9 @@ class AbsenController extends Controller
             $shiftmasuk = $ms->Shift->jam_masuk;
             $tanggal = $ms->tanggal;
 
-            $awal_masuk  = strtotime($tanggal . $shiftmasuk);
+            $awal_masuk = strtotime($tanggal . $shiftmasuk);
             $akhir_masuk = strtotime($tanggal . $ms->jam_masuk_pengajuan);
-            $diff_masuk  = $akhir_masuk - $awal_masuk;
+            $diff_masuk = $akhir_masuk - $awal_masuk;
 
             if ($diff_masuk <= 0) {
                 $telat = 0;
@@ -786,8 +783,8 @@ class AbsenController extends Controller
             }
 
             $akhir_pulang = strtotime($new_tanggal . $shiftpulang);
-            $awal_pulang  = strtotime($new_tanggal . $ms->jam_pulang_pengajuan);
-            $diff_pulang  = $akhir_pulang - $awal_pulang;
+            $awal_pulang = strtotime($new_tanggal . $ms->jam_pulang_pengajuan);
+            $diff_pulang = $akhir_pulang - $awal_pulang;
 
             if ($diff_pulang <= 0) {
                 $pulang_cepat = 0;
@@ -813,13 +810,13 @@ class AbsenController extends Controller
 
             $type = 'Approved';
             $notif = 'Pengajuan Absensi Anda Telah Di Setujui Oleh ' . auth()->user()->name;
-            $url = url('/pengajuan-absensi/edit/'.$ms->id);
+            $url = url('/pengajuan-absensi/edit/' . $ms->id);
 
             $user->messages = [
-                'user_id'   =>  auth()->user()->id,
-                'from'   =>  auth()->user()->name,
-                'message'   =>  $notif,
-                'action'   =>  '/pengajuan-absensi/edit/'.$ms->id
+                'user_id' => auth()->user()->id,
+                'from' => auth()->user()->name,
+                'message' => $notif,
+                'action' => '/pengajuan-absensi/edit/' . $ms->id
             ];
             $user->notify(new \App\Notifications\UserNotification);
 
@@ -831,13 +828,13 @@ class AbsenController extends Controller
 
             $type = 'Rejected';
             $notif = 'Pengajuan Absensi Anda Tidak Setujui Oleh ' . auth()->user()->name;
-            $url = url('/pengajuan-absensi/edit/'.$ms->id);
+            $url = url('/pengajuan-absensi/edit/' . $ms->id);
 
             $user->messages = [
-                'user_id'   =>  auth()->user()->id,
-                'from'   =>  auth()->user()->name,
-                'message'   =>  $notif,
-                'action'   =>  '/pengajuan-absensi/edit/'.$ms->id
+                'user_id' => auth()->user()->id,
+                'from' => auth()->user()->name,
+                'message' => $notif,
+                'action' => '/pengajuan-absensi/edit/' . $ms->id
             ];
             $user->notify(new \App\Notifications\UserNotification);
 
@@ -848,13 +845,13 @@ class AbsenController extends Controller
 
             $type = 'Approval';
             $notif = 'Pengajuan Absensi Dari ' . auth()->user()->name . ' Butuh Approval Anda';
-            $url = url('/pengajuan-absensi/edit/'.$ms->id);
+            $url = url('/pengajuan-absensi/edit/' . $ms->id);
 
             $user->messages = [
-                'user_id'   =>  auth()->user()->id,
-                'from'   =>  auth()->user()->name,
-                'message'   =>  $notif,
-                'action'   =>  '/pengajuan-absensi/edit/'.$ms->id
+                'user_id' => auth()->user()->id,
+                'from' => auth()->user()->name,
+                'message' => $notif,
+                'action' => '/pengajuan-absensi/edit/' . $ms->id
             ];
             $user->notify(new \App\Notifications\UserNotification);
 
