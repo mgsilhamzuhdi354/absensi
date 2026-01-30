@@ -528,6 +528,55 @@
                     </div>
                 </div>
                 
+                <!-- Pengaturan Waktu Absensi -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <h5><i class="fa fa-clock"></i> Pengaturan Waktu Absensi</h5>
+                    </div>
+                    <div class="settings-card-body">
+                        <p class="text-muted mb-4">
+                            <i class="fa fa-info-circle me-1"></i> 
+                            Atur berapa menit sebelum jadwal shift karyawan diizinkan untuk melakukan absensi.
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">
+                                        <i class="fa fa-sign-in-alt me-1 text-success"></i>
+                                        Buffer Absen Masuk (Menit)
+                                    </label>
+                                    <input type="number" min="0" max="120" 
+                                           class="form-control @error('absen_masuk_buffer_menit') is-invalid @enderror" 
+                                           name="absen_masuk_buffer_menit" 
+                                           value="{{ old('absen_masuk_buffer_menit', $data->absen_masuk_buffer_menit ?? 30) }}"
+                                           placeholder="30">
+                                    <small class="text-muted">Karyawan bisa absen masuk maksimal sekian menit sebelum jadwal shift</small>
+                                    @error('absen_masuk_buffer_menit')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">
+                                        <i class="fa fa-sign-out-alt me-1 text-danger"></i>
+                                        Buffer Absen Pulang (Menit)
+                                    </label>
+                                    <input type="number" min="0" max="120" 
+                                           class="form-control @error('absen_pulang_buffer_menit') is-invalid @enderror" 
+                                           name="absen_pulang_buffer_menit" 
+                                           value="{{ old('absen_pulang_buffer_menit', $data->absen_pulang_buffer_menit ?? 30) }}"
+                                           placeholder="30">
+                                    <small class="text-muted">Karyawan bisa absen pulang maksimal sekian menit sebelum jadwal pulang</small>
+                                    @error('absen_pulang_buffer_menit')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Attendance Security Settings -->
                 <div class="settings-card">
                     <div class="settings-card-header">

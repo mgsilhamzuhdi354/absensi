@@ -147,13 +147,27 @@
         });
     }
 
-    // toggle sidebar
+    // toggle sidebar with localStorage support
     var $nav = $(".sidebar-wrapper");
     var $header = $(".page-header");
     var $toggle_nav_top = $(".toggle-sidebar");
+
+    // Check localStorage for saved sidebar state
+    var sidebarState = localStorage.getItem("sidebar-collapsed");
+    if (sidebarState === "true") {
+        $nav.addClass("close_icon");
+        $header.addClass("close_icon");
+    } else if (sidebarState === "false") {
+        $nav.removeClass("close_icon");
+        $header.removeClass("close_icon");
+    }
+
     $toggle_nav_top.on("click", function () {
         $nav.toggleClass("close_icon");
         $header.toggleClass("close_icon");
+        // Save state to localStorage
+        var isCollapsed = $nav.hasClass("close_icon");
+        localStorage.setItem("sidebar-collapsed", isCollapsed);
         $(window).trigger("overlay");
     });
 
@@ -172,12 +186,14 @@
     $(".sidebar-wrapper .back-btn").on("click", function (e) {
         $(".page-header").toggleClass("close_icon");
         $(".sidebar-wrapper").toggleClass("close_icon");
+        localStorage.setItem("sidebar-collapsed", $(".sidebar-wrapper").hasClass("close_icon"));
         $(window).trigger("overlay");
     });
 
     $("body").on("click", ".bg-overlay", function () {
         $header.addClass("close_icon");
         $nav.addClass("close_icon");
+        localStorage.setItem("sidebar-collapsed", "true");
         $(this).remove();
     });
 
@@ -188,31 +204,24 @@
         $toggle_nav_top.attr("checked", false);
         $nav.addClass("close_icon");
         $header.addClass("close_icon");
+        localStorage.setItem("sidebar-collapsed", "true");
     });
 
-    //    responsive sidebar
+    //    responsive sidebar - only apply on initial load if no saved preference
     var $window = $(window);
     var widthwindow = $window.width();
     (function ($) {
         "use strict";
-        if (widthwindow <= 1184) {
+        // Only auto-collapse on small screens if user hasn't set a preference
+        if (sidebarState === null && widthwindow <= 1184) {
             $toggle_nav_top.attr("checked", false);
             $nav.addClass("close_icon");
             $header.addClass("close_icon");
         }
     })(jQuery);
-    $(window).resize(function () {
-        var widthwindaw = $window.width();
-        if (widthwindaw <= 1184) {
-            $toggle_nav_top.attr("checked", false);
-            $nav.addClass("close_icon");
-            $header.addClass("close_icon");
-        } else {
-            $toggle_nav_top.attr("checked", true);
-            $nav.removeClass("close_icon");
-            $header.removeClass("close_icon");
-        }
-    });
+
+    // Remove auto-resize behavior - let user control sidebar state
+    // $(window).resize is intentionally removed to respect user's choice
 
     // horizontal arrows
     var view = $("#sidebar-menu");

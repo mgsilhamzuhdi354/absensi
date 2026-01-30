@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Storage;
+use App\Services\KinerjaService;
 
 
 
@@ -42,16 +43,16 @@ class karyawanController extends Controller
         $sortOrder = in_array($sortOrder, ['asc', 'desc']) ? $sortOrder : 'asc';
 
         $data = User::when($search, function ($query) use ($search) {
-                    $query->where('name', 'LIKE', '%'.$search.'%')
-                          ->orWhere('email', 'LIKE', '%'.$search.'%')
-                          ->orWhere('telepon', 'LIKE', '%'.$search.'%')
-                          ->orWhere('username', 'LIKE', '%'.$search.'%')
-                          ->orWhereHas('Jabatan', function ($query) use ($search) {
-                              $query->where('nama_jabatan', 'LIKE', '%'.$search.'%');
-                          });
-                })
-                ->orderBy($sortBy, $sortOrder);
-        
+            $query->where('name', 'LIKE', '%' . $search . '%')
+                ->orWhere('email', 'LIKE', '%' . $search . '%')
+                ->orWhere('telepon', 'LIKE', '%' . $search . '%')
+                ->orWhere('username', 'LIKE', '%' . $search . '%')
+                ->orWhereHas('Jabatan', function ($query) use ($search) {
+                    $query->where('nama_jabatan', 'LIKE', '%' . $search . '%');
+                });
+        })
+            ->orderBy($sortBy, $sortOrder);
+
         // Check if reorder mode (show all without pagination)
         $reorderMode = request()->input('reorder_mode', false);
         if ($reorderMode) {
@@ -80,9 +81,9 @@ class karyawanController extends Controller
         $user = User::find($id);
         $title = 'List Kontrak';
         $kontraks = Kontrak::where('user_id', $id)
-                            ->orderBy('tanggal', 'DESC')
-                            ->paginate(10)
-                            ->withQueryString();
+            ->orderBy('tanggal', 'DESC')
+            ->paginate(10)
+            ->withQueryString();
 
         return view('karyawan.kontrak', compact(
             'title',
@@ -134,9 +135,9 @@ class karyawanController extends Controller
         date_default_timezone_set('Asia/Jakarta');
 
         $data = User::where('tgl_lahir', date('Y-m-d'))
-                ->orderBy('name', 'ASC')
-                ->paginate(10)
-                ->withQueryString();
+            ->orderBy('name', 'ASC')
+            ->paginate(10)
+            ->withQueryString();
 
         return view('karyawan.euforia', [
             'title' => 'Euforia',
@@ -162,13 +163,13 @@ class karyawanController extends Controller
         ]);
         $nama_file = $request->file('file_excel')->store('file_excel');
 
-        Excel::import(new UsersImport, public_path('/storage/'.$nama_file));
+        Excel::import(new UsersImport, public_path('/storage/' . $nama_file));
         return back()->with('success', 'Data Berhasil Di Import');
     }
 
     public function tambahKaryawan()
     {
-        return view('karyawan.tambah',[
+        return view('karyawan.tambah', [
             "title" => 'Tambah Pegawai',
             "data_jabatan" => Jabatan::all(),
             "data_lokasi" => Lokasi::where('status', 'approved')->where('keterangan', 'Office')->get(),
@@ -250,7 +251,7 @@ class karyawanController extends Controller
         $user = User::create($validatedData);
 
         if ($request->role) {
-            foreach($request->role as $role){
+            foreach ($request->role as $role) {
                 $user->assignRole($role);
             }
         }
@@ -318,7 +319,7 @@ class karyawanController extends Controller
 
         $user = User::find($id);
 
-        foreach($user->roles as $r){
+        foreach ($user->roles as $r) {
             $user->removeRole($r->name);
         }
 
@@ -371,7 +372,7 @@ class karyawanController extends Controller
 
         $user->update($validatedData);
         if ($request->role) {
-            foreach($request->role as $role){
+            foreach ($request->role as $role) {
                 $user->assignRole($role);
             }
         }
@@ -393,7 +394,7 @@ class karyawanController extends Controller
         $neural = File::get($path);
         $dataface = json_decode($neural, true);
 
-        $filterface = array_filter($dataface, function($item) use ($delete) {
+        $filterface = array_filter($dataface, function ($item) use ($delete) {
             return $item['label'] !== $delete->username;
         });
         File::put($path, json_encode(array_values($filterface), JSON_PRETTY_PRINT));
@@ -424,21 +425,20 @@ class karyawanController extends Controller
         $dataface = json_decode($neural, true);
         $user = User::find($request->user_id);
 
-        $filterface = array_filter($dataface, function($item) use ($user) {
+        $filterface = array_filter($dataface, function ($item) use ($user) {
             return $item['label'] !== $user->username;
         });
 
         File::put($path, json_encode(array_values($filterface), JSON_PRETTY_PRINT));
 
         $json = file_get_contents('neural.json');
-        if(strlen($json) > 4){
+        if (strlen($json) > 4) {
             $string = ',' . $request["myData"];
-        }
-        else{
+        } else {
             $string = $request["myData"];
         }
         $position = strlen($json) - 1;
-        $out = substr_replace( $json, $string, $position, 0 );
+        $out = substr_replace($json, $string, $position, 0);
         file_put_contents('neural.json', $out);
     }
 
@@ -474,12 +474,12 @@ class karyawanController extends Controller
     {
         $tanggal = request()->input('tanggal');
         $mapping_shift = MappingShift::where('user_id', $id)
-                                    ->when($tanggal, function ($query) use ($tanggal) {
-                                        return $query->where('tanggal', $tanggal);
-                                    })
-                                    ->orderBy('tanggal', 'DESC')
-                                    ->paginate(100)
-                                    ->withQueryString();
+            ->when($tanggal, function ($query) use ($tanggal) {
+                return $query->where('tanggal', $tanggal);
+            })
+            ->orderBy('tanggal', 'DESC')
+            ->paginate(100)
+            ->withQueryString();
         return view('karyawan.mappingshift', [
             'title' => 'Mapping Shift',
             'karyawan' => User::find($id),
@@ -492,12 +492,12 @@ class karyawanController extends Controller
     {
         $tanggal = request()->input('tanggal');
         $dinas_luar = dinasLuar::where('user_id', $id)
-                        ->when($tanggal, function ($query) use ($tanggal) {
-                            return $query->where('tanggal', $tanggal);
-                        })
-                        ->orderBy('id', 'desc')
-                        ->paginate(10)
-                        ->withQueryString();
+            ->when($tanggal, function ($query) use ($tanggal) {
+                return $query->where('tanggal', $tanggal);
+            })
+            ->orderBy('id', 'desc')
+            ->paginate(10)
+            ->withQueryString();
         return view('karyawan.dinasluar', [
             'title' => 'Mapping Dinas Luar',
             'karyawan' => User::find($id),
@@ -516,16 +516,12 @@ class karyawanController extends Controller
             'tanggal_akhir' => 'required',
         ]);
 
-        if($request["tanggal_mulai"] == null) {
+        if ($request["tanggal_mulai"] == null) {
             $request["tanggal_mulai"] = $request["tanggal_akhir"];
-        } else {
-            $request["tanggal_mulai"] = $request["tanggal_mulai"];
         }
 
-        if($request["tanggal_akhir"] == null) {
+        if ($request["tanggal_akhir"] == null) {
             $request["tanggal_akhir"] = $request["tanggal_mulai"];
-        } else {
-            $request["tanggal_akhir"] = $request["tanggal_akhir"];
         }
 
         $begin = new \DateTime($request["tanggal_mulai"]);
@@ -533,7 +529,7 @@ class karyawanController extends Controller
         $end = $end->modify('+1 day');
 
         $interval = new \DateInterval('P1D'); //referensi : https://en.wikipedia.org/wiki/ISO_8601#Durations
-        $daterange = new \DatePeriod($begin, $interval ,$end);
+        $daterange = new \DatePeriod($begin, $interval, $end);
 
 
         foreach ($daterange as $date) {
@@ -571,16 +567,12 @@ class karyawanController extends Controller
     {
         date_default_timezone_set('Asia/Jakarta');
 
-        if($request["tanggal_mulai"] == null) {
+        if ($request["tanggal_mulai"] == null) {
             $request["tanggal_mulai"] = $request["tanggal_akhir"];
-        } else {
-            $request["tanggal_mulai"] = $request["tanggal_mulai"];
         }
 
-        if($request["tanggal_akhir"] == null) {
+        if ($request["tanggal_akhir"] == null) {
             $request["tanggal_akhir"] = $request["tanggal_mulai"];
-        } else {
-            $request["tanggal_akhir"] = $request["tanggal_akhir"];
         }
 
         $begin = new \DateTime($request["tanggal_mulai"]);
@@ -588,7 +580,7 @@ class karyawanController extends Controller
         $end = $end->modify('+1 day');
 
         $interval = new \DateInterval('P1D'); //referensi : https://en.wikipedia.org/wiki/ISO_8601#Durations
-        $daterange = new \DatePeriod($begin, $interval ,$end);
+        $daterange = new \DatePeriod($begin, $interval, $end);
 
 
         foreach ($daterange as $date) {
@@ -617,6 +609,11 @@ class karyawanController extends Controller
     public function deleteShift(Request $request, $id)
     {
         $delete = MappingShift::find($id);
+        $userId = $delete->user_id;
+
+        // Delete associated performance points before deleting shift
+        KinerjaService::deleteAttendancePoints($id, $userId);
+
         $delete->delete();
         return redirect('/pegawai/shift/' . $request["user_id"])->with('success', 'Data Berhasil di Delete');
     }

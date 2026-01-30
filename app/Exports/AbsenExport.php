@@ -13,9 +13,16 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use App\Models\MappingShift;
 
-class AbsenExport implements FromQuery, WithColumnFormatting, WithMapping, WithHeadings,ShouldAutoSize,WithStyles
+class AbsenExport implements FromQuery, WithColumnFormatting, WithMapping, WithHeadings, ShouldAutoSize, WithStyles
 {
     use Exportable;
+
+    protected $filters;
+
+    public function __construct(array $filters = [])
+    {
+        $this->filters = $filters;
+    }
 
     public function styles(Worksheet $sheet)
     {
@@ -37,7 +44,7 @@ class AbsenExport implements FromQuery, WithColumnFormatting, WithMapping, WithH
         //BOLD FIRST ROW
         return [
             // Style the first row as bold text.
-            1    => ['font' => ['bold' => true]],
+            1 => ['font' => ['bold' => true]],
         ];
     }
 
@@ -60,23 +67,23 @@ class AbsenExport implements FromQuery, WithColumnFormatting, WithMapping, WithH
     public function map($model): array
     {
         $telat = $model->telat;
-        $jam   = floor($telat / (60 * 60));
-        $menit = $telat - ( $jam * (60 * 60) );
-        $menit2 = floor( $menit / 60 );
+        $jam = floor($telat / (60 * 60));
+        $menit = $telat - ($jam * (60 * 60));
+        $menit2 = floor($menit / 60);
         $detik = $telat % 60;
-        if($jam <= 0 && $menit2 <= 0){
+        if ($jam <= 0 && $menit2 <= 0) {
             $late = '-';
         } else {
             $late = $jam . ' Jam ' . $menit2 . ' Menit ' . $detik . ' Detik';
         }
 
         $pulang_cepat = $model->pulang_cepat;
-        $jam_pulang_cepat   = floor($pulang_cepat / (60 * 60));
-        $menit_pulang_cepat = $pulang_cepat - ( $jam_pulang_cepat * (60 * 60) );
-        $menit_pulang_cepat2 = floor( $menit_pulang_cepat / 60 );
+        $jam_pulang_cepat = floor($pulang_cepat / (60 * 60));
+        $menit_pulang_cepat = $pulang_cepat - ($jam_pulang_cepat * (60 * 60));
+        $menit_pulang_cepat2 = floor($menit_pulang_cepat / 60);
         $detik_pulang_cepat = $pulang_cepat % 60;
 
-        if($jam_pulang_cepat <= 0 && $menit_pulang_cepat2 <= 0){
+        if ($jam_pulang_cepat <= 0 && $menit_pulang_cepat2 <= 0) {
             $quick_return = '-';
         } else {
             $quick_return = $jam_pulang_cepat . ' Hour ' . $menit_pulang_cepat2 . ' Minute ' . $detik_pulang_cepat . ' Second';

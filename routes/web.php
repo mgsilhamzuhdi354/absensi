@@ -449,12 +449,12 @@ Route::get('/rapat-kerja/show/{id}', [RapatController::class, 'rapatKerjaShow'])
 Route::get('/rapat-kerja/hadir/{id}', [RapatController::class, 'rapatKerjaHadir'])->middleware('auth');
 Route::post('/rapat-kerja/notulen/{id}', [RapatController::class, 'rapatKerjaNotulen'])->middleware('auth');
 
-Route::get('/inventory', [InventoryController::class, 'index'])->middleware('auth');
-Route::get('/inventory/tambah', [InventoryController::class, 'tambah'])->middleware('auth');
-Route::post('/inventory/store', [InventoryController::class, 'store'])->middleware('auth');
-Route::get('/inventory/edit/{id}', [InventoryController::class, 'edit'])->middleware('auth');
-Route::put('/inventory/update/{id}', [InventoryController::class, 'update'])->middleware('auth');
-Route::delete('/inventory/delete/{id}', [InventoryController::class, 'delete'])->middleware('auth');
+Route::get('/inventory', [InventoryController::class, 'index'])->middleware('admin');
+Route::get('/inventory/tambah', [InventoryController::class, 'tambah'])->middleware('admin');
+Route::post('/inventory/store', [InventoryController::class, 'store'])->middleware('admin');
+Route::get('/inventory/edit/{id}', [InventoryController::class, 'edit'])->middleware('admin');
+Route::put('/inventory/update/{id}', [InventoryController::class, 'update'])->middleware('admin');
+Route::delete('/inventory/delete/{id}', [InventoryController::class, 'delete'])->middleware('admin');
 
 Route::get('/patroli', [PatroliController::class, 'index'])->middleware('auth');
 Route::post('/patroli/store', [PatroliController::class, 'store'])->middleware('auth');

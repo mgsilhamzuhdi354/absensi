@@ -13,9 +13,16 @@ use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 
-class PegawaiExport implements FromQuery, WithColumnFormatting, WithMapping, WithHeadings,ShouldAutoSize,WithStyles
+class PegawaiExport implements FromQuery, WithColumnFormatting, WithMapping, WithHeadings, ShouldAutoSize, WithStyles
 {
     use Exportable;
+
+    protected $filters;
+
+    public function __construct(array $filters = [])
+    {
+        $this->filters = $filters;
+    }
 
     public function styles(Worksheet $sheet)
     {
@@ -37,7 +44,7 @@ class PegawaiExport implements FromQuery, WithColumnFormatting, WithMapping, Wit
         //BOLD FIRST ROW
         return [
             // Style the first row as bold text.
-            1    => ['font' => ['bold' => true]],
+            1 => ['font' => ['bold' => true]],
         ];
     }
 
@@ -151,15 +158,15 @@ class PegawaiExport implements FromQuery, WithColumnFormatting, WithMapping, Wit
     {
         $search = request()->input('search');
         $data = User::when($search, function ($query) use ($search) {
-            $query->where('name', 'LIKE', '%'.$search.'%')
-                  ->orWhere('email', 'LIKE', '%'.$search.'%')
-                  ->orWhere('telepon', 'LIKE', '%'.$search.'%')
-                  ->orWhere('username', 'LIKE', '%'.$search.'%')
-                  ->orWhereHas('Jabatan', function ($query) use ($search) {
-                      $query->where('nama_jabatan', 'LIKE', '%'.$search.'%');
-                  });
+            $query->where('name', 'LIKE', '%' . $search . '%')
+                ->orWhere('email', 'LIKE', '%' . $search . '%')
+                ->orWhere('telepon', 'LIKE', '%' . $search . '%')
+                ->orWhere('username', 'LIKE', '%' . $search . '%')
+                ->orWhereHas('Jabatan', function ($query) use ($search) {
+                    $query->where('nama_jabatan', 'LIKE', '%' . $search . '%');
+                });
         })
-        ->orderBy('name', 'ASC');
+            ->orderBy('name', 'ASC');
 
         return $data;
     }

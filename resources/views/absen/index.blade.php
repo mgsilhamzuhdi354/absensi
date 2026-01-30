@@ -1,25 +1,25 @@
 @extends('templates.dashboard')
 @section('isi')
     @if($shift_karyawan)
-        <?php $skid = $shift_karyawan->id ?>
-        <?php $sktanggal = $shift_karyawan->tanggal ?>
-        <?php $sknamas = $shift_karyawan->Shift->nama_shift  ?>
-        <?php $skjamas = $shift_karyawan->Shift->jam_masuk ?>
-        <?php $skjamkel = $shift_karyawan->Shift->jam_keluar ?>
-        <?php $skjamab = $shift_karyawan->jam_absen ?>
-        <?php $skjampul = $shift_karyawan->jam_pulang ?>
-        <?php $skstatus = $shift_karyawan->status_absen ?>
-        <?php $lock_location = $shift_karyawan->lock_location ?>
+        <?php    $skid = $shift_karyawan->id ?>
+        <?php    $sktanggal = $shift_karyawan->tanggal ?>
+        <?php    $sknamas = $shift_karyawan->Shift->nama_shift  ?>
+        <?php    $skjamas = $shift_karyawan->Shift->jam_masuk ?>
+        <?php    $skjamkel = $shift_karyawan->Shift->jam_keluar ?>
+        <?php    $skjamab = $shift_karyawan->jam_absen ?>
+        <?php    $skjampul = $shift_karyawan->jam_pulang ?>
+        <?php    $skstatus = $shift_karyawan->status_absen ?>
+        <?php    $lock_location = $shift_karyawan->lock_location ?>
     @else
-        <?php $skid = "-" ?>
-        <?php $sktanggal = "-" ?>
-        <?php $sknamas = "-"  ?>
-        <?php $skjamas = "-" ?>
-        <?php $skjamkel = "-" ?>
-        <?php $skjamab = "-" ?>
-        <?php $skjampul = "-" ?>
-        <?php $skstatus = "-" ?>
-        <?php $lock_location = null ?>
+        <?php    $skid = "-" ?>
+        <?php    $sktanggal = "-" ?>
+        <?php    $sknamas = "-"  ?>
+        <?php    $skjamas = "-" ?>
+        <?php    $skjamkel = "-" ?>
+        <?php    $skjamab = "-" ?>
+        <?php    $skjampul = "-" ?>
+        <?php    $skstatus = "-" ?>
+        <?php    $lock_location = null ?>
     @endif
     <div class="container-fluid">
         <center>
@@ -28,38 +28,45 @@
         </center>
 
         <style>
+            /* Pastikan kamera TIDAK mirror */
+            #my_camera video,
+            #my_camera canvas {
+                transform: scaleX(1) !important;
+                -webkit-transform: scaleX(1) !important;
+            }
+
             .jam-digital-malasngoding {
-              overflow: hidden;
-              float: center;
-              width: 100px;
-              margin: 2px auto;
-              border: 0px solid #efefef;
+                overflow: hidden;
+                float: center;
+                width: 100px;
+                margin: 2px auto;
+                border: 0px solid #efefef;
             }
 
             .kotak {
-              float: left;
-              width: 30px;
-              height: 30px;
-              background-color: #189fff;
+                float: left;
+                width: 30px;
+                height: 30px;
+                background-color: #189fff;
             }
 
             .jam-digital-malasngoding p {
-              color: #fff;
-              font-size: 16px;
-              text-align: center;
-              margin-top: 3px;
+                color: #fff;
+                font-size: 16px;
+                text-align: center;
+                margin-top: 3px;
             }
         </style>
 
         <div class="jam-digital-malasngoding">
             <div class="kotak">
-              <p id="jam"></p>
+                <p id="jam"></p>
             </div>
             <div class="kotak">
-              <p id="menit"></p>
+                <p id="menit"></p>
             </div>
             <div class="kotak">
-              <p id="detik"></p>
+                <p id="detik"></p>
             </div>
         </div>
 
@@ -67,11 +74,11 @@
             window.setTimeout("waktu()", 1000);
 
             function waktu() {
-              var waktu = new Date();
-              setTimeout("waktu()", 1000);
-              document.getElementById("jam").innerHTML = waktu.getHours();
-              document.getElementById("menit").innerHTML = waktu.getMinutes();
-              document.getElementById("detik").innerHTML = waktu.getSeconds();
+                var waktu = new Date();
+                setTimeout("waktu()", 1000);
+                document.getElementById("jam").innerHTML = waktu.getHours();
+                document.getElementById("menit").innerHTML = waktu.getMinutes();
+                document.getElementById("detik").innerHTML = waktu.getSeconds();
             }
         </script>
         <br>
@@ -87,44 +94,44 @@
         </div>
 
         @if(!$shift_karyawan)
-        <br>
-        <div class="col-lg-12">
-            <div class="card">
-                <div class="p-4">
-                    <center>
-                        <h2>Hubungi Admin Untuk Input Shift Anda</h2>
-                    </center>
+            <br>
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="p-4">
+                        <center>
+                            <h2>Hubungi Admin Untuk Input Shift Anda</h2>
+                        </center>
+                    </div>
                 </div>
             </div>
-        </div>
         @elseif($skstatus == "Libur")
-        <br>
-        <div class="col-lg-12">
-            <div class="card">
-                <div class="p-4">
-                    <center>
-                        <h2>Hari Ini Anda Libur</h2>
-                    </center>
+            <br>
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="p-4">
+                        <center>
+                            <h2>Hari Ini Anda Libur</h2>
+                        </center>
+                    </div>
                 </div>
             </div>
-        </div>
         @elseif($skstatus == "Cuti")
-        <br>
-        <div class="col-lg-12">
-            <div class="card">
-                <div class="p-4">
-                    <center>
-                        <h2>Hari Ini Anda Cuti</h2>
-                    </center>
+            <br>
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="p-4">
+                        <center>
+                            <h2>Hari Ini Anda Cuti</h2>
+                        </center>
+                    </div>
                 </div>
             </div>
-        </div>
         @else
             @if($skjamab == null)
                 <br>
                 <div class="col-lg-12">
                     <div class="card">
-                        <form method="post" action="{{ url('/absen/masuk/'.$skid) }}" class="p-4">
+                        <form method="post" action="{{ url('/absen/masuk/' . $skid) }}" class="p-4">
                             @method('put')
                             @csrf
                             <div class="form-row">
@@ -136,7 +143,10 @@
                                         @if ($lock_location == null)
                                             <div class="form-group">
                                                 <label for="keterangan_masuk">Keterangan Masuk</label>
-                                                <textarea type="text" class="form-control @error('keterangan_masuk') is-invalid @enderror" id="keterangan_masuk" name="keterangan_masuk">{{ old('keterangan_masuk') }}</textarea>
+                                                <textarea type="text"
+                                                    class="form-control @error('keterangan_masuk') is-invalid @enderror"
+                                                    id="keterangan_masuk"
+                                                    name="keterangan_masuk">{{ old('keterangan_masuk') }}</textarea>
                                                 @error('keterangan_masuk')
                                                     <div class="invalid-feedback">
                                                         {{ $message }}
@@ -157,39 +167,41 @@
                                 </div>
                             </div>
                             <center>
-                                <button type="submit" class="btn btn-primary" id="btnMasuk" value="Ambil Foto" onClick="take_snapshot(); setTimeout(function(){ document.getElementById('btnMasuk').disabled=true; document.getElementById('btnMasuk').innerHTML='Memproses...'; }, 100);">Masuk</button>
+                                <button type="submit" class="btn btn-primary" id="btnMasuk" value="Ambil Foto"
+                                    onClick="take_snapshot(); setTimeout(function(){ document.getElementById('btnMasuk').disabled=true; document.getElementById('btnMasuk').innerHTML='Memproses...'; }, 100);">Masuk</button>
                             </center>
-                            </form>
+                        </form>
                     </div>
                 </div>
 
                 <script type="text/javascript" src="{{ url('webcamjs/webcam.min.js') }}"></script>
                 <script language="JavaScript">
-                Webcam.set({
-                    width: 320,
-                    height: 320,
-                    image_format: 'jpeg',
-                    jpeg_quality: 50
-                });
-                Webcam.attach( '.webcam' );
+                    Webcam.set({
+                        width: 480,
+                        height: 480,
+                        image_format: 'png',
+                        jpeg_quality: 90,
+                        flip_horiz: true  // true = NOT mirrored
+                    });
+                    Webcam.attach('.webcam');
                 </script>
                 <script language="JavaScript">
-                function take_snapshot() {
-                    // take snapshot and get image data
-                    Webcam.snap( function(data_uri) {
+                    function take_snapshot() {
+                        // take snapshot and get image data
+                        Webcam.snap(function (data_uri) {
                             $(".image-tag").val(data_uri);
-                    // display results in page
-                    document.getElementById('results').innerHTML =
-                        '<img src="'+data_uri+'"/>';
-                    } );
-                }
+                            // display results in page
+                            document.getElementById('results').innerHTML =
+                                '<img src="' + data_uri + '"/>';
+                        });
+                    }
                 </script>
 
             @elseif($skjampul == null)
                 <br>
                 <div class="col-lg-12">
                     <div class="card">
-                        <form method="post" class="p-4" action="{{ url('/absen/pulang/'.$skid) }}">
+                        <form method="post" class="p-4" action="{{ url('/absen/pulang/' . $skid) }}">
                             @method('put')
                             @csrf
                             <div class="form-row">
@@ -201,7 +213,10 @@
                                         @if ($lock_location == null)
                                             <div class="form-group">
                                                 <label for="keterangan_pulang">keterangan Pulang</label>
-                                                <textarea type="text" class="form-control @error('keterangan_pulang') is-invalid @enderror" id="keterangan_pulang" name="keterangan_pulang">{{ old('keterangan_pulang') }}</textarea>
+                                                <textarea type="text"
+                                                    class="form-control @error('keterangan_pulang') is-invalid @enderror"
+                                                    id="keterangan_pulang"
+                                                    name="keterangan_pulang">{{ old('keterangan_pulang') }}</textarea>
                                                 @error('keterangan_pulang')
                                                     <div class="invalid-feedback">
                                                         {{ $message }}
@@ -221,7 +236,8 @@
                                 </div>
                             </div>
                             <center>
-                                <button type="submit" class="btn btn-primary" id="btnPulang" value="Ambil Foto" onClick="take_snapshot(); setTimeout(function(){ document.getElementById('btnPulang').disabled=true; document.getElementById('btnPulang').innerHTML='Memproses...'; }, 100);">Pulang</button>
+                                <button type="submit" class="btn btn-primary" id="btnPulang" value="Ambil Foto"
+                                    onClick="take_snapshot(); setTimeout(function(){ document.getElementById('btnPulang').disabled=true; document.getElementById('btnPulang').innerHTML='Memproses...'; }, 100);">Pulang</button>
                             </center>
                         </form>
                     </div>
@@ -229,24 +245,25 @@
 
                 <script type="text/javascript" src="{{ url('webcamjs/webcam.min.js') }}"></script>
                 <script language="JavaScript">
-                Webcam.set({
-                    width: 320,
-                    height: 320,
-                    image_format: 'jpeg',
-                    jpeg_quality: 50
-                });
-                Webcam.attach( '.webcam' );
+                    Webcam.set({
+                        width: 480,
+                        height: 480,
+                        image_format: 'png',
+                        jpeg_quality: 90,
+                        flip_horiz: true  // true = NOT mirrored
+                    });
+                    Webcam.attach('.webcam');
                 </script>
                 <script language="JavaScript">
-                function take_snapshot() {
-                    // take snapshot and get image data
-                    Webcam.snap( function(data_uri) {
+                    function take_snapshot() {
+                        // take snapshot and get image data
+                        Webcam.snap(function (data_uri) {
                             $(".image-tag").val(data_uri);
-                    // display results in page
-                    document.getElementById('results').innerHTML =
-                        '<img src="'+data_uri+'"/>';
-                    } );
-                }
+                            // display results in page
+                            document.getElementById('results').innerHTML =
+                                '<img src="' + data_uri + '"/>';
+                        });
+                    }
                 </script>
             @else
                 <br>

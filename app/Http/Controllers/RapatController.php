@@ -21,11 +21,11 @@ class RapatController extends Controller
         $akhir = request()->input('akhir');
 
         $rapats = Rapat::when($mulai && $akhir, function ($query) use ($mulai, $akhir) {
-                                        return $query->whereBetween('tanggal', [$mulai, $akhir]);
-                                    })
-                                    ->orderBy('id', 'DESC')
-                                    ->paginate(10)
-                                    ->withQueryString();
+            return $query->whereBetween('tanggal', [$mulai, $akhir]);
+        })
+            ->orderBy('id', 'DESC')
+            ->paginate(10)
+            ->withQueryString();
 
         return view('rapat.index', compact(
             'title',
@@ -80,10 +80,10 @@ class RapatController extends Controller
                 $url = url('/rapat-kerja');
 
                 $user->messages = [
-                    'user_id'   =>  auth()->user()->id,
-                    'from'   =>  auth()->user()->name,
-                    'message'   =>  $notif,
-                    'action'   =>  '/rapat-kerja'
+                    'user_id' => auth()->user()->id,
+                    'from' => auth()->user()->name,
+                    'message' => $notif,
+                    'action' => '/rapat-kerja'
                 ];
                 $user->notify(new UserNotification);
                 NotifApproval::dispatch($type, $user->id, $notif, $url);
@@ -146,10 +146,10 @@ class RapatController extends Controller
                 $url = url('/rapat-kerja');
 
                 $user->messages = [
-                    'user_id'   =>  auth()->user()->id,
-                    'from'   =>  auth()->user()->name,
-                    'message'   =>  $notif,
-                    'action'   =>  '/rapat-kerja'
+                    'user_id' => auth()->user()->id,
+                    'from' => auth()->user()->name,
+                    'message' => $notif,
+                    'action' => '/rapat-kerja'
                 ];
                 $user->notify(new UserNotification);
                 NotifApproval::dispatch($type, $user->id, $notif, $url);
@@ -161,6 +161,13 @@ class RapatController extends Controller
     public function delete($id)
     {
         $rapat = Rapat::find($id);
+
+        // Delete associated performance points for all attendees
+        $attendees = RapatPegawai::where('rapat_id', $rapat->id)->where('status', 'Hadir')->get();
+        foreach ($attendees as $attendee) {
+            \App\Services\KinerjaService::deleteRapatPoints($id, $attendee->user_id);
+        }
+
         RapatPegawai::where('rapat_id', $rapat->id)->delete();
         RapatNotulen::where('rapat_id', $rapat->id)->delete();
         $rapat->delete();
@@ -171,10 +178,10 @@ class RapatController extends Controller
     {
         $title = 'Rapat Kerja';
         $rapats = Rapat::whereHas('pegawai', function ($query) {
-                            return $query->where('user_id', auth()->user()->id);
-                        })
-                        ->orderBy('id', 'DESC')
-                        ->paginate(10);
+            return $query->where('user_id', auth()->user()->id);
+        })
+            ->orderBy('id', 'DESC')
+            ->paginate(10);
 
         return view('rapat.rapatKerja', compact(
             'title',
@@ -215,9 +222,12 @@ class RapatController extends Controller
                 'hadir' => date('Y-m-d H:i:s'),
                 'status' => 'Hadir'
             ]);
+
+            // Add performance points for attending meeting
+            \App\Services\KinerjaService::updateRapatPoints($id, auth()->user()->id, true);
         }
 
-        return redirect('/rapat-kerja/show/'.$rapat->id.'?hadir=yes')->with('success', 'Berhasil Hadir');
+        return redirect('/rapat-kerja/show/' . $rapat->id . '?hadir=yes')->with('success', 'Berhasil Hadir');
     }
 
     public function rapatKerjaNotulen(Request $request, $id)
@@ -232,7 +242,7 @@ class RapatController extends Controller
             'notulen' => $request->notulen,
         ]);
 
-        return redirect('/rapat-kerja/show/'.$rapat->id.'?notulen=yes')->with('success', 'Notulen Berhasil Disimpan');
+        return redirect('/rapat-kerja/show/' . $rapat->id . '?notulen=yes')->with('success', 'Notulen Berhasil Disimpan');
     }
 
 

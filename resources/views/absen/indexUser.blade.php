@@ -13,7 +13,8 @@
                     <div class="inner-left d-flex justify-content-between align-items-center">
                         <span>Shift</span>
                     </div>
-                    <span>{{ $shift_karyawan->Shift->nama_shift ?? '' }} ({{ $shift_karyawan->Shift->jam_masuk ?? '' }} - {{ $shift_karyawan->Shift->jam_keluar ?? '' }})</span>
+                    <span>{{ $shift_karyawan->Shift->nama_shift ?? '' }} ({{ $shift_karyawan->Shift->jam_masuk ?? '' }} -
+                        {{ $shift_karyawan->Shift->jam_keluar ?? '' }})</span>
                 </div>
             </div>
         </div>
@@ -21,38 +22,45 @@
 
     <br>
     <style>
+        /* Pastikan kamera TIDAK mirror */
+        #my_camera video,
+        #my_camera canvas {
+            transform: scaleX(1) !important;
+            -webkit-transform: scaleX(1) !important;
+        }
+
         .jam-digital-malasngoding {
-          overflow: hidden;
-          float: center;
-          width: 100px;
-          margin: 2px auto;
-          border: 0px solid #efefef;
+            overflow: hidden;
+            float: center;
+            width: 100px;
+            margin: 2px auto;
+            border: 0px solid #efefef;
         }
 
         .kotak {
-          float: left;
-          width: 30px;
-          height: 30px;
-          background-color: #189fff;
+            float: left;
+            width: 30px;
+            height: 30px;
+            background-color: #189fff;
         }
 
         .jam-digital-malasngoding p {
-          color: #fff;
-          font-size: 16px;
-          text-align: center;
-          margin-top: 3px;
+            color: #fff;
+            font-size: 16px;
+            text-align: center;
+            margin-top: 3px;
         }
     </style>
 
     <div class="jam-digital-malasngoding">
         <div class="kotak">
-          <p id="jam"></p>
+            <p id="jam"></p>
         </div>
         <div class="kotak">
-          <p id="menit"></p>
+            <p id="menit"></p>
         </div>
         <div class="kotak">
-          <p id="detik"></p>
+            <p id="detik"></p>
         </div>
     </div>
 
@@ -60,11 +68,11 @@
         window.setTimeout("waktu()", 1000);
 
         function waktu() {
-          var waktu = new Date();
-          setTimeout("waktu()", 1000);
-          document.getElementById("jam").innerHTML = waktu.getHours();
-          document.getElementById("menit").innerHTML = waktu.getMinutes();
-          document.getElementById("detik").innerHTML = waktu.getSeconds();
+            var waktu = new Date();
+            setTimeout("waktu()", 1000);
+            document.getElementById("jam").innerHTML = waktu.getHours();
+            document.getElementById("menit").innerHTML = waktu.getMinutes();
+            document.getElementById("detik").innerHTML = waktu.getSeconds();
         }
     </script>
     <br>
@@ -94,7 +102,7 @@
             </center>
         @else
             @if ($shift_karyawan->jam_absen == null)
-                <form class="tf-form" action="{{ url('/absen/masuk/'.$shift_karyawan->id) }}" method="POST">
+                <form class="tf-form" action="{{ url('/absen/masuk/' . $shift_karyawan->id) }}" method="POST">
                     @method('PUT')
                     @csrf
                     <div class="tf-container">
@@ -106,22 +114,24 @@
                         @if ($shift_karyawan->lock_location == null)
                             <div class="group-input">
                                 <label>Keterangan Masuk</label>
-                                <textarea name="keterangan_masuk" class="@error('keterangan_masuk') is-invalid @enderror">{{ old('keterangan_masuk') }}</textarea>
+                                <textarea name="keterangan_masuk"
+                                    class="@error('keterangan_masuk') is-invalid @enderror">{{ old('keterangan_masuk') }}</textarea>
                                 @error('keterangan_masuk')
                                     <div class="invalid-feedback">
                                         {{ $message }}
                                     </div>
                                 @enderror
                             </div>
-                            @endif
-                            <input type="hidden" name="jam_absen">
-                            <input type="hidden" name="foto_jam_absen" class="image-tag">
-                            <input type="hidden" name="lat_absen" id="lat">
-                            <input type="hidden" name="long_absen" id="long">
-                            <input type="hidden" name="telat">
-                            <input type="hidden" name="jarak_masuk">
-                            <input type="hidden" name="status_absen">
-                        <button type="submit" class="tf-btn accent large" id="btnMasuk" onClick="take_snapshot(); setTimeout(function(){ document.getElementById('btnMasuk').disabled=true; document.getElementById('btnMasuk').innerHTML='Memproses...'; }, 100);">Save</button>
+                        @endif
+                        <input type="hidden" name="jam_absen">
+                        <input type="hidden" name="foto_jam_absen" class="image-tag">
+                        <input type="hidden" name="lat_absen" id="lat">
+                        <input type="hidden" name="long_absen" id="long">
+                        <input type="hidden" name="telat">
+                        <input type="hidden" name="jarak_masuk">
+                        <input type="hidden" name="status_absen">
+                        <button type="submit" class="tf-btn accent large" id="btnMasuk"
+                            onClick="take_snapshot(); setTimeout(function(){ document.getElementById('btnMasuk').disabled=true; document.getElementById('btnMasuk').innerHTML='Memproses...'; }, 100);">Save</button>
                     </div>
                 </form>
                 <br>
@@ -132,50 +142,83 @@
                 <script type="text/javascript" src="{{ url('webcamjs/webcam.min.js') }}"></script>
                 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
                 <script language="JavaScript">
-                Webcam.set({
-                    width: 320,
-                    height: 320,
-                    image_format: 'jpeg',
-                    jpeg_quality: 50
-                });
-                
-                Webcam.on('error', function(err) {
-                    let errorMessage = 'Tidak dapat mengakses kamera.';
-                    let solution = '';
-                    
-                    if (err.name === 'NotAllowedError' || (err.message && err.message.includes('Permission denied'))) {
-                        errorMessage = 'Izin kamera ditolak.';
-                        solution = '1. Klik ikon gembok di address bar<br>2. Ubah Camera menjadi Allow<br>3. Refresh halaman';
-                    } else if (err.name === 'NotFoundError') {
-                        errorMessage = 'Kamera tidak ditemukan.';
-                        solution = 'Pastikan perangkat memiliki kamera yang terhubung.';
-                    } else if (err.name === 'NotReadableError') {
-                        errorMessage = 'Kamera tidak bisa diakses.';
-                        solution = '<b>Tutup aplikasi lain yang menggunakan kamera</b> (seperti Zoom, Teams, Skype, atau browser tab lain), lalu refresh halaman ini.';
-                    }
-                    
-                    Swal.fire({ 
-                        icon: 'error', 
-                        title: 'Kamera Error', 
-                        html: '<b>' + errorMessage + '</b><br><br>' + solution,
-                        confirmButtonColor: '#4f46e5' 
+                    Webcam.set({
+                        width: 480,
+                        height: 480,
+                        image_format: 'png',
+                        jpeg_quality: 90,
+                        flip_horiz: true  // true = NOT mirrored (normal view)
                     });
-                });
-                
-                Webcam.attach( '#my_camera' );
+
+                    Webcam.on('error', function (err) {
+                        let errorMessage = 'Tidak dapat mengakses kamera.';
+                        let solution = '';
+
+                        if (err.name === 'NotAllowedError' || (err.message && err.message.includes('Permission denied'))) {
+                            errorMessage = 'Izin kamera ditolak.';
+                            solution = '1. Klik ikon gembok di address bar<br>2. Ubah Camera menjadi Allow<br>3. Refresh halaman';
+                        } else if (err.name === 'NotFoundError') {
+                            errorMessage = 'Kamera tidak ditemukan.';
+                            solution = 'Pastikan perangkat memiliki kamera yang terhubung.';
+                        } else if (err.name === 'NotReadableError') {
+                            errorMessage = 'Kamera tidak bisa diakses.';
+                            solution = '<b>Tutup aplikasi lain yang menggunakan kamera</b> (seperti Zoom, Teams, Skype, atau browser tab lain), lalu refresh halaman ini.';
+                        }
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Kamera Error',
+                            html: '<b>' + errorMessage + '</b><br><br>' + solution,
+                            confirmButtonColor: '#4f46e5'
+                        });
+                    });
+
+                    Webcam.attach('#my_camera');
                 </script>
                 <script language="JavaScript">
-                function take_snapshot() {
-                    Webcam.snap( function(data_uri) {
-                        $(".image-tag").val(data_uri);
-                        document.getElementById('my_camera').style.display = 'none';
-                        document.getElementById('results').style.display = 'block';
-                        document.getElementById('results').innerHTML = '<img src="'+data_uri+'"/>';
-                    } );
-                }
+                    function take_snapshot() {
+                        // Validate webcam is ready
+                        if (!Webcam.live) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Kamera Belum Siap',
+                                text: 'Mohon tunggu kamera siap terlebih dahulu.',
+                                confirmButtonColor: '#3085d6'
+                            });
+                            var btnMasuk = document.getElementById('btnMasuk');
+                            if (btnMasuk) {
+                                btnMasuk.disabled = false;
+                                btnMasuk.innerHTML = 'Save';
+                            }
+                            return false;
+                        }
+
+                        Webcam.snap(function (data_uri) {
+                            // Validate captured image
+                            if (!data_uri || data_uri === 'data:,' || !data_uri.includes(';base64,')) {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Gagal Mengambil Foto',
+                                    text: 'Foto tidak dapat diambil. Silakan coba lagi.',
+                                    confirmButtonColor: '#3085d6'
+                                });
+                                var btnMasuk = document.getElementById('btnMasuk');
+                                if (btnMasuk) {
+                                    btnMasuk.disabled = false;
+                                    btnMasuk.innerHTML = 'Save';
+                                }
+                                return false;
+                            }
+
+                            $(".image-tag").val(data_uri);
+                            document.getElementById('my_camera').style.display = 'none';
+                            document.getElementById('results').style.display = 'block';
+                            document.getElementById('results').innerHTML = '<img src="' + data_uri + '"/>';
+                        });
+                    }
                 </script>
             @elseif($shift_karyawan->jam_pulang == null)
-                <form class="tf-form" action="{{ url('/absen/pulang/'.$shift_karyawan->id) }}" method="POST">
+                <form class="tf-form" action="{{ url('/absen/pulang/' . $shift_karyawan->id) }}" method="POST">
                     @method('PUT')
                     @csrf
                     <div class="tf-container">
@@ -187,21 +230,23 @@
                         @if ($shift_karyawan->lock_location == null)
                             <div class="group-input">
                                 <label>Keterangan Pulang</label>
-                                <textarea name="keterangan_pulang" class="@error('keterangan_pulang') is-invalid @enderror">{{ old('keterangan_pulang') }}</textarea>
+                                <textarea name="keterangan_pulang"
+                                    class="@error('keterangan_pulang') is-invalid @enderror">{{ old('keterangan_pulang') }}</textarea>
                                 @error('keterangan_pulang')
                                     <div class="invalid-feedback">
                                         {{ $message }}
                                     </div>
                                 @enderror
                             </div>
-                            @endif
-                            <input type="hidden" name="jam_pulang">
-                            <input type="hidden" name="foto_jam_pulang" class="image-tag">
-                            <input type="hidden" name="lat_pulang" id="lat">
-                            <input type="hidden" name="long_pulang" id="long">
-                            <input type="hidden" name="pulang_cepat">
-                            <input type="hidden" name="jarak_pulang">
-                        <button type="submit" class="tf-btn accent large" id="btnPulang" onClick="take_snapshot(); setTimeout(function(){ document.getElementById('btnPulang').disabled=true; document.getElementById('btnPulang').innerHTML='Memproses...'; }, 100);">Save</button>
+                        @endif
+                        <input type="hidden" name="jam_pulang">
+                        <input type="hidden" name="foto_jam_pulang" class="image-tag">
+                        <input type="hidden" name="lat_pulang" id="lat">
+                        <input type="hidden" name="long_pulang" id="long">
+                        <input type="hidden" name="pulang_cepat">
+                        <input type="hidden" name="jarak_pulang">
+                        <button type="submit" class="tf-btn accent large" id="btnPulang"
+                            onClick="take_snapshot(); setTimeout(function(){ document.getElementById('btnPulang').disabled=true; document.getElementById('btnPulang').innerHTML='Memproses...'; }, 100);">Save</button>
                     </div>
                 </form>
                 <br>
@@ -212,47 +257,80 @@
                 <script type="text/javascript" src="{{ url('webcamjs/webcam.min.js') }}"></script>
                 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
                 <script language="JavaScript">
-                Webcam.set({
-                    width: 320,
-                    height: 320,
-                    image_format: 'jpeg',
-                    jpeg_quality: 50
-                });
-                
-                Webcam.on('error', function(err) {
-                    let errorMessage = 'Tidak dapat mengakses kamera.';
-                    let solution = '';
-                    
-                    if (err.name === 'NotAllowedError' || (err.message && err.message.includes('Permission denied'))) {
-                        errorMessage = 'Izin kamera ditolak.';
-                        solution = '1. Klik ikon gembok di address bar<br>2. Ubah Camera menjadi Allow<br>3. Refresh halaman';
-                    } else if (err.name === 'NotFoundError') {
-                        errorMessage = 'Kamera tidak ditemukan.';
-                        solution = 'Pastikan perangkat memiliki kamera yang terhubung.';
-                    } else if (err.name === 'NotReadableError') {
-                        errorMessage = 'Kamera tidak bisa diakses.';
-                        solution = '<b>Tutup aplikasi lain yang menggunakan kamera</b> (seperti Zoom, Teams, Skype, atau browser tab lain), lalu refresh halaman ini.';
-                    }
-                    
-                    Swal.fire({ 
-                        icon: 'error', 
-                        title: 'Kamera Error', 
-                        html: '<b>' + errorMessage + '</b><br><br>' + solution,
-                        confirmButtonColor: '#4f46e5' 
+                    Webcam.set({
+                        width: 480,
+                        height: 480,
+                        image_format: 'png',
+                        jpeg_quality: 90,
+                        flip_horiz: true  // true = NOT mirrored (normal view)
                     });
-                });
-                
-                Webcam.attach( '#my_camera' );
+
+                    Webcam.on('error', function (err) {
+                        let errorMessage = 'Tidak dapat mengakses kamera.';
+                        let solution = '';
+
+                        if (err.name === 'NotAllowedError' || (err.message && err.message.includes('Permission denied'))) {
+                            errorMessage = 'Izin kamera ditolak.';
+                            solution = '1. Klik ikon gembok di address bar<br>2. Ubah Camera menjadi Allow<br>3. Refresh halaman';
+                        } else if (err.name === 'NotFoundError') {
+                            errorMessage = 'Kamera tidak ditemukan.';
+                            solution = 'Pastikan perangkat memiliki kamera yang terhubung.';
+                        } else if (err.name === 'NotReadableError') {
+                            errorMessage = 'Kamera tidak bisa diakses.';
+                            solution = '<b>Tutup aplikasi lain yang menggunakan kamera</b> (seperti Zoom, Teams, Skype, atau browser tab lain), lalu refresh halaman ini.';
+                        }
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Kamera Error',
+                            html: '<b>' + errorMessage + '</b><br><br>' + solution,
+                            confirmButtonColor: '#4f46e5'
+                        });
+                    });
+
+                    Webcam.attach('#my_camera');
                 </script>
                 <script language="JavaScript">
-                function take_snapshot() {
-                    Webcam.snap( function(data_uri) {
-                        $(".image-tag").val(data_uri);
-                        document.getElementById('my_camera').style.display = 'none';
-                        document.getElementById('results').style.display = 'block';
-                        document.getElementById('results').innerHTML = '<img src="'+data_uri+'"/>';
-                    } );
-                }
+                    function take_snapshot() {
+                        // Validate webcam is ready
+                        if (!Webcam.live) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Kamera Belum Siap',
+                                text: 'Mohon tunggu kamera siap terlebih dahulu.',
+                                confirmButtonColor: '#3085d6'
+                            });
+                            var btnPulang = document.getElementById('btnPulang');
+                            if (btnPulang) {
+                                btnPulang.disabled = false;
+                                btnPulang.innerHTML = 'Save';
+                            }
+                            return false;
+                        }
+
+                        Webcam.snap(function (data_uri) {
+                            // Validate captured image
+                            if (!data_uri || data_uri === 'data:,' || !data_uri.includes(';base64,')) {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Gagal Mengambil Foto',
+                                    text: 'Foto tidak dapat diambil. Silakan coba lagi.',
+                                    confirmButtonColor: '#3085d6'
+                                });
+                                var btnPulang = document.getElementById('btnPulang');
+                                if (btnPulang) {
+                                    btnPulang.disabled = false;
+                                    btnPulang.innerHTML = 'Save';
+                                }
+                                return false;
+                            }
+
+                            $(".image-tag").val(data_uri);
+                            document.getElementById('my_camera').style.display = 'none';
+                            document.getElementById('results').style.display = 'block';
+                            document.getElementById('results').innerHTML = '<img src="' + data_uri + '"/>';
+                        });
+                    }
                 </script>
             @else
                 <center>

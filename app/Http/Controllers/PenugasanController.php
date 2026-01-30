@@ -24,11 +24,11 @@ class PenugasanController extends Controller
         $akhir = request()->input('akhir');
 
         $penugasans = Penugasan::when($mulai && $akhir, function ($query) use ($mulai, $akhir) {
-                                        return $query->whereBetween('tanggal', [$mulai, $akhir]);
-                                    })
-                                    ->orderBy('id', 'DESC')
-                                    ->paginate(10)
-                                    ->withQueryString();
+            return $query->whereBetween('tanggal', [$mulai, $akhir]);
+        })
+            ->orderBy('id', 'DESC')
+            ->paginate(10)
+            ->withQueryString();
 
         return view('penugasan.index', compact(
             'title',
@@ -64,8 +64,8 @@ class PenugasanController extends Controller
         $counter->update(['counter' => $counter->counter + 1]);
         $next_number = str_pad($counter->counter, 8, '0', STR_PAD_LEFT);
         $format = collect(explode(' ', $user->name))
-                    ->map(fn($word) => strtoupper(substr($word, 0, 1)))
-                    ->implode('');
+            ->map(fn($word) => strtoupper(substr($word, 0, 1)))
+            ->implode('');
         $validated['nomor_penugasan'] = $format . '-' . $next_number;
 
         $penugasan = Penugasan::create($validated);
@@ -82,10 +82,10 @@ class PenugasanController extends Controller
         $url = url('/penugasan-kerja');
 
         $user->messages = [
-            'user_id'   =>  auth()->user()->id,
-            'from'   =>  auth()->user()->name,
-            'message'   =>  $notif,
-            'action'   =>  '/penugasan-kerja'
+            'user_id' => auth()->user()->id,
+            'from' => auth()->user()->name,
+            'message' => $notif,
+            'action' => '/penugasan-kerja'
         ];
         $user->notify(new UserNotification);
 
@@ -129,8 +129,8 @@ class PenugasanController extends Controller
             $counter->update(['counter' => $counter->counter + 1]);
             $next_number = str_pad($counter->counter, 8, '0', STR_PAD_LEFT);
             $format = collect(explode(' ', $user->name))
-                        ->map(fn($word) => strtoupper(substr($word, 0, 1)))
-                        ->implode('');
+                ->map(fn($word) => strtoupper(substr($word, 0, 1)))
+                ->implode('');
             $validated['nomor_penugasan'] = $format . '-' . $next_number;
         }
 
@@ -149,10 +149,10 @@ class PenugasanController extends Controller
         $url = url('/penugasan-kerja');
 
         $user->messages = [
-            'user_id'   =>  auth()->user()->id,
-            'from'   =>  auth()->user()->name,
-            'message'   =>  $notif,
-            'action'   =>  '/penugasan-kerja'
+            'user_id' => auth()->user()->id,
+            'from' => auth()->user()->name,
+            'message' => $notif,
+            'action' => '/penugasan-kerja'
         ];
         $user->notify(new UserNotification);
 
@@ -166,6 +166,11 @@ class PenugasanController extends Controller
     public function delete($id)
     {
         $penugasan = Penugasan::find($id);
+        $userId = $penugasan->user_id;
+
+        // Delete associated performance points before deleting penugasan
+        \App\Services\KinerjaService::deletePenugasanPoints($id, $userId);
+
         $penugasan->delete();
         return redirect('/penugasan')->with('success', 'Data Berhasil Didelete');
     }

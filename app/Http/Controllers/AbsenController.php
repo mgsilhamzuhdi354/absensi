@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Storage;
 use RealRashid\SweetAlert\Facades\Alert;
 use App\Http\Controllers\AttendanceSecurityController;
 use Illuminate\Support\Facades\DB;
+use App\Services\KinerjaService;
 
 class AbsenController extends Controller
 {
@@ -72,6 +73,7 @@ class AbsenController extends Controller
         DB::beginTransaction();
         try {
             // Lock the record for update to prevent race condition
+            /** @var MappingShift|null $mapping_shift */
             $mapping_shift = MappingShift::lockForUpdate()->find($id);
 
             if (!$mapping_shift) {
@@ -85,16 +87,18 @@ class AbsenController extends Controller
                 return $errorResponse('Sudah Absen', 'Anda sudah melakukan absen masuk hari ini.');
             }
 
-            // Cek apakah belum waktunya absen masuk (max 30 menit sebelum jadwal)
+            // Cek apakah belum waktunya absen masuk
+            $settingsData = settings::first();
+            $bufferMasuk = $settingsData->absen_masuk_buffer_menit ?? 30;
             $shift = $mapping_shift->Shift->jam_masuk;
             $tanggal = $mapping_shift->tanggal;
             $waktu_shift = strtotime($tanggal . ' ' . $shift);
             $waktu_sekarang = time();
             $selisih_menit = ($waktu_shift - $waktu_sekarang) / 60;
 
-            if ($selisih_menit > 30) {
+            if ($selisih_menit > $bufferMasuk) {
                 DB::rollBack();
-                return $errorResponse('Belum Waktunya', 'Anda hanya bisa absen masuk maksimal 30 menit sebelum jadwal shift.');
+                return $errorResponse('Belum Waktunya', 'Anda hanya bisa absen masuk maksimal ' . $bufferMasuk . ' menit sebelum jadwal shift.');
             }
 
             // Check if Lokasi relation exists to prevent null exception
@@ -117,25 +121,38 @@ class AbsenController extends Controller
                 return $errorResponse('Diluar Jangkauan', 'Lokasi Anda Diluar Radius ' . $nama_lokasi);
             }
 
-            $foto_jam_absen = $request["foto_jam_absen"];
+            try {
+                $foto_jam_absen = $request["foto_jam_absen"];
 
-            // Validasi foto tidak kosong dan memiliki format base64 yang valid
-            if (empty($foto_jam_absen) || !str_contains($foto_jam_absen, ';base64,')) {
+                // Validasi foto tidak kosong dan memiliki format base64 yang valid
+                if (empty($foto_jam_absen) || !str_contains($foto_jam_absen, ';base64,')) {
+                    DB::rollBack();
+                    return $errorResponse('Error', 'Foto absen masuk tidak valid. Silakan ambil foto ulang.');
+                }
+
+                $image_parts = explode(";base64,", $foto_jam_absen);
+
+                if (!isset($image_parts[1]) || empty($image_parts[1])) {
+                    DB::rollBack();
+                    return $errorResponse('Error', 'Data foto tidak lengkap. Silakan ambil foto ulang.');
+                }
+
+                $image_base64 = base64_decode($image_parts[1], true);
+
+                // Validate base64 decode success
+                if ($image_base64 === false) {
+                    DB::rollBack();
+                    return $errorResponse('Error', 'Gagal memproses foto. Silakan coba lagi.');
+                }
+
+                $fileName = 'foto_jam_absen/' . uniqid() . '.png';
+
+                Storage::disk('public')->put($fileName, $image_base64);
+            } catch (\Exception $e) {
                 DB::rollBack();
-                return $errorResponse('Error', 'Foto absen masuk tidak valid. Silakan ambil foto ulang.');
+                \Log::error('Absen Masuk Image Processing Error: ' . $e->getMessage());
+                return $errorResponse('Error', 'Terjadi kesalahan saat memproses foto. Silakan coba lagi.');
             }
-
-            $image_parts = explode(";base64,", $foto_jam_absen);
-
-            if (!isset($image_parts[1])) {
-                DB::rollBack();
-                return $errorResponse('Error', 'Format foto tidak valid. Silakan ambil foto ulang.');
-            }
-
-            $image_base64 = base64_decode($image_parts[1]);
-            $fileName = 'foto_jam_absen/' . uniqid() . '.png';
-
-            Storage::disk('public')->put($fileName, $image_base64);
 
             $request["foto_jam_absen"] = $fileName;
             $request["status_absen"] = "Masuk";
@@ -248,6 +265,7 @@ class AbsenController extends Controller
         DB::beginTransaction();
         try {
             // Lock the record for update to prevent race condition
+            /** @var MappingShift|null $mapping_shift */
             $mapping_shift = MappingShift::lockForUpdate()->find($id);
 
             if (!$mapping_shift) {
@@ -285,10 +303,12 @@ class AbsenController extends Controller
             $waktu_sekarang = time();
             $selisih_menit = ($waktu_pulang - $waktu_sekarang) / 60;
 
-            if ($selisih_menit > 30) {
+            $settingsData = settings::first();
+            $bufferPulang = $settingsData->absen_pulang_buffer_menit ?? 30;
+            if ($selisih_menit > $bufferPulang) {
                 DB::rollBack();
-                $jam_boleh_pulang = date('H:i', strtotime($tanggal_pulang . ' ' . $shiftpulang . ' -30 minutes'));
-                return $errorResponse('Belum Waktunya', 'Anda bisa pulang mulai jam ' . $jam_boleh_pulang . ' (30 menit sebelum jadwal).');
+                $jam_boleh_pulang = date('H:i', strtotime($tanggal_pulang . ' ' . $shiftpulang . ' -' . $bufferPulang . ' minutes'));
+                return $errorResponse('Belum Waktunya', 'Anda bisa pulang mulai jam ' . $jam_boleh_pulang . ' (' . $bufferPulang . ' menit sebelum jadwal).');
             }
 
             $request["jam_pulang"] = date('H:i');
@@ -311,25 +331,38 @@ class AbsenController extends Controller
                 return $errorResponse('Diluar Jangkauan', 'Lokasi Anda Diluar Radius ' . $nama_lokasi);
             }
 
-            $foto_jam_pulang = $request["foto_jam_pulang"];
+            try {
+                $foto_jam_pulang = $request["foto_jam_pulang"];
 
-            // Validasi foto tidak kosong dan memiliki format base64 yang valid
-            if (empty($foto_jam_pulang) || !str_contains($foto_jam_pulang, ';base64,')) {
+                // Validasi foto tidak kosong dan memiliki format base64 yang valid
+                if (empty($foto_jam_pulang) || !str_contains($foto_jam_pulang, ';base64,')) {
+                    DB::rollBack();
+                    return $errorResponse('Error', 'Foto absen pulang tidak valid. Silakan ambil foto ulang.');
+                }
+
+                $image_parts = explode(";base64,", $foto_jam_pulang);
+
+                if (!isset($image_parts[1]) || empty($image_parts[1])) {
+                    DB::rollBack();
+                    return $errorResponse('Error', 'Data foto tidak lengkap. Silakan ambil foto ulang.');
+                }
+
+                $image_base64 = base64_decode($image_parts[1], true);
+
+                // Validate base64 decode success
+                if ($image_base64 === false) {
+                    DB::rollBack();
+                    return $errorResponse('Error', 'Gagal memproses foto. Silakan coba lagi.');
+                }
+
+                $fileName = 'foto_jam_pulang/' . uniqid() . '.png';
+
+                Storage::disk('public')->put($fileName, $image_base64);
+            } catch (\Exception $e) {
                 DB::rollBack();
-                return $errorResponse('Error', 'Foto absen pulang tidak valid. Silakan ambil foto ulang.');
+                \Log::error('Absen Pulang Image Processing Error: ' . $e->getMessage());
+                return $errorResponse('Error', 'Terjadi kesalahan saat memproses foto. Silakan coba lagi.');
             }
-
-            $image_parts = explode(";base64,", $foto_jam_pulang);
-
-            if (!isset($image_parts[1])) {
-                DB::rollBack();
-                return $errorResponse('Error', 'Format foto tidak valid. Silakan ambil foto ulang.');
-            }
-
-            $image_base64 = base64_decode($image_parts[1]);
-            $fileName = 'foto_jam_pulang/' . uniqid() . '.png';
-
-            Storage::disk('public')->put($fileName, $image_base64);
 
             $request["foto_jam_pulang"] = $fileName;
 
@@ -447,6 +480,7 @@ class AbsenController extends Controller
     public function dataAbsen()
     {
         date_default_timezone_set('Asia/Jakarta');
+        /** @var \Illuminate\Pagination\LengthAwarePaginator $data_absen */
         $data_absen = MappingShift::dataAbsen()->paginate(10)->withQueryString();
 
         return view('absen.dataabsen', [
@@ -539,6 +573,10 @@ class AbsenController extends Controller
         }
 
         MappingShift::where('id', $id)->update($validatedData);
+
+        // Update performance points based on new telat status
+        KinerjaService::updateAttendancePoints($id, $user_id);
+
         return redirect('/data-absen')->with('success', 'Berhasil Edit Absen Masuk (Manual)');
     }
 
@@ -608,14 +646,23 @@ class AbsenController extends Controller
 
         MappingShift::where('id', $id)->update($validatedData);
 
+        // Update performance points based on new pulang_cepat status
+        KinerjaService::updateAttendancePoints($id, $user_id);
+
         return redirect('/data-absen')->with('success', 'Berhasil Edit Absen Pulang (Manual)');
     }
 
     public function deleteAdmin($id)
     {
         $delete = MappingShift::find($id);
+        $userId = $delete->user_id;
+
         Storage::disk('public')->delete($delete->foto_jam_absen);
         Storage::disk('public')->delete($delete->foto_jam_pulang);
+
+        // Delete associated performance points before deleting shift
+        KinerjaService::deleteAttendancePoints($id, $userId);
+
         $delete->delete();
         return redirect('/data-absen')->with('success', 'Data Berhasil di Delete');
     }
@@ -641,11 +688,13 @@ class AbsenController extends Controller
         if (auth()->user()->is_admin == 'admin') {
             return view('absen.myabsen', [
                 'title' => 'My Absen',
+                /** @var \Illuminate\Pagination\LengthAwarePaginator */
                 'data_absen' => $data_absen->paginate(10)->withQueryString()
             ]);
         } else {
             return view('absen.myabsenuser', [
                 'title' => 'My Absen',
+                /** @var \Illuminate\Pagination\LengthAwarePaginator */
                 'data_absen' => $data_absen->paginate(10)->withQueryString()
             ]);
         }
@@ -723,6 +772,7 @@ class AbsenController extends Controller
             })
             ->orderBy('tanggal', 'DESC')
             ->paginate(10)
+            /** @var \Illuminate\Pagination\LengthAwarePaginator */
             ->withQueryString();
 
         return view('absen.indexPengajuan', compact(

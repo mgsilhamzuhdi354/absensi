@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use App\Mail\ForgotPassword;
 use App\Models\JenisKinerja;
 use App\Models\MappingShift;
+use App\Models\settings;
 use Illuminate\Http\Request;
 use App\Models\LaporanKinerja;
 use Illuminate\Support\Facades\Auth;
@@ -23,28 +24,28 @@ class authController extends Controller
 {
     public function index()
     {
-        return view('auth.login',[
+        return view('auth.login', [
             "title" => "Log In"
         ]);
     }
 
     public function loginAdmin()
     {
-        return view('auth.loginAdmin',[
+        return view('auth.loginAdmin', [
             "title" => "Log In"
         ]);
     }
 
     public function getStarted()
     {
-        return view('auth.getStarted',[
+        return view('auth.getStarted', [
             "title" => "Log In"
         ]);
     }
 
     public function welcome()
     {
-        return view('auth.welcome',[
+        return view('auth.welcome', [
             "title" => "Log In"
         ]);
     }
@@ -110,24 +111,46 @@ class authController extends Controller
         if (!$ipCheck['allowed']) {
             return response()->json(['status' => 'ip_blocked', 'message' => $ipCheck['message']]);
         }
-        
+
         date_default_timezone_set('Asia/Jakarta');
         $currentDate = date('Y-m-d');
         $user = User::where('username', $request['username'])->first();
         if ($user) {
             $ms = MappingShift::where('user_id', $user->id)->where('tanggal', $currentDate)->first();
             if ($ms) {
-                if($ms->jam_absen == null) {
+                if ($ms->jam_absen == null) {
+                    // Cek apakah belum waktunya absen masuk
+                    $settingsData = settings::first();
+                    $bufferMasuk = $settingsData->absen_masuk_buffer_menit ?? 30;
+                    $waktu_shift = strtotime($ms->tanggal . ' ' . $ms->Shift->jam_masuk);
+                    $waktu_sekarang = time();
+                    $selisih_menit = ($waktu_shift - $waktu_sekarang) / 60;
+                    if ($selisih_menit > $bufferMasuk) {
+                        return response()->json('tooEarly');
+                    }
+
+                    // GPS Location validation
+                    $lat_kantor = $user->Lokasi->lat_kantor ?? null;
+                    $long_kantor = $user->Lokasi->long_kantor ?? null;
+                    $radius = $user->Lokasi->radius ?? null;
+
+                    if ($lat_kantor && $long_kantor && $radius && $request["lat"] && $request["long"]) {
+                        $jarak_masuk = $this->distance($request["lat"], $request["long"], $lat_kantor, $long_kantor, "K") * 1000;
+                        if ($jarak_masuk > $radius && $ms->lock_location == 1) {
+                            return response()->json('outlocation');
+                        }
+                    }
+
                     $status_absen = "Masuk";
                     $jam_absen = date('H:i');
                     $tgl_skrg = date("Y-m-d");
 
-                    $awal  = strtotime($ms->tanggal . $ms->Shift->jam_masuk);
+                    $awal = strtotime($ms->tanggal . $ms->Shift->jam_masuk);
                     $akhir = strtotime($tgl_skrg . $jam_absen);
-                    $diff  = $akhir - $awal;
+                    $diff = $akhir - $awal;
 
                     if ($diff <= 0) {
-                        $telat= 0;
+                        $telat = 0;
                         $jenis_kinerja = JenisKinerja::where('nama', 'Presensi Kehadiran Ontime')->first();
                         $laporan_kinerja_before = LaporanKinerja::where('user_id', $user->id)->latest()->first();
                         if ($laporan_kinerja_before) {
@@ -152,7 +175,7 @@ class authController extends Controller
                             ]);
                         }
                     } else {
-                        $telat= $diff;
+                        $telat = $diff;
                         $jenis_kinerja = JenisKinerja::where('nama', 'Telat Presensi Masuk')->first();
                         $laporan_kinerja_before = LaporanKinerja::where('user_id', $user->id)->latest()->first();
                         if ($laporan_kinerja_before) {
@@ -202,38 +225,74 @@ class authController extends Controller
         if (!$ipCheck['allowed']) {
             return response()->json(['status' => 'ip_blocked', 'message' => $ipCheck['message']]);
         }
-        
+
         date_default_timezone_set('Asia/Jakarta');
         $currentDate = date('Y-m-d');
         $user = User::where('username', $request['username'])->first();
         if ($user) {
             $ms = MappingShift::where('user_id', $user->id)->where('tanggal', $currentDate)->first();
             if ($ms) {
-                if($ms->jam_absen == null) {
+                if ($ms->jam_absen == null) {
+                    // Cek apakah belum waktunya absen masuk
+                    $settingsData = settings::first();
+                    $bufferMasuk = $settingsData->absen_masuk_buffer_menit ?? 30;
+                    $waktu_shift = strtotime($ms->tanggal . ' ' . $ms->Shift->jam_masuk);
+                    $waktu_sekarang = time();
+                    $selisih_menit = ($waktu_shift - $waktu_sekarang) / 60;
+                    if ($selisih_menit > $bufferMasuk) {
+                        return response()->json('tooEarly');
+                    }
+
                     $lat_kantor = $user->Lokasi->lat_kantor ?? null;
                     $long_kantor = $user->Lokasi->long_kantor ?? null;
                     $radius = $user->Lokasi->radius ?? null;
                     $jarak_masuk = $this->distance($request["lat"], $request["long"], $lat_kantor, $long_kantor, "K") * 1000;
-                    if($jarak_masuk > $radius && $ms->lock_location == 1) {
+                    if ($jarak_masuk > $radius && $ms->lock_location == 1) {
                         return response()->json('outlocation');
                     } else {
-                        $image = $request["image"];
+                        try {
+                            $image = $request["image"];
 
-                        $image_parts = explode(";base64,", $image);
+                            // Validate image data exists and is not empty
+                            if (empty($image)) {
+                                return response()->json(['success' => false, 'message' => 'Foto absen tidak boleh kosong'], 400);
+                            }
 
-                        $image_base64 = base64_decode($image_parts[1]);
-                        $fileName = 'foto_jam_absen/' . uniqid() . '.png';
+                            // Validate base64 format
+                            if (!str_contains($image, ';base64,')) {
+                                return response()->json(['success' => false, 'message' => 'Format foto tidak valid. Silakan ambil foto ulang.'], 400);
+                            }
+
+                            $image_parts = explode(";base64,", $image);
+
+                            // Validate that we have both parts
+                            if (!isset($image_parts[1]) || empty($image_parts[1])) {
+                                return response()->json(['success' => false, 'message' => 'Data foto tidak lengkap. Silakan ambil foto ulang.'], 400);
+                            }
+
+                            $image_base64 = base64_decode($image_parts[1], true);
+
+                            // Validate base64 decode success
+                            if ($image_base64 === false) {
+                                return response()->json(['success' => false, 'message' => 'Gagal memproses foto. Silakan coba lagi.'], 400);
+                            }
+
+                            $fileName = 'foto_jam_absen/' . uniqid() . '.png';
+                        } catch (\Exception $e) {
+                            \Log::error('Presensi Masuk Image Error: ' . $e->getMessage());
+                            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan saat memproses foto. Silakan coba lagi.'], 500);
+                        }
 
                         $status_absen = "Masuk";
                         $jam_absen = date('H:i');
                         $tgl_skrg = date("Y-m-d");
 
-                        $awal  = strtotime($ms->tanggal . $ms->Shift->jam_masuk);
+                        $awal = strtotime($ms->tanggal . $ms->Shift->jam_masuk);
                         $akhir = strtotime($tgl_skrg . $jam_absen);
-                        $diff  = $akhir - $awal;
+                        $diff = $akhir - $awal;
 
                         if ($diff <= 0) {
-                            $telat= 0;
+                            $telat = 0;
                             $jenis_kinerja = JenisKinerja::where('nama', 'Presensi Kehadiran Ontime')->first();
                             $laporan_kinerja_before = LaporanKinerja::where('user_id', $user->id)->latest()->first();
                             if ($laporan_kinerja_before) {
@@ -258,7 +317,7 @@ class authController extends Controller
                                 ]);
                             }
                         } else {
-                            $telat= $diff;
+                            $telat = $diff;
                             $jenis_kinerja = JenisKinerja::where('nama', 'Telat Presensi Masuk')->first();
                             $laporan_kinerja_before = LaporanKinerja::where('user_id', $user->id)->latest()->first();
                             if ($laporan_kinerja_before) {
@@ -314,27 +373,83 @@ class authController extends Controller
         if (!$ipCheck['allowed']) {
             return response()->json(['status' => 'ip_blocked', 'message' => $ipCheck['message']]);
         }
-        
+
         date_default_timezone_set('Asia/Jakarta');
         $currentDate = date('Y-m-d');
         $user = User::where('username', $request['username'])->first();
         if ($user) {
             $ms = MappingShift::where('user_id', $user->id)->where('tanggal', $currentDate)->first();
             if ($ms) {
-                if($ms->jam_pulang == null) {
+                // Cek apakah sudah absen masuk
+                if ($ms->jam_absen == null) {
+                    return response()->json('notClockedIn');
+                }
+
+                if ($ms->jam_pulang == null) {
+                    // Cek apakah belum waktunya pulang (max 30 menit sebelum jadwal)
+                    $shiftmasuk = $ms->Shift->jam_masuk;
+                    $shiftpulang = $ms->Shift->jam_keluar;
+                    $tanggal = $ms->tanggal;
+
+                    // Handle shift malam (pulang hari berikutnya)
+                    $timeMasuk = strtotime($shiftmasuk);
+                    $timePulang = strtotime($shiftpulang);
+                    if ($timePulang < $timeMasuk) {
+                        $tanggal_pulang = date('Y-m-d', strtotime('+1 days', strtotime($tanggal)));
+                    } else {
+                        $tanggal_pulang = $tanggal;
+                    }
+
+                    $waktu_pulang = strtotime($tanggal_pulang . ' ' . $shiftpulang);
+                    $waktu_sekarang = time();
+                    $selisih_menit = ($waktu_pulang - $waktu_sekarang) / 60;
+
+                    $settingsData = settings::first();
+                    $bufferPulang = $settingsData->absen_pulang_buffer_menit ?? 30;
+                    if ($selisih_menit > $bufferPulang) {
+                        return response()->json('tooEarlyPulang');
+                    }
+
                     $lat_kantor = $user->Lokasi->lat_kantor ?? null;
                     $long_kantor = $user->Lokasi->long_kantor ?? null;
                     $radius = $user->Lokasi->radius ?? null;
                     $jarak_pulang = $this->distance($request["lat"], $request["long"], $lat_kantor, $long_kantor, "K") * 1000;
-                    if($jarak_pulang > $radius && $ms->lock_location == 1) {
+                    if ($jarak_pulang > $radius && $ms->lock_location == 1) {
                         return response()->json('outlocation');
                     } else {
-                        $image = $request["image"];
+                        try {
+                            $image = $request["image"];
 
-                        $image_parts = explode(";base64,", $image);
+                            // Validate image data exists and is not empty
+                            if (empty($image)) {
+                                return response()->json(['success' => false, 'message' => 'Foto absen tidak boleh kosong'], 400);
+                            }
 
-                        $image_base64 = base64_decode($image_parts[1]);
-                        $fileName = 'foto_jam_pulang/' . uniqid() . '.png';
+                            // Validate base64 format
+                            if (!str_contains($image, ';base64,')) {
+                                return response()->json(['success' => false, 'message' => 'Format foto tidak valid. Silakan ambil foto ulang.'], 400);
+                            }
+
+                            $image_parts = explode(";base64,", $image);
+
+                            // Validate that we have both parts
+                            if (!isset($image_parts[1]) || empty($image_parts[1])) {
+                                return response()->json(['success' => false, 'message' => 'Data foto tidak lengkap. Silakan ambil foto ulang.'], 400);
+                            }
+
+                            $image_base64 = base64_decode($image_parts[1], true);
+
+                            // Validate base64 decode success
+                            if ($image_base64 === false) {
+                                return response()->json(['success' => false, 'message' => 'Gagal memproses foto. Silakan coba lagi.'], 400);
+                            }
+
+                            $fileName = 'foto_jam_pulang/' . uniqid() . '.png';
+                        } catch (\Exception $e) {
+                            \Log::error('Presensi Pulang Image Error: ' . $e->getMessage());
+                            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan saat memproses foto. Silakan coba lagi.'], 500);
+                        }
+
                         $jam_pulang = date('H:i');
 
                         $new_tanggal = "";
@@ -350,8 +465,8 @@ class authController extends Controller
                         $tgl_skrg = date("Y-m-d");
 
                         $akhir = strtotime($new_tanggal . $ms->Shift->jam_keluar);
-                        $awal  = strtotime($tgl_skrg . $jam_pulang);
-                        $diff  = $akhir - $awal;
+                        $awal = strtotime($tgl_skrg . $jam_pulang);
+                        $diff = $akhir - $awal;
 
                         if ($diff <= 0) {
                             $pulang_cepat = 0;
@@ -434,17 +549,56 @@ class authController extends Controller
         if (!$ipCheck['allowed']) {
             return response()->json(['status' => 'ip_blocked', 'message' => $ipCheck['message']]);
         }
-        
+
         date_default_timezone_set('Asia/Jakarta');
         $currentDate = date('Y-m-d');
         $user = User::where('username', $request['username'])->first();
         if ($user) {
             $ms = MappingShift::where('user_id', $user->id)->where('tanggal', $currentDate)->first();
             if ($ms) {
-                if($ms->jam_pulang == null) {
-                    $jam_pulang = date('H:i');
+                // Cek apakah sudah absen masuk
+                if ($ms->jam_absen == null) {
+                    return response()->json('notClockedIn');
+                }
 
-                    $new_tanggal = "";
+                if ($ms->jam_pulang == null) {
+                    // Cek apakah belum waktunya pulang (max 30 menit sebelum jadwal)
+                    $shiftmasuk = $ms->Shift->jam_masuk;
+                    $shiftpulang = $ms->Shift->jam_keluar;
+                    $tanggal = $ms->tanggal;
+
+                    // Handle shift malam (pulang hari berikutnya)
+                    $timeMasuk = strtotime($shiftmasuk);
+                    $timePulang = strtotime($shiftpulang);
+                    if ($timePulang < $timeMasuk) {
+                        $tanggal_pulang = date('Y-m-d', strtotime('+1 days', strtotime($tanggal)));
+                    } else {
+                        $tanggal_pulang = $tanggal;
+                    }
+
+                    $waktu_pulang = strtotime($tanggal_pulang . ' ' . $shiftpulang);
+                    $waktu_sekarang = time();
+                    $selisih_menit = ($waktu_pulang - $waktu_sekarang) / 60;
+
+                    $settingsData = settings::first();
+                    $bufferPulang = $settingsData->absen_pulang_buffer_menit ?? 30;
+                    if ($selisih_menit > $bufferPulang) {
+                        return response()->json('tooEarlyPulang');
+                    }
+
+                    // GPS Location validation
+                    $lat_kantor = $user->Lokasi->lat_kantor ?? null;
+                    $long_kantor = $user->Lokasi->long_kantor ?? null;
+                    $radius = $user->Lokasi->radius ?? null;
+
+                    if ($lat_kantor && $long_kantor && $radius && $request["lat"] && $request["long"]) {
+                        $jarak_pulang = $this->distance($request["lat"], $request["long"], $lat_kantor, $long_kantor, "K") * 1000;
+                        if ($jarak_pulang > $radius && $ms->lock_location == 1) {
+                            return response()->json('outlocation');
+                        }
+                    }
+
+                    $jam_pulang = date('H:i');
                     $timeMasuk = strtotime($ms->Shift->jam_masuk);
                     $timePulang = strtotime($ms->Shift->jam_keluar);
 
@@ -457,8 +611,8 @@ class authController extends Controller
                     $tgl_skrg = date("Y-m-d");
 
                     $akhir = strtotime($new_tanggal . $ms->Shift->jam_keluar);
-                    $awal  = strtotime($tgl_skrg . $jam_pulang);
-                    $diff  = $akhir - $awal;
+                    $awal = strtotime($tgl_skrg . $jam_pulang);
+                    $diff = $akhir - $awal;
 
                     if ($diff <= 0) {
                         $pulang_cepat = 0;
@@ -531,7 +685,7 @@ class authController extends Controller
     public function distance($lat1, $lon1, $lat2, $lon2, $unit)
     {
         $theta = $lon1 - $lon2;
-        $dist = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) +  cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
+        $dist = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
         $dist = acos($dist);
         $dist = rad2deg($dist);
         $miles = $dist * 60 * 1.1515;
@@ -554,7 +708,7 @@ class authController extends Controller
             Alert::error('Tidak Diizinkan', 'Fitur switch ke user telah dinonaktifkan');
             return back();
         }
-        
+
         $request->session()->put('existing_user_id', Auth::user()->id);
         $request->session()->put('user_is_switched', true);
         Auth::loginUsingId($id);

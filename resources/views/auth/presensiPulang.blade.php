@@ -16,12 +16,12 @@
             --radius-md: 6px;
             --radius-lg: 10px;
         }
-        
+
         body {
             background-color: #f5f7fa;
             font-family: 'Segoe UI', Roboto, sans-serif;
         }
-        
+
         .face-container {
             max-width: 600px;
             margin: 2rem auto;
@@ -31,7 +31,7 @@
             background-color: #fff;
             text-align: center;
         }
-        
+
         .face-title {
             font-size: 1.75rem;
             font-weight: 700;
@@ -40,14 +40,14 @@
             color: var(--text-dark);
             letter-spacing: -0.025em;
         }
-        
+
         .face-subtitle {
             color: var(--text-muted);
             margin-bottom: 2rem;
             font-size: 1rem;
             line-height: 1.5;
         }
-        
+
         .video-container {
             position: relative;
             width: 100%;
@@ -59,7 +59,7 @@
             border: 1px solid var(--border-color);
             background-color: #000;
         }
-        
+
         #video {
             position: absolute;
             top: 0;
@@ -67,8 +67,9 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
+            transform: scaleX(-1);
         }
-        
+
         canvas {
             position: absolute;
             top: 0;
@@ -76,7 +77,7 @@
             width: 100%;
             height: 100%;
         }
-        
+
         .back-button {
             display: inline-block;
             padding: 0.75rem 1.5rem;
@@ -91,7 +92,7 @@
             box-shadow: var(--shadow-sm);
             text-decoration: none;
         }
-        
+
         .back-button:hover {
             background-color: var(--primary-hover);
             transform: translateY(-1px);
@@ -99,11 +100,11 @@
             color: white;
             text-decoration: none;
         }
-        
+
         .back-button i {
             margin-right: 0.5rem;
         }
-        
+
         /* Media Queries for Mobile View */
         @media (max-width: 768px) {
             .face-container {
@@ -111,34 +112,34 @@
                 margin: 1.5rem auto;
                 padding: 1.5rem;
             }
-            
+
             .face-title {
                 font-size: 1.5rem;
             }
-            
+
             .video-container {
                 padding-bottom: 100%;
             }
         }
     </style>
-    
+
     <div class="face-container">
         <h1 class="face-title">{{ $title }}</h1>
         <p class="face-subtitle">Posisikan wajah Anda di depan kamera untuk melakukan absensi pulang</p>
-        
+
         <div class="video-container">
             <video id="video" autoplay playsinline></video>
             <canvas id="canvas"></canvas>
         </div>
-        
+
         <input type="hidden" name="lat" id="lat">
         <input type="hidden" name="long" id="long">
-        
+
         <a href="{{ url('/') }}" class="back-button">
             <i class="fas fa-arrow-left"></i>Kembali
         </a>
     </div>
-    
+
     @push('script')
         <script src="{{ url('/face/dist/face-api.min.js') }}"></script>
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -155,15 +156,15 @@
                     });
                 }
             }
-            
+
             function showPosition(position) {
                 $('#lat').val(position.coords.latitude);
                 $('#long').val(position.coords.longitude);
             }
-            
+
             function showError(error) {
                 let errorMessage = '';
-                switch(error.code) {
+                switch (error.code) {
                     case error.PERMISSION_DENIED:
                         errorMessage = "Anda menolak permintaan geolokasi";
                         break;
@@ -177,7 +178,7 @@
                         errorMessage = "Terjadi kesalahan yang tidak diketahui";
                         break;
                 }
-                
+
                 Swal.fire({
                     icon: 'warning',
                     title: 'Perhatian',
@@ -185,15 +186,15 @@
                     confirmButtonColor: '#4f46e5'
                 });
             }
-            
+
             // Dapatkan lokasi setiap 5 detik
             setInterval(getLocation, 5000);
-            
+
             let faceMatcher = undefined;
             let video = document.getElementById("video");
             let canvas = document.getElementById("canvas");
             let ctx = canvas.getContext("2d");
-            
+
             let width = 320;  // Resolusi lebih rendah untuk kinerja lebih baik
             let height = 240;
 
@@ -237,7 +238,7 @@
                         Swal.showLoading()
                     }
                 });
-                
+
                 $.ajaxSetup({
                     headers: {
                         'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -249,7 +250,7 @@
                     datatype: 'json',
                     url: "{{ url('/ajaxGetNeural') }}",
                     data: ""
-                }).done(async function(data) {
+                }).done(async function (data) {
                     if (data.length > 2) {
                         var json_str = "{\"parent\":" + data + "}"
                         var content = JSON.parse(json_str);
@@ -269,7 +270,7 @@
                             confirmButtonColor: '#4f46e5'
                         });
                     }
-                }).fail(function(jqXHR, textStatus, errorThrown) {
+                }).fail(function (jqXHR, textStatus, errorThrown) {
                     Swal.fire({
                         icon: 'error',
                         title: 'Oops...',
@@ -311,6 +312,7 @@
                         let distance = result.distance;
                         Swal.close()
                         if (label !== "unknown" && distance < 0.5) {
+                            // Validate canvas and image capture
                             let imageURL = canvas.toDataURL();
                             var canvas2 = document.createElement('canvas');
                             canvas2.width = 600;
@@ -318,24 +320,45 @@
                             var ctx = canvas2.getContext('2d');
                             ctx.drawImage(video, 0, 0, 600, 600);
                             var new_image_url = canvas2.toDataURL();
+
+                            // Validate image data
+                            if (!new_image_url || new_image_url === 'data:,') {
+                                console.error('Failed to capture image');
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Gagal Mengambil Foto',
+                                    text: 'Foto tidak dapat diambil. Silakan coba lagi.',
+                                    confirmButtonColor: '#4f46e5'
+                                });
+                                return;
+                            }
+
                             var img = document.createElement('img');
                             img.src = new_image_url;
                             let lat = $('#lat').val();
                             let long = $('#long').val();
+
                             $.ajax({
                                 type: 'POST',
                                 url: "{{ url('/presensi-pulang/store') }}",
-                                data: { username: label, image: img.src, lat: lat, long:long },
+                                data: { username: label, image: img.src, lat: lat, long: long },
                                 cache: false,
-                                success: function(msg) {
+                                success: function (msg) {
                                     let title = '';
                                     let icon = 'success';
-                                    
+
                                     switch (msg) {
                                         case 'pulang':
                                             title = 'Berhasil Pulang';
                                             icon = 'success';
-                                            break;
+                                            Swal.fire({
+                                                icon: icon,
+                                                title: title,
+                                                confirmButtonColor: '#4f46e5'
+                                            }).then(() => {
+                                                window.location.href = "{{ url('/dashboard') }}";
+                                            });
+                                            return;
                                         case 'outlocation':
                                             title = 'Anda Berada Di Luar Radius Kantor';
                                             icon = 'error';
@@ -349,24 +372,40 @@
                                             icon = 'warning';
                                             break;
                                         default:
+                                            // Check if response is JSON with error message
+                                            if (typeof msg === 'object' && msg.success === false) {
+                                                title = 'Error';
+                                                icon = 'error';
+                                                Swal.fire({
+                                                    icon: icon,
+                                                    title: title,
+                                                    text: msg.message || 'Terjadi kesalahan saat memproses presensi.',
+                                                    confirmButtonColor: '#4f46e5'
+                                                });
+                                                return;
+                                            }
                                             title = 'Tidak Ada Data User';
                                             icon = 'error';
                                     }
-                                    
+
                                     Swal.fire({
                                         icon: icon,
                                         title: title,
                                         confirmButtonColor: '#4f46e5'
                                     });
-                                    
+
                                     setTimeout(() => Swal.close(), 2000);
                                 },
-                                error: function(data) {
-                                    console.error('Error:', data);
+                                error: function (xhr, status, error) {
+                                    console.error('AJAX Error:', error);
+                                    var errorMessage = 'Terjadi kesalahan saat memproses presensi.';
+                                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                                        errorMessage = xhr.responseJSON.message;
+                                    }
                                     Swal.fire({
                                         icon: 'error',
-                                        title: 'Oops...',
-                                        text: 'Terjadi kesalahan saat memproses data',
+                                        title: 'Error',
+                                        text: errorMessage,
                                         confirmButtonColor: '#4f46e5'
                                     });
                                 }
@@ -380,5 +419,3 @@
         </script>
     @endpush
 @endsection
-
-

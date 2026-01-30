@@ -39,24 +39,27 @@ class SettingsController extends Controller
             // Attendance Security
             'ip_restriction_message' => 'nullable|string',
             'qr_rotation' => 'nullable|in:daily,hourly',
+            // Attendance Time Buffer
+            'absen_masuk_buffer_menit' => 'nullable|integer|min:0|max:120',
+            'absen_pulang_buffer_menit' => 'nullable|integer|min:0|max:120',
         ]);
-        
+
         if ($request->file('logo')) {
             $validated['logo'] = $request->file('logo')->store('logo');
         }
-        
+
         // Handle boolean fields
         $validated['enable_ip_restriction'] = $request->has('enable_ip_restriction');
         $validated['enable_daily_qr'] = $request->has('enable_daily_qr');
-        
+
         // Handle IP addresses array
         if ($request->has('ip_addresses')) {
-            $ipAddresses = array_filter($request->input('ip_addresses'), function($ip) {
+            $ipAddresses = array_filter($request->input('ip_addresses'), function ($ip) {
                 return !empty(trim($ip));
             });
             $validated['allowed_ip_addresses'] = json_encode(array_values($ipAddresses));
         }
-        
+
         $settings->update($validated);
         return back()->with('success', 'Data Berhasil Ditambahkan');
     }
