@@ -67,6 +67,19 @@
                                         @enderror
                                     </div>
                                     <div class="col mb-4">
+                                        <label for="employee_id">Employee ID</label>
+                                        <input type="text" class="form-control @error('employee_id') is-invalid @enderror"
+                                            id="employee_id" name="employee_id" value="{{ old('employee_id', $karyawan->employee_id) }}"
+                                            placeholder="Contoh: EMP001">
+                                        @error('employee_id')
+                                            <div class="invalid-feedback">
+                                                {{ $message }}
+                                            </div>
+                                        @enderror
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col mb-4">
                                         <label for="foto_karyawan" class="form-label">Foto Pegawai</label>
                                         <input class="form-control @error('foto_karyawan') is-invalid @enderror" type="file"
                                             id="foto_karyawan" name="foto_karyawan">

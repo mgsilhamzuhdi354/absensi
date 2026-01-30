@@ -30,6 +30,19 @@
                             @enderror
                         </div>
                         <div class="col mb-4">
+                            <label for="employee_id">Employee ID</label>
+                            <input type="text" class="form-control @error('employee_id') is-invalid @enderror"
+                                id="employee_id" name="employee_id" value="{{ old('employee_id') }}"
+                                placeholder="Contoh: EMP001">
+                            @error('employee_id')
+                                <div class="invalid-feedback">
+                                    {{ $message }}
+                                </div>
+                            @enderror
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col mb-4">
                             <label for="foto_karyawan" class="form-label">Foto Pegawai</label>
                             <input class="form-control @error('foto_karyawan') is-invalid @enderror" type="file"
                                 id="foto_karyawan" name="foto_karyawan">
@@ -161,7 +174,7 @@
             "gender" => "Perempuan"
         ]
     );
-                                ?>
+                                    ?>
                             <label for="gender">Gender</label>
                             <select name="gender" id="gender"
                                 class="form-control @error('gender') is-invalid @enderror selectpicker"
@@ -190,7 +203,7 @@
             "is_admin" => "user"
         ]
     );
-                                ?>
+                                    ?>
                             <label for="is_admin">Dashboard</label>
                             <select name="is_admin" id="is_admin"
                                 class="form-control @error('is_admin') is-invalid @enderror selectpicker"
@@ -437,6 +450,57 @@
                             @enderror
                         </div>
                     </div>
+
+                    <div class="col mb-4">
+                        <h3 style="color: blue">Kontak Darurat</h3>
+                    </div>
+                    <div class="row">
+                        <div class="col mb-4">
+                            <label for="nama_kontak_darurat">Nama Kontak Darurat</label>
+                            <input type="text" class="form-control @error('nama_kontak_darurat') is-invalid @enderror"
+                                id="nama_kontak_darurat" name="nama_kontak_darurat" value="{{ old('nama_kontak_darurat') }}"
+                                placeholder="Nama orang yang dapat dihubungi saat darurat">
+                            @error('nama_kontak_darurat')
+                                <div class="invalid-feedback">
+                                    {{ $message }}
+                                </div>
+                            @enderror
+                        </div>
+                        <div class="col mb-4">
+                            <label for="telepon_kontak_darurat">Nomor Telepon Kontak Darurat</label>
+                            <input type="text" class="form-control @error('telepon_kontak_darurat') is-invalid @enderror"
+                                id="telepon_kontak_darurat" name="telepon_kontak_darurat"
+                                value="{{ old('telepon_kontak_darurat') }}" placeholder="Nomor HP yang dapat dihubungi">
+                            @error('telepon_kontak_darurat')
+                                <div class="invalid-feedback">
+                                    {{ $message }}
+                                </div>
+                            @enderror
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col mb-4">
+                            <label for="hubungan_kontak_darurat">Hubungan dengan Pegawai</label>
+                            <select name="hubungan_kontak_darurat" id="hubungan_kontak_darurat"
+                                class="form-control @error('hubungan_kontak_darurat') is-invalid @enderror selectpicker"
+                                data-live-search="true">
+                                <option value="">Pilih Hubungan</option>
+                                @php
+                                    $hubungan_options = ['Orang Tua', 'Suami', 'Istri', 'Anak', 'Saudara', 'Teman', 'Lainnya'];
+                                @endphp
+                                @foreach ($hubungan_options as $hub)
+                                    <option value="{{ $hub }}" {{ old('hubungan_kontak_darurat') == $hub ? 'selected' : '' }}>
+                                        {{ $hub }}</option>
+                                @endforeach
+                            </select>
+                            @error('hubungan_kontak_darurat')
+                                <div class="invalid-feedback">
+                                    {{ $message }}
+                                </div>
+                            @enderror
+                        </div>
+                    </div>
+
                     <div class="col mb-4">
                         <h3 style="color: blue">Cuti & Izin</h3>
                     </div>
