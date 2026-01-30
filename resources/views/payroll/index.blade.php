@@ -111,6 +111,7 @@
                                     <th>Nomor Gaji</th>
                                     <th>Nama</th>
                                     <th>Jabatan</th>
+                                    <th>Employee ID</th>
                                     <th>Bulan</th>
                                     <th>Grand Total</th>
                                     <th>Actions</th>
@@ -123,6 +124,7 @@
                                         <td>{{ $d->no_gaji }}</td>
                                         <td>{{ $d->user->name  }}</td>
                                         <td>{{ $d->User->Jabatan->nama_jabatan  }}</td>
+                                        <td>{{ $d->user->employee_id ?? '-' }}</td>
                                         <td>
                                             @php
                                                 if ($d->bulan == 1){

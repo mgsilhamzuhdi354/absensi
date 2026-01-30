@@ -337,6 +337,11 @@
                     <td class="colon">:</td>
                     <td class="value">{{ strtoupper($data->user->Jabatan->nama_jabatan ?? '-') }}</td>
                 </tr>
+                <tr>
+                    <td class="label">EMPLOYEE ID</td>
+                    <td class="colon">:</td>
+                    <td class="value">{{ $data->user->employee_id ?? '-' }}</td>
+                </tr>
             </table>
         </div>
 
@@ -492,6 +497,7 @@
             $bpjs_jkk = $gaji_pokok * 0.0024;
             $bpjs_jkm = $gaji_pokok * 0.003;
             $bpjs_jht_perusahaan = $gaji_pokok * 0.037;
+            $bpjs_kes_perusahaan = $gaji_pokok * 0.04; // BPJS Kesehatan 4% perusahaan
         @endphp
         <div style="background: #f9f9f9; border: 1px solid #ddd; padding: 10px 15px; margin-bottom: 15px;">
             <div style="font-weight: bold; font-size: 11px; color: #1a4a6e; margin-bottom: 8px;">
@@ -510,7 +516,9 @@
                     <td>BPJS JKM 0,3%</td>
                     <td>:</td>
                     <td>Rp {{ number_format($bpjs_jkm, 0, ',', '.') }}</td>
-                    <td colspan="3"></td>
+                    <td>BPJS Kesehatan 4%</td>
+                    <td>:</td>
+                    <td>Rp {{ number_format($bpjs_kes_perusahaan, 0, ',', '.') }}</td>
                 </tr>
             </table>
             <div style="font-size: 9px; color: #888; margin-top: 5px; font-style: italic;">
