@@ -42,6 +42,9 @@ class SettingsController extends Controller
             // Attendance Time Buffer
             'absen_masuk_buffer_menit' => 'nullable|integer|min:0|max:120',
             'absen_pulang_buffer_menit' => 'nullable|integer|min:0|max:120',
+            // Face Verification Fallback
+            'face_match_threshold' => 'nullable|numeric|min:50|max:100',
+            'face_verification_message' => 'nullable|string|max:500',
         ]);
 
         if ($request->file('logo')) {
@@ -51,6 +54,7 @@ class SettingsController extends Controller
         // Handle boolean fields
         $validated['enable_ip_restriction'] = $request->has('enable_ip_restriction');
         $validated['enable_daily_qr'] = $request->has('enable_daily_qr');
+        $validated['enable_face_verification_fallback'] = $request->has('enable_face_verification_fallback');
 
         // Handle IP addresses array
         if ($request->has('ip_addresses')) {

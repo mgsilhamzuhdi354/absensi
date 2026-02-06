@@ -29,12 +29,59 @@
                                                         <p class="fw_7 on_surface_color">{{ auth()->user()->name }}</p>
                                                     </div>
                                                     <p class="fw_7 on_surface_color">
-                                                        {{ auth()->user()->Jabatan->nama_jabatan }}</p>
+                                                        {{ auth()->user()->Jabatan->nama_jabatan }}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="tf-spacing-20"></div>
+
+                                    <!-- Face Recognition Card -->
+                                    <div class="card-secton transfer-section mt-2">
+                                        <div class="tf-container">
+                                            <div class="tf-balance-box"
+                                                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px;">
+                                                <div class="text-center">
+                                                    <i class="fas fa-user-check"
+                                                        style="font-size: 48px; color: white; margin-bottom: 10px;"></i>
+                                                    <h5 style="color: white; margin: 10px 0;">Face Recognition</h5>
+                                                    @if(auth()->user()->foto_face_recognition && auth()->user()->face_descriptor)
+                                                        <span class="badge bg-success mb-2"
+                                                            style="font-size: 14px; padding: 8px 16px;">
+                                                            <i class="fas fa-check-circle"></i> Terdaftar
+                                                        </span>
+                                                        <p style="color: rgba(255,255,255,0.9); font-size: 13px;">Wajah Anda
+                                                            sudah terdaftar untuk verifikasi</p>
+                                                        <div class="d-flex justify-content-center gap-2 mt-2">
+                                                            <a href="{{ url('/my-face/register') }}"
+                                                                class="btn btn-light btn-sm">
+                                                                <i class="fas fa-redo"></i> Daftar Ulang
+                                                            </a>
+                                                            <a href="{{ url('/test-face') }}"
+                                                                class="btn btn-outline-light btn-sm">
+                                                                <i class="fas fa-vial"></i> Test Matching
+                                                            </a>
+                                                        </div>
+                                                    @else
+                                                        <span class="badge bg-warning text-dark mb-2"
+                                                            style="font-size: 14px; padding: 8px 16px;">
+                                                            <i class="fas fa-exclamation-circle"></i> Belum Terdaftar
+                                                        </span>
+                                                        <p
+                                                            style="color: rgba(255,255,255,0.9); font-size: 13px; margin-bottom: 15px;">
+                                                            Daftarkan wajah untuk verifikasi otomatis saat absensi
+                                                        </p>
+                                                        <a href="{{ url('/my-face/register') }}" class="btn btn-light">
+                                                            <i class="fas fa-camera"></i> Daftarkan Wajah Saya
+                                                        </a>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tf-spacing-20"></div>
+
                                     <form class="tf-form" action="{{ url('/my-profile/update/' . auth()->user()->id) }}"
                                         enctype="multipart/form-data" method="POST">
                                         @method('PUT')
@@ -194,7 +241,7 @@
             "is_admin" => "user"
         ]
     );
-                                                    ?>
+                                                                ?>
                                                 <label for="is_admin">Level User</label>
                                                 <select name="is_admin" id="is_admin"
                                                     class="@error('is_admin') is-invalid @enderror" data-live-search="true"
@@ -456,7 +503,8 @@
                                                         <p class="fw_7 on_surface_color">{{ auth()->user()->name }}</p>
                                                     </div>
                                                     <p class="fw_7 on_surface_color">
-                                                        {{ auth()->user()->Jabatan->nama_jabatan }}</p>
+                                                        {{ auth()->user()->Jabatan->nama_jabatan }}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
@@ -543,7 +591,8 @@
                                                         <p class="fw_7 on_surface_color">{{ auth()->user()->name }}</p>
                                                     </div>
                                                     <p class="fw_7 on_surface_color">
-                                                        {{ auth()->user()->Jabatan->nama_jabatan }}</p>
+                                                        {{ auth()->user()->Jabatan->nama_jabatan }}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
@@ -682,7 +731,8 @@
                                                         <p class="fw_7 on_surface_color">{{ auth()->user()->name }}</p>
                                                     </div>
                                                     <p class="fw_7 on_surface_color">
-                                                        {{ auth()->user()->Jabatan->nama_jabatan }}</p>
+                                                        {{ auth()->user()->Jabatan->nama_jabatan }}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>

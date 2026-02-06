@@ -25,11 +25,11 @@ class CutiController extends Controller
         $akhir = request()->input('akhir');
 
         $cuti = Cuti::where('user_id', $user_id)
-                    ->when($mulai && $akhir, function ($query) use ($mulai, $akhir) {
-                        return $query->whereBetween('tanggal', [$mulai, $akhir]);
+            ->when($mulai && $akhir, function ($query) use ($mulai, $akhir) {
+                return $query->whereBetween('tanggal', [$mulai, $akhir]);
 
-                    })
-                    ->orderBy('id', 'desc')->paginate(10)->withQueryString();
+            })
+            ->orderBy('id', 'desc')->paginate(10)->withQueryString();
 
         return view('cuti.indexuser', [
             'title' => 'Tambah Permintaan Cuti Karyawan',
@@ -42,13 +42,13 @@ class CutiController extends Controller
     {
         date_default_timezone_set('Asia/Jakarta');
 
-        if($request["tanggal_mulai"] == null) {
+        if ($request["tanggal_mulai"] == null) {
             $request["tanggal_mulai"] = $request["tanggal_akhir"];
         } else {
             $request["tanggal_mulai"] = $request["tanggal_mulai"];
         }
 
-        if($request["tanggal_akhir"] == null) {
+        if ($request["tanggal_akhir"] == null) {
             $request["tanggal_akhir"] = $request["tanggal_mulai"];
         } else {
             $request["tanggal_akhir"] = $request["tanggal_akhir"];
@@ -59,7 +59,7 @@ class CutiController extends Controller
         $end = $end->modify('+1 day');
 
         $interval = new \DateInterval('P1D');
-        $daterange = new \DatePeriod($begin, $interval ,$end);
+        $daterange = new \DatePeriod($begin, $interval, $end);
 
         foreach ($daterange as $date) {
             $request["tanggal"] = $date->format("Y-m-d");
@@ -88,13 +88,13 @@ class CutiController extends Controller
         foreach ($admin_users as $user) {
             $type = 'Approval';
             $notif = 'Pengajuan ' . $cuti->nama_cuti . ' Dari ' . auth()->user()->name . ' Butuh Approval Anda';
-            $url = url('/data-cuti?user_id='.$cuti->user_id.'&mulai='.$request["tanggal_mulai"].'&akhir='.$request["tanggal_akhir"]);
+            $url = url('/data-cuti?user_id=' . $cuti->user_id . '&mulai=' . $request["tanggal_mulai"] . '&akhir=' . $request["tanggal_akhir"]);
 
             $user->messages = [
-                'user_id'   =>  auth()->user()->id,
-                'from'   =>  auth()->user()->name,
-                'message'   =>  $notif,
-                'action'   =>  '/data-cuti?user_id='.$cuti->user_id.'&mulai='.$request["tanggal_mulai"].'&akhir='.$request["tanggal_akhir"]
+                'user_id' => auth()->user()->id,
+                'from' => auth()->user()->name,
+                'message' => $notif,
+                'action' => '/data-cuti?user_id=' . $cuti->user_id . '&mulai=' . $request["tanggal_mulai"] . '&akhir=' . $request["tanggal_akhir"]
             ];
             $user->notify(new \App\Notifications\UserNotification);
 
@@ -113,7 +113,8 @@ class CutiController extends Controller
         return redirect('/cuti')->with('success', 'Data Berhasil di Delete');
     }
 
-    public function edit($id){
+    public function edit($id)
+    {
         return view('cuti.edituser', [
             'title' => 'Edit Permintaan Cuti',
             'data_cuti_user' => Cuti::findOrFail($id)
@@ -144,13 +145,13 @@ class CutiController extends Controller
         foreach ($admin_users as $user) {
             $type = 'Approval';
             $notif = 'Pengajuan ' . $cuti->nama_cuti . ' Dari ' . auth()->user()->name . ' Butuh Approval Anda';
-            $url = url('/data-cuti?user_id='.$cuti->user_id.'&mulai='.$request["tanggal_mulai"].'&akhir='.$request["tanggal_akhir"]);
+            $url = url('/data-cuti?user_id=' . $cuti->user_id . '&mulai=' . $request["tanggal_mulai"] . '&akhir=' . $request["tanggal_akhir"]);
 
             $user->messages = [
-                'user_id'   =>  auth()->user()->id,
-                'from'   =>  auth()->user()->name,
-                'message'   =>  $notif,
-                'action'   =>  '/data-cuti?user_id='.$cuti->user_id.'&mulai='.$request["tanggal_mulai"].'&akhir='.$request["tanggal_akhir"]
+                'user_id' => auth()->user()->id,
+                'from' => auth()->user()->name,
+                'message' => $notif,
+                'action' => '/data-cuti?user_id=' . $cuti->user_id . '&mulai=' . $request["tanggal_mulai"] . '&akhir=' . $request["tanggal_akhir"]
             ];
             $user->notify(new \App\Notifications\UserNotification);
 
@@ -173,23 +174,23 @@ class CutiController extends Controller
         $users = User::when(auth()->user()->hasRole('kepala_cabang'), function ($query) {
             return $query->where('lokasi_id', auth()->user()->lokasi_id);
         })
-        ->orderBy('name')
-        ->get();
+            ->orderBy('name')
+            ->get();
 
         $user_id = request()->input('user_id');
         $mulai = request()->input('mulai');
         $akhir = request()->input('akhir');
 
         $cuti = Cuti::when(auth()->user()->hasRole('kepala_cabang'), function ($query) {
-                        return $query->where('lokasi_id', auth()->user()->lokasi_id);
-                    })
-                    ->when($mulai && $akhir, function ($query) use ($mulai, $akhir) {
-                        return $query->whereBetween('tanggal', [$mulai, $akhir]);
-                    })
-                    ->when($user_id, function ($query) use ($user_id) {
-                        return $query->where('user_id', $user_id);
-                    })
-                    ->orderBy('id', 'desc')->paginate(10)->withQueryString();
+            return $query->where('lokasi_id', auth()->user()->lokasi_id);
+        })
+            ->when($mulai && $akhir, function ($query) use ($mulai, $akhir) {
+                return $query->whereBetween('tanggal', [$mulai, $akhir]);
+            })
+            ->when($user_id, function ($query) use ($user_id) {
+                return $query->where('user_id', $user_id);
+            })
+            ->orderBy('id', 'desc')->paginate(10)->withQueryString();
 
         return view('cuti.datacuti', [
             'title' => 'Data Cuti Karyawan',
@@ -203,8 +204,8 @@ class CutiController extends Controller
         $users = User::when(auth()->user()->hasRole('kepala_cabang'), function ($query) {
             return $query->where('lokasi_id', auth()->user()->lokasi_id);
         })
-        ->orderBy('name')
-        ->get();
+            ->orderBy('name')
+            ->get();
         return view('cuti.tambahadmin', [
             'title' => 'Tambah Cuti Pegawai',
             'data_user' => $users
@@ -224,19 +225,19 @@ class CutiController extends Controller
         $data_cuti = array(
             [
                 'nama' => 'Cuti',
-                'nama_cuti' => 'Cuti ('.$izin_cuti.')'
+                'nama_cuti' => 'Cuti (' . $izin_cuti . ')'
             ],
             [
                 'nama' => 'Izin Masuk',
-                'nama_cuti' => 'Izin Masuk ('.$izin_lainnya.')'
+                'nama_cuti' => 'Izin Masuk (' . $izin_lainnya . ')'
             ],
             [
                 'nama' => 'Izin Telat',
-                'nama_cuti' => 'Izin Telat ('.$izin_telat.')'
+                'nama_cuti' => 'Izin Telat (' . $izin_telat . ')'
             ],
             [
                 'nama' => 'Izin Pulang Cepat',
-                'nama_cuti' => 'Izin Pulang Cepat ('.$izin_pulang_cepat.')'
+                'nama_cuti' => 'Izin Pulang Cepat (' . $izin_pulang_cepat . ')'
             ],
             [
                 'nama' => 'Sakit',
@@ -245,7 +246,7 @@ class CutiController extends Controller
         );
 
         echo "<option value='' selected>Pilih Cuti</option>";
-        foreach($data_cuti as $dc){
+        foreach ($data_cuti as $dc) {
             echo "
                 <option value='$dc[nama]'>$dc[nama_cuti]</option>
             ";
@@ -256,13 +257,13 @@ class CutiController extends Controller
     {
         date_default_timezone_set('Asia/Jakarta');
 
-        if($request["tanggal_mulai"] == null) {
+        if ($request["tanggal_mulai"] == null) {
             $request["tanggal_mulai"] = $request["tanggal_akhir"];
         } else {
             $request["tanggal_mulai"] = $request["tanggal_mulai"];
         }
 
-        if($request["tanggal_akhir"] == null) {
+        if ($request["tanggal_akhir"] == null) {
             $request["tanggal_akhir"] = $request["tanggal_mulai"];
         } else {
             $request["tanggal_akhir"] = $request["tanggal_akhir"];
@@ -273,7 +274,7 @@ class CutiController extends Controller
         $end = $end->modify('+1 day');
 
         $interval = new \DateInterval('P1D');
-        $daterange = new \DatePeriod($begin, $interval ,$end);
+        $daterange = new \DatePeriod($begin, $interval, $end);
 
         $user_cuti = User::find($request->user_id);
 
@@ -304,13 +305,13 @@ class CutiController extends Controller
         foreach ($admin_users as $user) {
             $type = 'Approval';
             $notif = 'Pengajuan ' . $cuti->nama_cuti . ' Dari ' . $user_cuti->name . ' Butuh Approval Anda';
-            $url = url('/data-cuti?user_id='.$cuti->user_id.'&mulai='.$request["tanggal_mulai"].'&akhir='.$request["tanggal_akhir"]);
+            $url = url('/data-cuti?user_id=' . $cuti->user_id . '&mulai=' . $request["tanggal_mulai"] . '&akhir=' . $request["tanggal_akhir"]);
 
             $user->messages = [
-                'user_id'   =>  $user_cuti->id,
-                'from'   =>  $user_cuti->name,
-                'message'   =>  $notif,
-                'action'   =>  '/data-cuti?user_id='.$cuti->user_id.'&mulai='.$request["tanggal_mulai"].'&akhir='.$request["tanggal_akhir"]
+                'user_id' => $user_cuti->id,
+                'from' => $user_cuti->name,
+                'message' => $notif,
+                'action' => '/data-cuti?user_id=' . $cuti->user_id . '&mulai=' . $request["tanggal_mulai"] . '&akhir=' . $request["tanggal_akhir"]
             ];
             $user->notify(new \App\Notifications\UserNotification);
 
@@ -344,7 +345,7 @@ class CutiController extends Controller
 
         $cuti = Cuti::find($id);
         $old_status = $cuti->status_cuti; // Simpan status lama sebelum update
-        
+
         $validated = $request->validate([
             'nama_cuti' => 'required',
             'tanggal' => 'required',
@@ -359,7 +360,7 @@ class CutiController extends Controller
 
         // Hanya proses jika status berubah dari non-Diterima menjadi Diterima
         if ($request["status_cuti"] == "Diterima" && $old_status != "Diterima") {
-            if($request["nama_cuti"] == "Cuti") {
+            if ($request["nama_cuti"] == "Cuti") {
                 $user->update([
                     'izin_cuti' => $user->izin_cuti - 1
                 ]);
@@ -375,7 +376,7 @@ class CutiController extends Controller
                         'status_absen' => $request["nama_cuti"]
                     ]);
                 }
-            } else if($request["nama_cuti"] == "Izin Masuk") {
+            } else if ($request["nama_cuti"] == "Izin Masuk") {
                 $user->update([
                     'izin_lainnya' => $user->izin_lainnya - 1
                 ]);
@@ -391,7 +392,7 @@ class CutiController extends Controller
                         'status_absen' => $request["nama_cuti"]
                     ]);
                 }
-            } else if($request["nama_cuti"] == "Sakit") {
+            } else if ($request["nama_cuti"] == "Sakit") {
                 if ($mapping_shift) {
                     $mapping_shift->update([
                         'status_absen' => $request["nama_cuti"]
@@ -403,16 +404,28 @@ class CutiController extends Controller
                         'status_absen' => $request["nama_cuti"]
                     ]);
                 }
-            } else if($request["nama_cuti"] == "Izin Telat") {
+            } else if ($request["nama_cuti"] == "Izin Telat") {
                 if ($mapping_shift) {
+                    // Check if Shift and Lokasi relations exist
+                    if (!$mapping_shift->Shift) {
+                        Alert::error('Error', 'Data shift tidak ditemukan untuk tanggal tersebut.');
+                        return redirect('/data-cuti');
+                    }
+
                     $user->update([
                         'izin_telat' => $user->izin_telat - 1
                     ]);
+
+                    // Safe access to Lokasi
+                    $lokasi = $user->Lokasi;
+                    $lat_kantor = $lokasi ? $lokasi->lat_kantor : null;
+                    $long_kantor = $lokasi ? $lokasi->long_kantor : null;
+
                     $mapping_shift->update([
                         'jam_absen' => $mapping_shift->Shift->jam_masuk,
                         'telat' => 0,
-                        'lat_absen' => $user->Lokasi->lat_kantor,
-                        'long_absen' => $user->Lokasi->long_kantor,
+                        'lat_absen' => $lat_kantor,
+                        'long_absen' => $long_kantor,
                         'jarak_masuk' => 0,
                         'foto_jam_absen' => $cuti->foto_cuti,
                         'status_absen' => $request["nama_cuti"],
@@ -424,14 +437,25 @@ class CutiController extends Controller
                 }
             } else {
                 if ($mapping_shift) {
+                    // Check if Shift and Lokasi relations exist
+                    if (!$mapping_shift->Shift) {
+                        Alert::error('Error', 'Data shift tidak ditemukan untuk tanggal tersebut.');
+                        return redirect('/data-cuti');
+                    }
+
                     $user->update([
                         'izin_pulang_cepat' => $user->izin_pulang_cepat - 1
                     ]);
 
+                    // Safe access to Lokasi
+                    $lokasi = $user->Lokasi;
+                    $lat_kantor = $lokasi ? $lokasi->lat_kantor : null;
+                    $long_kantor = $lokasi ? $lokasi->long_kantor : null;
+
                     $mapping_shift->update([
                         'jam_pulang' => $mapping_shift->Shift->jam_keluar,
-                        'lat_pulang' => $user->Lokasi->lat_kantor,
-                        'long_pulang' => $user->Lokasi->long_kantor,
+                        'lat_pulang' => $lat_kantor,
+                        'long_pulang' => $long_kantor,
                         'pulang_cepat' => 0,
                         'jarak_pulang' => 0,
                         'foto_jam_pulang' => $cuti->foto_cuti,
@@ -446,13 +470,13 @@ class CutiController extends Controller
 
             $type = 'Approved';
             $notif = $cuti->nama_cuti . ' Anda Telah Diterima Oleh ' . auth()->user()->name;
-            $url = url('/cuti?mulai='.$cuti->tanggal.'&akhir='.$cuti->tanggal);
+            $url = url('/cuti?mulai=' . $cuti->tanggal . '&akhir=' . $cuti->tanggal);
 
             $user->messages = [
-                'user_id'   =>  auth()->user()->id,
-                'from'   =>  auth()->user()->name,
-                'message'   =>  $notif,
-                'action'   =>  '/cuti?mulai='.$cuti->tanggal.'&akhir='.$cuti->tanggal
+                'user_id' => auth()->user()->id,
+                'from' => auth()->user()->name,
+                'message' => $notif,
+                'action' => '/cuti?mulai=' . $cuti->tanggal . '&akhir=' . $cuti->tanggal
             ];
             $user->notify(new \App\Notifications\UserNotification);
 
@@ -462,13 +486,13 @@ class CutiController extends Controller
         } else if ($request["status_cuti"] == "Ditolak") {
             $type = 'Rejected';
             $notif = $cuti->nama_cuti . ' Anda Telah Ditolak Oleh ' . auth()->user()->name;
-            $url = url('/cuti?mulai='.$cuti->tanggal.'&akhir='.$cuti->tanggal);
+            $url = url('/cuti?mulai=' . $cuti->tanggal . '&akhir=' . $cuti->tanggal);
 
             $user->messages = [
-                'user_id'   =>  auth()->user()->id,
-                'from'   =>  auth()->user()->name,
-                'message'   =>  $notif,
-                'action'   =>  '/cuti?mulai='.$cuti->tanggal.'&akhir='.$cuti->tanggal
+                'user_id' => auth()->user()->id,
+                'from' => auth()->user()->name,
+                'message' => $notif,
+                'action' => '/cuti?mulai=' . $cuti->tanggal . '&akhir=' . $cuti->tanggal
             ];
             $user->notify(new \App\Notifications\UserNotification);
 

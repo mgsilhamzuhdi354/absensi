@@ -1,0 +1,63 @@
+<?php
+
+namespace Tests\Unit;
+
+use Tests\TestCase;
+use App\Services\KinerjaService;
+use App\Models\User;
+use App\Models\MappingShift;
+use App\Models\LaporanKinerja;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+class KinerjaServiceTest extends TestCase
+{
+    use RefreshDatabase;
+
+    /** @test */
+    public function can_delete_attendance_points()
+    {
+        // Create test data
+        $user = User::factory()->create();
+        $mappingShift = MappingShift::factory()->create(['user_id' => $user->id]);
+
+        LaporanKinerja::create([
+            'user_id' => $user->id,
+            'reference_id' => $mappingShift->id,
+            'jenis_kinerja_id' => 1,
+            'nilai' => 10,  // Use 'nilai' not 'bobot'
+            'tanggal' => date('Y-m-d'),
+        ]);
+
+        $this->assertDatabaseHas('laporan_kinerjas', [
+            'reference_id' => $mappingShift->id,
+        ]);
+
+        // Delete points
+        KinerjaService::deleteAttendancePoints($mappingShift->id, $user->id);
+
+        // Verify deleted
+        $this->assertDatabaseMissing('laporan_kinerjas', [
+            'reference_id' => $mappingShift->id,
+        ]);
+    }
+
+    /** @test */
+    public function distance_calculation_is_accurate()
+    {
+        // Jakarta coordinates
+        $lat1 = -6.200000;
+        $lon1 = 106.816666;
+
+        // Nearby point (approximately 1km)
+        $lat2 = -6.210000;
+        $lon2 = 106.816666;
+
+        // Using the distance method from AbsenController
+        $controller = new \App\Http\Controllers\AbsenController();
+        $distance = $controller->distance($lat1, $lon1, $lat2, $lon2, "K") * 1000; // in meters
+
+        // Distance should be approximately 1100 meters
+        $this->assertGreaterThan(1000, $distance);
+        $this->assertLessThan(1200, $distance);
+    }
+}

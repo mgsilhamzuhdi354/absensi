@@ -35,9 +35,9 @@
         .attendance-card {
             background: rgba(255, 255, 255, 0.95);
             border-radius: 24px;
-            padding: 30px 25px;
+            padding: 25px 20px;
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
 
@@ -47,93 +47,111 @@
             gap: 8px;
             color: #64748b;
             text-decoration: none;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             font-size: 0.9rem;
-        }
-
-        .back-link:hover {
-            color: #667eea;
         }
 
         .page-title {
-            font-size: 1.5rem;
+            font-size: 1.4rem;
             font-weight: 700;
             color: #1e293b;
             text-align: center;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .page-subtitle {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: #64748b;
             text-align: center;
-            margin-bottom: 25px;
+            margin-bottom: 15px;
         }
 
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
+        .ml-badge {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 11px;
             font-weight: 600;
-            color: #334155;
-            font-size: 0.9rem;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 14px 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            font-size: 16px;
-            background-color: #f8fafc;
-            color: #1e293b;
-        }
-
-        .form-control:focus {
-            border-color: #667eea;
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+            display: inline-block;
+            margin-bottom: 15px;
         }
 
         .video-container {
             width: 100%;
-            height: 280px;
-            background: #1e293b;
+            max-width: 400px;
+            margin: 0 auto 12px auto;
             border-radius: 16px;
             overflow: hidden;
             position: relative;
-            margin-bottom: 20px;
+            background: #1e293b;
         }
 
         #video {
             width: 100%;
-            height: 100%;
-            object-fit: cover;
-            /* Mirror the camera preview so it feels natural like a mirror */
+            height: auto;
+            display: block;
             transform: scaleX(-1);
         }
 
-        .video-overlay {
+        #faceCanvas {
             position: absolute;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 0.9rem;
-            background: rgba(0, 0, 0, 0.5);
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+            pointer-events: none;
+        }
+
+        .debug-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 8px;
+            font-size: 11px;
+            color: #6c757d;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .user-info {
+            background: linear-gradient(135deg, #d1e7dd, #c3e6cb);
+            border-radius: 12px;
+            padding: 12px 15px;
+            margin-bottom: 12px;
+            text-align: center;
+            display: none;
+        }
+
+        .user-info.active {
+            display: block;
+        }
+
+        .user-info .name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #0f5132;
+        }
+
+        .user-info .match-score {
+            font-size: 0.8rem;
+            color: #198754;
+        }
+
+        .searching {
+            background: #e0e7ff;
+            border-radius: 12px;
+            padding: 12px 15px;
+            text-align: center;
+            color: #3730a3;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
         }
 
         .btn-group {
             display: flex;
             gap: 10px;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
 
         .btn {
@@ -144,7 +162,11 @@
             font-size: 0.95rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
 
         .btn-masuk {
@@ -152,27 +174,17 @@
             color: white;
         }
 
-        .btn-masuk:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-        }
-
         .btn-pulang {
             background: linear-gradient(135deg, #11998e, #38ef7d);
             color: white;
         }
 
-        .btn-pulang:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(17, 153, 142, 0.4);
-        }
-
         .status-message {
-            padding: 12px;
+            padding: 10px;
             border-radius: 10px;
             text-align: center;
             font-weight: 500;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             display: none;
         }
 
@@ -195,17 +207,7 @@
         }
 
         .hidden {
-            display: none;
-        }
-
-        @media (max-width: 450px) {
-            .attendance-card {
-                padding: 20px 18px;
-            }
-
-            .video-container {
-                height: 220px;
-            }
+            display: none !important;
         }
     </style>
 
@@ -218,29 +220,41 @@
             </a>
 
             <h1 class="page-title">
-                <i class="fas fa-user-circle" style="color: #667eea;"></i> Face Recognition
+                <i class="fas fa-user-check" style="color: #667eea;"></i> Face Recognition
             </h1>
-            <p class="page-subtitle">Absen menggunakan pengenalan wajah</p>
+            <p class="page-subtitle">Arahkan wajah ke kamera untuk absen</p>
 
-            <div class="form-group">
-                <label class="form-label">Username / NIP</label>
-                <input type="text" class="form-control" id="username" placeholder="Masukkan username">
+            <div class="text-center">
+                <span class="ml-badge">
+                    <i class="fas fa-brain"></i> Auto-Detect ML
+                </span>
             </div>
 
             <div class="video-container">
-                <video id="video" autoplay playsinline></video>
-                <div class="video-overlay" id="videoOverlay">
-                    <span><i class="fas fa-camera"></i> Klik tombol di bawah untuk mulai</span>
-                </div>
+                <video id="video" autoplay playsinline muted></video>
+                <canvas id="faceCanvas"></canvas>
+            </div>
+
+            <div class="debug-info" id="debugInfo">
+                Users: {{ count($faceUsers) }} | Waiting...
+            </div>
+
+            <div class="searching" id="searchingIndicator">
+                <i class="fas fa-search"></i> Mencari wajah...
+            </div>
+
+            <div class="user-info" id="userInfo">
+                <div class="name" id="userName">-</div>
+                <div class="match-score" id="matchScore">-</div>
             </div>
 
             <canvas id="canvas" class="hidden"></canvas>
 
             <div class="btn-group">
-                <button class="btn btn-masuk" onclick="absen('masuk')">
+                <button class="btn btn-masuk" id="btnMasuk" onclick="absen('masuk')" disabled>
                     <i class="fas fa-sign-in-alt"></i> Absen Masuk
                 </button>
-                <button class="btn btn-pulang" onclick="absen('pulang')">
+                <button class="btn btn-pulang" id="btnPulang" onclick="absen('pulang')" disabled>
                     <i class="fas fa-sign-out-alt"></i> Absen Pulang
                 </button>
             </div>
@@ -252,40 +266,229 @@
         </div>
     </div>
 
+    <script src="{{ url('/face/dist/face-api.min.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
+        const MODEL_URL = '{{ url("/face/weights") }}';
+        const MATCH_THRESHOLD = 50;
+
+        // Data langsung dari PHP - tidak perlu API call
+        const FACE_USERS_RAW = @json($faceUsers);
+
         let stream = null;
+        let modelsLoaded = false;
+        let allUsers = [];
+        let detectedUser = null;
+        let lastMatchScore = 0;
+        let detectionInterval = null;
+
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        const overlay = document.getElementById('videoOverlay');
+        const faceCanvas = document.getElementById('faceCanvas');
+        const debugInfo = document.getElementById('debugInfo');
+        const userInfo = document.getElementById('userInfo');
+        const searchingIndicator = document.getElementById('searchingIndicator');
+        const btnMasuk = document.getElementById('btnMasuk');
+        const btnPulang = document.getElementById('btnPulang');
         const statusMsg = document.getElementById('statusMessage');
 
-        // Start camera on page load
+        async function init() {
+            try {
+                debugInfo.textContent = 'Loading ML models...';
+
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+
+                modelsLoaded = true;
+                console.log('ML models loaded');
+
+                // Parse face users from embedded data
+                parseUsers();
+
+                await startCamera();
+
+            } catch (error) {
+                console.error('Init error:', error);
+                debugInfo.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        function parseUsers() {
+            console.log('Raw users from PHP:', FACE_USERS_RAW);
+            console.log('Total raw users:', FACE_USERS_RAW.length);
+
+            allUsers = [];
+
+            for (const user of FACE_USERS_RAW) {
+                try {
+                    let descriptors = null;
+                    let rawDesc = user.face_descriptor;
+
+                    // Parse if string
+                    if (typeof rawDesc === 'string') {
+                        rawDesc = JSON.parse(rawDesc);
+                    }
+
+                    console.log('Parsing user:', user.name, 'type:', typeof rawDesc);
+
+                    if (rawDesc && rawDesc.descriptors && Array.isArray(rawDesc.descriptors)) {
+                        descriptors = rawDesc.descriptors.map(d => new Float32Array(d));
+                        console.log('Found', descriptors.length, 'descriptors for', user.name);
+                    } else if (rawDesc && rawDesc.average && Array.isArray(rawDesc.average)) {
+                        descriptors = [new Float32Array(rawDesc.average)];
+                        console.log('Found average descriptor for', user.name);
+                    } else if (Array.isArray(rawDesc)) {
+                        descriptors = [new Float32Array(rawDesc)];
+                        console.log('Found direct array for', user.name);
+                    }
+
+                    if (descriptors && descriptors.length > 0) {
+                        allUsers.push({
+                            id: user.id,
+                            name: user.name,
+                            username: user.username,
+                            descriptors: descriptors
+                        });
+                    }
+                } catch (e) {
+                    console.error('Parse error for', user.name, e);
+                }
+            }
+
+            console.log('Parsed users with descriptors:', allUsers.length);
+            debugInfo.textContent = `Users: ${allUsers.length} | Waiting...`;
+
+            if (allUsers.length > 0) {
+                startDetection();
+            } else {
+                debugInfo.textContent = 'No registered faces found';
+            }
+        }
+
         async function startCamera() {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'user', width: 1280, height: 720 }
+                    video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 360 } },
+                    audio: false
                 });
                 video.srcObject = stream;
-                overlay.style.display = 'none';
+
+                await new Promise(resolve => video.onloadedmetadata = resolve);
+
+                setTimeout(() => {
+                    faceCanvas.width = video.offsetWidth;
+                    faceCanvas.height = video.offsetHeight;
+                }, 100);
             } catch (err) {
-                overlay.innerHTML = '<span style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Kamera tidak dapat diakses</span>';
+                console.error('Camera error:', err);
+                debugInfo.textContent = 'Camera error';
             }
         }
 
-        startCamera();
+        function startDetection() {
+            detectionInterval = setInterval(async () => {
+                if (!modelsLoaded || !stream || allUsers.length === 0) return;
 
-        // Get location
-        function getLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(function (position) {
-                    document.getElementById('lat').value = position.coords.latitude;
-                    document.getElementById('long').value = position.coords.longitude;
-                });
-            }
+                try {
+                    const detection = await faceapi
+                        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({
+                            inputSize: 224,
+                            scoreThreshold: 0.4
+                        }))
+                        .withFaceLandmarks()
+                        .withFaceDescriptor();
+
+                    const ctx = faceCanvas.getContext('2d');
+                    ctx.clearRect(0, 0, faceCanvas.width, faceCanvas.height);
+
+                    if (detection) {
+                        const scaleX = faceCanvas.width / video.videoWidth;
+                        const scaleY = faceCanvas.height / video.videoHeight;
+
+                        const box = detection.detection.box;
+                        ctx.strokeStyle = '#00ff00';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(box.x * scaleX, box.y * scaleY, box.width * scaleX, box.height * scaleY);
+
+                        const landmarks = detection.landmarks.positions;
+                        ctx.fillStyle = '#00ffff';
+                        landmarks.forEach(point => {
+                            ctx.beginPath();
+                            ctx.arc(point.x * scaleX, point.y * scaleY, 2, 0, 2 * Math.PI);
+                            ctx.fill();
+                        });
+
+                        const match = findBestMatch(detection.descriptor);
+
+                        debugInfo.textContent = `Users: ${allUsers.length} | Best: ${match.score.toFixed(1)}%`;
+
+                        if (match.score >= MATCH_THRESHOLD) {
+                            detectedUser = match.user;
+                            lastMatchScore = match.score;
+
+                            document.getElementById('userName').textContent = match.user.name;
+                            document.getElementById('matchScore').innerHTML =
+                                '<i class="fas fa-check-circle"></i> Match: ' + match.score.toFixed(1) + '%';
+
+                            userInfo.classList.add('active');
+                            searchingIndicator.style.display = 'none';
+
+                            btnMasuk.disabled = false;
+                            btnPulang.disabled = false;
+                        } else {
+                            detectedUser = null;
+                            userInfo.classList.remove('active');
+                            searchingIndicator.style.display = 'block';
+                            searchingIndicator.innerHTML = '<i class="fas fa-search"></i> Match: ' + match.score.toFixed(1) + '% (need ' + MATCH_THRESHOLD + '%)';
+                            btnMasuk.disabled = true;
+                            btnPulang.disabled = true;
+                        }
+                    } else {
+                        detectedUser = null;
+                        userInfo.classList.remove('active');
+                        searchingIndicator.style.display = 'block';
+                        searchingIndicator.innerHTML = '<i class="fas fa-search"></i> Mencari wajah...';
+                        btnMasuk.disabled = true;
+                        btnPulang.disabled = true;
+                    }
+                } catch (e) {
+                    console.warn('Detection error:', e);
+                }
+            }, 400);
         }
-        getLocation();
-        setInterval(getLocation, 5000);
+
+        function findBestMatch(liveDescriptor) {
+            let bestMatch = { user: null, score: 0 };
+
+            for (const user of allUsers) {
+                for (const refDesc of user.descriptors) {
+                    try {
+                        const distance = faceapi.euclideanDistance(refDesc, liveDescriptor);
+                        const score = (1 - distance) * 100;
+
+                        if (score > bestMatch.score) {
+                            bestMatch = { user: user, score: score };
+                        }
+                    } catch (e) { }
+                }
+            }
+
+            return bestMatch;
+        }
+
+        // Location
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    document.getElementById('lat').value = pos.coords.latitude;
+                    document.getElementById('long').value = pos.coords.longitude;
+                },
+                err => { }
+            );
+        }
 
         function showStatus(message, type) {
             statusMsg.textContent = message;
@@ -293,24 +496,18 @@
         }
 
         function absen(type) {
-            const username = document.getElementById('username').value.trim();
-
-            if (!username) {
-                Swal.fire('Oops!', 'Masukkan username terlebih dahulu', 'warning');
+            if (!detectedUser) {
+                showStatus('Wajah belum dikenali', 'error');
                 return;
             }
 
-            if (!stream) {
-                Swal.fire('Oops!', 'Kamera belum aktif', 'warning');
-                return;
-            }
+            showStatus('Memproses...', 'loading');
 
-            showStatus('Memproses absensi...', 'loading');
-
-            // Capture image without flip
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
             ctx.drawImage(video, 0, 0);
             const imageData = canvas.toDataURL('image/png');
 
@@ -323,66 +520,51 @@
                     'X-CSRF-TOKEN': '{{ csrf_token() }}'
                 },
                 body: JSON.stringify({
-                    username: username,
+                    username: detectedUser.username,
                     lat: document.getElementById('lat').value,
                     long: document.getElementById('long').value,
-                    image: imageData
+                    image: imageData,
+                    match_score: lastMatchScore.toFixed(2),
+                    verified: true
                 })
             })
-                .then(res => res.json())
-                .then(data => {
-                    // Handle ip_blocked response (object with status and message)
+                .then(res => res.text())
+                .then(text => {
+                    let data;
+                    try { data = JSON.parse(text); } catch (e) { data = text; }
+
                     if (typeof data === 'object' && data.status === 'ip_blocked') {
-                        Swal.fire('Akses Ditolak', data.message || 'Anda harus terhubung ke WiFi Kantor untuk absensi', 'error');
-                        showStatus(data.message || 'IP tidak diizinkan', 'error');
+                        Swal.fire('Akses Ditolak', data.message, 'warning');
                         return;
                     }
 
                     if (data === 'masuk') {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Absen Masuk Berhasil!',
-                            text: 'Selamat bekerja!',
-                            confirmButtonColor: '#667eea'
-                        });
-                        showStatus('✓ Absen masuk berhasil!', 'success');
+                        Swal.fire({ icon: 'success', title: 'Absen Masuk Berhasil!', html: '<strong>' + detectedUser.name + '</strong>' });
+                        showStatus('Berhasil!', 'success');
                     } else if (data === 'pulang') {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Absen Pulang Berhasil!',
-                            text: 'Hati-hati di jalan!',
-                            confirmButtonColor: '#11998e'
-                        });
-                        showStatus('✓ Absen pulang berhasil!', 'success');
+                        Swal.fire({ icon: 'success', title: 'Absen Pulang Berhasil!', html: '<strong>' + detectedUser.name + '</strong>' });
+                        showStatus('Berhasil!', 'success');
                     } else if (data === 'selesai') {
-                        Swal.fire('Info', 'Anda sudah absen hari ini', 'info');
-                        showStatus('Sudah absen hari ini', 'error');
+                        Swal.fire('Info', 'Sudah absen hari ini', 'info');
                     } else if (data === 'noMs') {
-                        Swal.fire('Info', 'Tidak ada jadwal shift untuk hari ini', 'info');
-                        showStatus('Tidak ada jadwal shift', 'error');
+                        Swal.fire('Info', 'Tidak ada jadwal shift', 'info');
                     } else if (data === 'noUser') {
-                        Swal.fire('Error', 'Username tidak ditemukan', 'error');
-                        showStatus('Username tidak ditemukan', 'error');
+                        Swal.fire('Info', 'User tidak ditemukan', 'warning');
                     } else if (data === 'outlocation') {
-                        Swal.fire('Error', 'Anda berada di luar area kantor', 'error');
-                        showStatus('Di luar area kantor', 'error');
+                        Swal.fire('Info', 'Di luar area kantor', 'warning');
                     } else if (data === 'tooEarly') {
-                        Swal.fire('Belum Waktunya', 'Anda hanya bisa absen masuk maksimal 30 menit sebelum jadwal shift', 'warning');
-                        showStatus('Belum waktunya absen masuk', 'error');
+                        Swal.fire('Belum Waktunya', 'Max 30 menit sebelum shift', 'warning');
                     } else if (data === 'notClockedIn') {
-                        Swal.fire('Belum Absen Masuk', 'Anda harus absen masuk terlebih dahulu', 'warning');
-                        showStatus('Harus absen masuk dulu', 'error');
-                    } else if (data === 'tooEarlyPulang') {
-                        Swal.fire('Belum Waktunya', 'Anda bisa absen pulang 30 menit sebelum jadwal pulang', 'warning');
-                        showStatus('Belum waktunya absen pulang', 'error');
+                        Swal.fire('Info', 'Harus absen masuk dulu', 'warning');
                     } else {
-                        showStatus('Gagal: ' + data, 'error');
+                        showStatus('OK', 'success');
                     }
                 })
                 .catch(err => {
-                    Swal.fire('Error', 'Terjadi kesalahan: ' + err.message, 'error');
-                    showStatus('Error: ' + err.message, 'error');
+                    showStatus('Gagal: ' + err.message, 'error');
                 });
         }
+
+        init();
     </script>
 @endsection

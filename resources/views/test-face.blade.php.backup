@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Recognition Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .test-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        #video {
+            width: 100%;
+            max-width: 640px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .status-box {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+
+        .status-loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-ready {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .status-detecting {
+            background: #cfe2ff;
+            color: #084298;
+        }
+
+        .status-success {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .status-failed {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .video-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .info-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            margin: 5px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="test-card">
+        <div class="text-center mb-4">
+            <h2><i class="fas fa-user-check"></i> Face Recognition Test</h2>
+            <p class="text-muted">Testing face detection & matching</p>
+        </div>
+
+        <!-- Status -->
+        <div id="status" class="status-box status-loading">
+            <i class="fas fa-spinner fa-spin"></i> Initializing...
+        </div>
+
+        <!-- Info Badges -->
+        <div class="text-center mb-3">
+            <span class="info-badge bg-primary text-white">
+                <i class="fas fa-user"></i> {{ auth()->user()->name }}
+            </span>
+            <span class="info-badge bg-info text-white" id="threshold-badge">
+                <i class="fas fa-bullseye"></i> Threshold:
+                {{ \App\Models\settings::first()->face_match_threshold ?? 70 }}%
+            </span>
+        </div>
+
+        <!-- Reference Photo Preview -->
+        <div class="alert alert-info">
+            <h6 class="mb-2"><i class="fas fa-image"></i> Foto Referensi:</h6>
+            <div class="text-center">
+                <img src="{{ url('/storage/' . (auth()->user()->foto_karyawan ?? 'default.jpg')) }}"
+                    alt="Reference Photo"
+                    style="max-width: 150px; max-height: 150px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); object-fit: cover;">
+                <p class="mt-2 mb-0 small">
+                    <i class="fas fa-info-circle"></i> <strong>Live camera harus SAMA dengan foto ini!</strong>
+                </p>
+                <p class="mb-0 small text-muted">Jika beda orang → similarity akan rendah (\u003c50%)</p>
+            </div>
+        </div>
+
+        <!-- Video & Canvas -->
+        <div class="text-center mb-4">
+            <div class="video-wrapper">
+                <video id="video" autoplay playsinline muted></video>
+                <canvas id="overlay"></canvas>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="text-center mb-3">
+            <button id="btnTest" class="btn btn-lg btn-success" disabled>
+                <i class="fas fa-camera"></i> Test Face Match
+            </button>
+            <button id="btnToggle" class="btn btn-lg btn-secondary">
+                <i class="fas fa-pause"></i> Pause
+            </button>
+        </div>
+
+        <!-- Results -->
+        <div id="results" style="display: none;">
+            <h5 class="mt-4"><i class="fas fa-chart-bar"></i> Match Results:</h5>
+            <div class="progress mb-2" style="height: 30px;">
+                <div id="matchProgress" class="progress-bar" role="progressbar" style="width: 0%;">
+                    0%
+                </div>
+            </div>
+            <div id="matchDetails"></div>
+        </div>
+
+        <!-- Debug Info -->
+        <div class="mt-4">
+            <h6><i class="fas fa-bug"></i> Debug Info:</h6>
+            <pre id="debug" class="bg-light p-3 rounded"
+                style="font-size: 12px; max-height: 200px; overflow-y: auto;"></pre>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url('/face/dist/face-api.min.js') }}"></script>
+    <script>
+        const MODEL_URL = '{{ url("/face/weights") }}';
+        const THRESHOLD = {{ \App\Models\settings::first()->face_match_threshold ?? 70 }};
+        const USER_PHOTO = '{{ url("/storage/" . (auth()->user()->foto_karyawan ?? "default.jpg")) }}';
+
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('overlay');
+        let statusDiv = document.getElementById('status');
+        let debugDiv = document.getElementById('debug');
+        let resultsDiv = document.getElementById('results');
+        let btnTest = document.getElementById('btnTest');
+        let btnToggle = document.getElementById('btnToggle');
+
+        let modelsLoaded = false;
+        let referenceFace = null;
+        let detectionInterval = null;
+        let isPaused = false;
+
+        // Debug log
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : '🔵';
+            debugDiv.textContent += `[${timestamp}] ${icon} ${message}\n`;
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+            console.log(message);
+        }
+
+        // Update status
+        function setStatus(message, type = 'loading') {
+            statusDiv.className = `status-box status-${type}`;
+            statusDiv.innerHTML = message;
+        }
+
+        // Initialize
+        async function init() {
+            try {
+                log('Starting initialization...');
+                setStatus('<i class="fas fa-spinner fa-spin"></i> Loading face detection models...', 'loading');
+
+                // Load models
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+
+                modelsLoaded = true;
+                log('✅ Models loaded successfully', 'success');
+
+                // Start camera
+                setStatus('<i class="fas fa-spinner fa-spin"></i> Starting camera...', 'loading');
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: 640, height: 480 },
+                    audio: false
+                });
+                video.srcObject = stream;
+
+                log('✅ Camera started', 'success');
+
+                // Wait for video metadata
+                await new Promise(resolve => video.onloadedmetadata = resolve);
+
+                // Setup canvas
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                // Load reference face
+                setStatus('<i class="fas fa-spinner fa-spin"></i> Loading reference face...', 'loading');
+                await loadReferenceFace();
+
+                // Start detection
+                startDetection();
+
+                setStatus('<i class="fas fa-check-circle"></i> Ready! Face detection active', 'ready');
+                btnTest.disabled = false;
+
+            } catch (error) {
+                log('❌ Error: ' + error.message, 'error');
+                setStatus('<i class="fas fa-exclamation-triangle"></i> Error: ' + error.message, 'failed');
+            }
+        }
+
+        // Load reference face
+        async function loadReferenceFace() {
+            try {
+                const img = await faceapi.fetchImage(USER_PHOTO);
+                const detection = await faceapi
+                    .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+
+                if (detection) {
+                    referenceFace = detection.descriptor;
+                    log('✅ Reference face loaded from profile photo', 'success');
+                } else {
+                    throw new Error('No face found in reference photo');
+                }
+            } catch (error) {
+                log('❌ Failed to load reference: ' + error.message, 'error');
+                throw error;
+            }
+        }
+
+        // Start real-time detection
+        function startDetection() {
+            detectionInterval = setInterval(async () => {
+                if (isPaused) return;
+
+                try {
+                    const detection = await faceapi
+                        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 128, scoreThreshold: 0.5 }))
+                        .withFaceLandmarks()
+                        .withFaceDescriptor();
+
+                    // Clear canvas
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    if (detection) {
+                        // Draw detection box
+                        const displaySize = { width: canvas.width, height: canvas.height };
+                        const resized = faceapi.resizeResults(detection, displaySize);
+                        faceapi.draw.drawDetections(canvas, [resized]);
+                        faceapi.draw.drawFaceLandmarks(canvas, [resized]);
+
+                        setStatus('<i class="fas fa-check-circle"></i> Face detected - Ready to test match', 'detecting');
+                    } else {
+                        setStatus('<i class="fas fa-search"></i> Looking for face...', 'loading');
+                    }
+                } catch (error) {
+                    log('Detection error: ' + error.message, 'error');
+                }
+            }, 500);
+        }
+
+        // Test face match
+        btnTest.addEventListener('click', async function () {
+            if (!referenceFace) {
+                alert('Reference face not loaded!');
+                return;
+            }
+
+            this.disabled = true;
+            setStatus('<i class="fas fa-spinner fa-spin"></i> Testing face match...', 'loading');
+
+            try {
+                const detection = await faceapi
+                    .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+
+                if (!detection) {
+                    throw new Error('No face detected. Please position your face clearly.');
+                }
+
+                // Calculate similarity
+                const distance = faceapi.euclideanDistance(referenceFace, detection.descriptor);
+                const similarity = (1 - distance) * 100;
+
+                log(`Face match: ${similarity.toFixed(2)}% (threshold: ${THRESHOLD}%)`, 'success');
+
+                // Show results
+                resultsDiv.style.display = 'block';
+                const progress = document.getElementById('matchProgress');
+                const details = document.getElementById('matchDetails');
+
+                progress.style.width = similarity + '%';
+                progress.textContent = similarity.toFixed(1) + '%';
+
+                if (similarity >= THRESHOLD) {
+                    progress.className = 'progress-bar bg-success';
+                    details.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i> <strong>MATCH!</strong> 
+                            Similarity: ${similarity.toFixed(2)}% (>= ${THRESHOLD}%)
+                        </div>
+                    `;
+                    setStatus('<i class="fas fa-check-circle"></i> Face matched successfully!', 'success');
+                } else {
+                    progress.className = 'progress-bar bg-danger';
+                    details.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-times-circle"></i> <strong>NO MATCH</strong> 
+                            Similarity: ${similarity.toFixed(2)}% (< ${THRESHOLD}%)
+                        </div>
+                    `;
+                    setStatus('<i class="fas fa-times-circle"></i> Face did not match', 'failed');
+                }
+
+            } catch (error) {
+                log('❌ Test error: ' + error.message, 'error');
+                setStatus('<i class="fas fa-exclamation-triangle"></i> Error: ' + error.message, 'failed');
+            }
+
+            this.disabled = false;
+        });
+
+        // Toggle pause
+        btnToggle.addEventListener('click', function () {
+            isPaused = !isPaused;
+            if (isPaused) {
+                this.innerHTML = '<i class="fas fa-play"></i> Resume';
+                this.className = 'btn btn-lg btn-warning';
+                setStatus('<i class="fas fa-pause"></i> Detection paused', 'loading');
+            } else {
+                this.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                this.className = 'btn btn-lg btn-secondary';
+                setStatus('<i class="fas fa-check-circle"></i> Detection active', 'ready');
+            }
+        });
+
+        // Start on load
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+
+</html>

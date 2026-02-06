@@ -87,6 +87,12 @@ class AbsenController extends Controller
                 return $errorResponse('Sudah Absen', 'Anda sudah melakukan absen masuk hari ini.');
             }
 
+            // Check if Shift relation exists to prevent null exception
+            if (!$mapping_shift->Shift) {
+                DB::rollBack();
+                return $errorResponse('Error', 'Data shift tidak ditemukan. Hubungi admin.');
+            }
+
             // Cek apakah belum waktunya absen masuk
             $settingsData = settings::first();
             $bufferMasuk = $settingsData->absen_masuk_buffer_menit ?? 30;
@@ -96,29 +102,69 @@ class AbsenController extends Controller
             $waktu_sekarang = time();
             $selisih_menit = ($waktu_shift - $waktu_sekarang) / 60;
 
+            // Check face verification override for time validation
+            $faceVerified = $request->input('face_verified') === '1';
+            $faceEnabled = $settingsData->enable_face_verification_fallback ?? false;
+
             if ($selisih_menit > $bufferMasuk) {
-                DB::rollBack();
-                return $errorResponse('Belum Waktunya', 'Anda hanya bisa absen masuk maksimal ' . $bufferMasuk . ' menit sebelum jadwal shift.');
+                // Allow override if face verification succeeded
+                if ($faceVerified && $faceEnabled) {
+                    \Log::info('Time validation overridden by face verification', [
+                        'user_id' => auth()->id(),
+                        'selisih_menit' => $selisih_menit,
+                        'buffer' => $bufferMasuk
+                    ]);
+                    // Continue - will add note later
+                } else {
+                    DB::rollBack();
+                    return $errorResponse('Belum Waktunya', 'Anda hanya bisa absen masuk maksimal ' . $bufferMasuk . ' menit sebelum jadwal shift.');
+                }
             }
 
-            // Check if Lokasi relation exists to prevent null exception
+            // GPS Location validation - Safe null handling
             $lokasi = auth()->user()->Lokasi;
-            if (!$lokasi) {
-                DB::rollBack();
-                return $errorResponse('Error', 'Lokasi kerja belum diatur. Hubungi admin.');
-            }
-            $lat_kantor = $lokasi->lat_kantor;
-            $long_kantor = $lokasi->long_kantor;
-            $radius = $lokasi->radius;
-            $nama_lokasi = $lokasi->nama_lokasi;
+            $lat_kantor = null;
+            $long_kantor = null;
+            $radius = null;
+            $nama_lokasi = 'Kantor';
 
-            $request["jarak_masuk"] = $this->distance($request["lat_absen"], $request["long_absen"], $lat_kantor, $long_kantor, "K") * 1000;
+            if ($lokasi) {
+                $lat_kantor = $lokasi->lat_kantor;
+                $long_kantor = $lokasi->long_kantor;
+                $radius = $lokasi->radius;
+                $nama_lokasi = $lokasi->nama_lokasi ?? 'Kantor';
+            }
+
+            // Calculate distance if location data available
+            if ($lat_kantor && $long_kantor && $request["lat_absen"] && $request["long_absen"]) {
+                $request["jarak_masuk"] = $this->distance($request["lat_absen"], $request["long_absen"], $lat_kantor, $long_kantor, "K") * 1000;
+            } else {
+                $request["jarak_masuk"] = 0;
+            }
 
             $request["jam_absen"] = date('H:i');
 
-            if ($request["jarak_masuk"] > $radius && $mapping_shift->lock_location == 1) {
-                DB::rollBack();
-                return $errorResponse('Diluar Jangkauan', 'Lokasi Anda Diluar Radius ' . $nama_lokasi);
+            // Only validate location if lock_location is enabled
+            if ($mapping_shift->lock_location == 1) {
+                if (!$lokasi) {
+                    // Face verification cannot override missing location config
+                    DB::rollBack();
+                    return $errorResponse('Error', 'Lokasi kerja belum diatur. Hubungi admin.');
+                }
+                if ($request["jarak_masuk"] > $radius) {
+                    // Allow override if face verification succeeded
+                    if ($faceVerified && $faceEnabled) {
+                        \Log::info('Location validation overridden by face verification', [
+                            'user_id' => auth()->id(),
+                            'jarak' => $request["jarak_masuk"],
+                            'radius' => $radius
+                        ]);
+                        // Continue - will add note later
+                    } else {
+                        DB::rollBack();
+                        return $errorResponse('Diluar Jangkauan', 'Lokasi Anda Diluar Radius ' . $nama_lokasi);
+                    }
+                }
             }
 
             try {
@@ -223,6 +269,16 @@ class AbsenController extends Controller
                 ]);
             }
 
+            // Add note if face verification was used
+            if ($faceVerified && $faceEnabled) {
+                $faceNote = 'Diverifikasi dengan face recognition';
+                if ($request['keterangan_masuk']) {
+                    $validatedData['keterangan_masuk'] = $faceNote . ' - ' . $request['keterangan_masuk'];
+                } else {
+                    $validatedData['keterangan_masuk'] = $faceNote;
+                }
+            }
+
             MappingShift::where('id', $id)->update($validatedData);
 
             DB::commit();
@@ -285,6 +341,12 @@ class AbsenController extends Controller
                 return $errorResponse('Sudah Absen', 'Anda sudah melakukan absen pulang hari ini.');
             }
 
+            // Check if Shift relation exists to prevent null exception
+            if (!$mapping_shift->Shift) {
+                DB::rollBack();
+                return $errorResponse('Error', 'Data shift tidak ditemukan. Hubungi admin.');
+            }
+
             // Cek apakah belum waktunya pulang (max 30 menit sebelum jadwal)
             $shiftmasuk = $mapping_shift->Shift->jam_masuk;
             $shiftpulang = $mapping_shift->Shift->jam_keluar;
@@ -313,22 +375,37 @@ class AbsenController extends Controller
 
             $request["jam_pulang"] = date('H:i');
 
-            // Check if Lokasi relation exists to prevent null exception
+            // GPS Location validation - Safe null handling
             $lokasi = auth()->user()->Lokasi;
-            if (!$lokasi) {
-                DB::rollBack();
-                return $errorResponse('Error', 'Lokasi kerja belum diatur. Hubungi admin.');
+            $lat_kantor = null;
+            $long_kantor = null;
+            $radius = null;
+            $nama_lokasi = 'Kantor';
+
+            if ($lokasi) {
+                $lat_kantor = $lokasi->lat_kantor;
+                $long_kantor = $lokasi->long_kantor;
+                $radius = $lokasi->radius;
+                $nama_lokasi = $lokasi->nama_lokasi ?? 'Kantor';
             }
-            $lat_kantor = $lokasi->lat_kantor;
-            $long_kantor = $lokasi->long_kantor;
-            $radius = $lokasi->radius;
-            $nama_lokasi = $lokasi->nama_lokasi;
 
-            $request["jarak_pulang"] = $this->distance($request["lat_pulang"], $request["long_pulang"], $lat_kantor, $long_kantor, "K") * 1000;
+            // Calculate distance if location data available
+            if ($lat_kantor && $long_kantor && $request["lat_pulang"] && $request["long_pulang"]) {
+                $request["jarak_pulang"] = $this->distance($request["lat_pulang"], $request["long_pulang"], $lat_kantor, $long_kantor, "K") * 1000;
+            } else {
+                $request["jarak_pulang"] = 0;
+            }
 
-            if ($request["jarak_pulang"] > $radius && $mapping_shift->lock_location == 1) {
-                DB::rollBack();
-                return $errorResponse('Diluar Jangkauan', 'Lokasi Anda Diluar Radius ' . $nama_lokasi);
+            // Only validate location if lock_location is enabled
+            if ($mapping_shift->lock_location == 1) {
+                if (!$lokasi) {
+                    DB::rollBack();
+                    return $errorResponse('Error', 'Lokasi kerja belum diatur. Hubungi admin.');
+                }
+                if ($request["jarak_pulang"] > $radius) {
+                    DB::rollBack();
+                    return $errorResponse('Diluar Jangkauan', 'Lokasi Anda Diluar Radius ' . $nama_lokasi);
+                }
             }
 
             try {
@@ -531,13 +608,20 @@ class AbsenController extends Controller
     {
         date_default_timezone_set('Asia/Jakarta');
 
-        $mapping_shift = MappingShift::where('id', $id)->get();
+        $mp = MappingShift::find($id);
 
-        foreach ($mapping_shift as $mp) {
-            $shift = $mp->Shift->jam_masuk;
-            $tanggal = $mp->tanggal;
-            $user_id = $mp->user_id;
+        if (!$mp) {
+            return redirect('/data-absen')->with('error', 'Data shift tidak ditemukan.');
         }
+
+        // Check if Shift relation exists
+        if (!$mp->Shift) {
+            return redirect('/data-absen')->with('error', 'Data shift tidak ditemukan. Hubungi admin.');
+        }
+
+        $shift = $mp->Shift->jam_masuk;
+        $tanggal = $mp->tanggal;
+        $user_id = $mp->user_id;
 
         $awal = strtotime($tanggal . $shift);
         $akhir = strtotime($tanggal . $request["jam_absen"]);
@@ -550,10 +634,17 @@ class AbsenController extends Controller
         }
 
         $user = User::findOrFail($user_id);
-        $lat_kantor = $user->Lokasi->lat_kantor;
-        $long_kantor = $user->Lokasi->long_kantor;
 
-        $request["jarak_masuk"] = $this->distance($request["lat_absen"], $request["long_absen"], $lat_kantor, $long_kantor, "K") * 1000;
+        // Safe Lokasi access
+        $lokasi = $user->Lokasi;
+        $lat_kantor = $lokasi ? $lokasi->lat_kantor : null;
+        $long_kantor = $lokasi ? $lokasi->long_kantor : null;
+
+        if ($lat_kantor && $long_kantor && $request["lat_absen"] && $request["long_absen"]) {
+            $request["jarak_masuk"] = $this->distance($request["lat_absen"], $request["long_absen"], $lat_kantor, $long_kantor, "K") * 1000;
+        } else {
+            $request["jarak_masuk"] = 0;
+        }
 
         $validatedData = $request->validate([
             'jam_absen' => 'required',
@@ -594,13 +685,22 @@ class AbsenController extends Controller
 
     public function prosesEditPulang(Request $request, $id)
     {
-        $mapping_shift = MappingShift::where('id', $id)->get();
-        foreach ($mapping_shift as $mp) {
-            $shiftmasuk = $mp->Shift->jam_masuk;
-            $shiftpulang = $mp->Shift->jam_keluar;
-            $tanggal = $mp->tanggal;
-            $user_id = $mp->user_id;
+        $mp = MappingShift::find($id);
+
+        if (!$mp) {
+            return redirect('/data-absen')->with('error', 'Data shift tidak ditemukan.');
         }
+
+        // Check if Shift relation exists
+        if (!$mp->Shift) {
+            return redirect('/data-absen')->with('error', 'Data shift tidak ditemukan. Hubungi admin.');
+        }
+
+        $shiftmasuk = $mp->Shift->jam_masuk;
+        $shiftpulang = $mp->Shift->jam_keluar;
+        $tanggal = $mp->tanggal;
+        $user_id = $mp->user_id;
+
         $new_tanggal = "";
         $timeMasuk = strtotime($shiftmasuk);
         $timePulang = strtotime($shiftpulang);
@@ -623,10 +723,17 @@ class AbsenController extends Controller
         }
 
         $user = User::findOrFail($user_id);
-        $lat_kantor = $user->Lokasi->lat_kantor;
-        $long_kantor = $user->Lokasi->long_kantor;
 
-        $request["jarak_pulang"] = $this->distance($request["lat_pulang"], $request["long_pulang"], $lat_kantor, $long_kantor, "K") * 1000;
+        // Safe Lokasi access
+        $lokasi = $user->Lokasi;
+        $lat_kantor = $lokasi ? $lokasi->lat_kantor : null;
+        $long_kantor = $lokasi ? $lokasi->long_kantor : null;
+
+        if ($lat_kantor && $long_kantor && $request["lat_pulang"] && $request["long_pulang"]) {
+            $request["jarak_pulang"] = $this->distance($request["lat_pulang"], $request["long_pulang"], $lat_kantor, $long_kantor, "K") * 1000;
+        } else {
+            $request["jarak_pulang"] = 0;
+        }
 
         $validatedData = $request->validate([
             'jam_pulang' => 'required',
@@ -808,6 +915,11 @@ class AbsenController extends Controller
         $ms->update($validated);
 
         if ($request['status_pengajuan'] == 'Disetujui') {
+            // Check if Shift relation exists
+            if (!$ms->Shift) {
+                return redirect('/data-pengajuan-absensi')->with('error', 'Data shift tidak ditemukan. Hubungi admin.');
+            }
+
             $shiftmasuk = $ms->Shift->jam_masuk;
             $tanggal = $ms->tanggal;
 
@@ -842,16 +954,21 @@ class AbsenController extends Controller
                 $pulang_cepat = $diff_pulang;
             }
 
+            // Safe Lokasi access
+            $lokasi = $ms->User ? $ms->User->Lokasi : null;
+            $lat_kantor = $lokasi ? $lokasi->lat_kantor : null;
+            $long_kantor = $lokasi ? $lokasi->long_kantor : null;
+
             $ms->update([
                 'jam_absen' => $ms->jam_masuk_pengajuan,
                 'telat' => $telat,
-                'lat_absen' => $ms->User->Lokasi->lat_kantor,
-                'long_absen' => $ms->User->Lokasi->long_kantor,
+                'lat_absen' => $lat_kantor,
+                'long_absen' => $long_kantor,
                 'jarak_masuk' => 0,
                 'jam_pulang' => $ms->jam_pulang_pengajuan,
                 'pulang_cepat' => $pulang_cepat,
-                'lat_pulang' => $ms->User->Lokasi->lat_kantor,
-                'long_pulang' => $ms->User->Lokasi->long_kantor,
+                'lat_pulang' => $lat_kantor,
+                'long_pulang' => $long_kantor,
                 'jarak_pulang' => 0,
                 'status_absen' => 'Masuk',
             ]);

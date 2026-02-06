@@ -57,12 +57,12 @@ use App\Http\Controllers\BackupController;
 |
 */
 
-// Landing Page (Welcome) - Moved to /welcome
-Route::get('/welcome', [authController::class, 'welcome'])->name('welcome')->middleware('guest');
+// Landing Page (Welcome) - Now the default at /
+Route::get('/', [authController::class, 'welcome'])->name('welcome')->middleware('guest');
+Route::get('/welcome', [authController::class, 'welcome'])->middleware('guest'); // Alias
 
-// Login Page - Now the default Landing Page
-Route::get('/', [authController::class, 'index'])->name('login')->middleware('guest');
-Route::get('/login', [authController::class, 'index'])->middleware('guest'); // Alias for /login
+// Login Page - No longer default, accessible at /login
+Route::get('/login', [authController::class, 'index'])->name('login')->middleware('guest');
 Route::get('/login-admin', [authController::class, 'loginAdmin'])->name('loginAdmin')->middleware('guest');
 Route::get('/get-started', [authController::class, 'getStarted'])->name('getStarted')->middleware('guest');
 
@@ -73,6 +73,9 @@ Route::post('/attendance/face/masuk', [authController::class, 'presensiStore']);
 Route::post('/attendance/face/pulang', [authController::class, 'presensiPulangStore']);
 Route::post('/attendance/qr/masuk', [authController::class, 'qrMasukStore']);
 Route::post('/attendance/qr/pulang', [authController::class, 'qrPulangStore']);
+
+// Face Recognition Data Route (untuk auto-detect)
+Route::get('/face-descriptors-all', [authController::class, 'getFaceDescriptors']);
 
 // Attendance Security Routes (Admin only)
 Route::get('/attendance/qr-display', [App\Http\Controllers\AttendanceSecurityController::class, 'qrCodePage'])->middleware('admin');
@@ -189,6 +192,12 @@ Route::delete('/kontrak/delete/{id}', [KontrakController::class, 'delete'])->mid
 Route::get('/kontrak/export', [KontrakController::class, 'export'])->middleware('admin');
 
 Route::get('/absen', [AbsenController::class, 'index'])->middleware('auth');
+Route::get('/test-face', function () {
+    return view('test-face');
+})->middleware('auth');
+Route::get('/my-face/register', [karyawanController::class, 'registerMyFace'])->middleware('auth');
+Route::post('/my-face/save', [karyawanController::class, 'saveMyFaceData'])->middleware('auth');
+Route::get('/my-face/status', [karyawanController::class, 'checkMyFaceStatus'])->middleware('auth');
 Route::get('/dinas-luar', [DinasLuar::class, 'index'])->middleware('auth');
 
 Route::get('/notifications', [NotificationController::class, 'index'])->middleware('auth');

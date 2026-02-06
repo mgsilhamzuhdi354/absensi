@@ -80,6 +80,15 @@
       border-color: #545b62;
     }
 
+    /* Hide logo and company name when sidebar is minimized */
+    .sidebar-wrapper.close_icon .logo-wrapper img {
+      display: none !important;
+    }
+
+    .sidebar-wrapper.close_icon .logo-wrapper span {
+      display: none !important;
+    }
+
     .btn {
       border-radius: 10px
     }
@@ -129,6 +138,15 @@
     .card:hover {
       transform: translateY(-3px);
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    /* Fix SweetAlert popup z-index to appear above sidebar */
+    .swal2-container {
+      z-index: 99999 !important;
+    }
+
+    .swal2-popup {
+      z-index: 99999 !important;
     }
   </style>
 

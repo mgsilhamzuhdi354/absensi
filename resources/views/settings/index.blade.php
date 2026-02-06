@@ -692,6 +692,85 @@
                     </div>
                 </div>
                 
+                <!-- Face Verification Fallback -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <h5><i class="fa fa-user-shield"></i> Verifikasi Wajah sebagai Fallback</h5>
+                    </div>
+                    <div class="settings-card-body">
+                        <p class="text-muted mb-4">
+                            <i class="fa fa-info-circle me-1"></i> 
+                            Aktifkan verifikasi wajah otomatis saat validasi absensi gagal (lokasi salah / waktu salah).
+                        </p>
+                        
+                        <div class="row">
+                            <!-- Enable Face Verification -->
+                            <div class="col-12 mb-4">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="enable_face_verification_fallback" 
+                                           name="enable_face_verification_fallback" value="1" 
+                                           {{ old('enable_face_verification_fallback', $data->enable_face_verification_fallback ?? false) ? 'checked' : '' }}
+                                           onchange="toggleFaceSettings()">
+                                    <label class="form-check-label fw-bold" for="enable_face_verification_fallback">
+                                        <i class="fa fa-camera me-1 text-warning"></i>
+                                        Aktifkan Verifikasi Wajah Otomatis
+                                    </label>
+                                </div>
+                                <small class="text-muted">Jika validasi gagal, sistem akan otomatis meminta scan wajah untuk verifikasi</small>
+                                
+                                <div class="alert alert-info mt-3" style="font-size: 0.85rem;">
+                                    <i class="fa fa-lightbulb me-1"></i>
+                                    <strong>Cara Kerja:</strong>
+                                    <ol class="mb-0 mt-2" style="padding-left: 1.2rem;">
+                                        <li>User coba absen → ERROR (lokasi/waktu salah)</li>
+                                        <li>Otomatis muncul popup kamera untuk scan wajah</li>
+                                        <li>Jika wajah cocok dengan foto profil → <strong>Absensi disetujui!</strong></li>
+                                        <li>Jika tidak cocok → Ditolak, hubungi admin</li>
+                                    </ol>
+                                </div>
+                            </div>
+                            
+                            <div id="face-settings" style="{{ old('enable_face_verification_fallback', $data->enable_face_verification_fallback ?? false) ? '' : 'display: none;' }}">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">
+                                        <i class="fa fa-percentage me-1 text-primary"></i>
+                                        Threshold Kecocokan Wajah (%)
+                                    </label>
+                                    <input type="number" step="1" min="50" max="100" 
+                                           class="form-control @error('face_match_threshold') is-invalid @enderror" 
+                                           name="face_match_threshold" 
+                                           value="{{ old('face_match_threshold', $data->face_match_threshold ?? 70) }}"
+                                           placeholder="70">
+                                    <small class="text-muted">
+                                        Minimal persentase kecocokan (Recommended: 70-80%)
+                                    </small>
+                                    @error('face_match_threshold')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                                
+                                <div class="col-12 mb-3">
+                                    <label class="form-label">Pesan Verifikasi</label>
+                                    <textarea class="form-control" name="face_verification_message" rows="2"
+                                              placeholder="Pesan yang ditampilkan saat meminta verifikasi">{{ old('face_verification_message', $data->face_verification_message ?? 'Silakan verifikasi wajah Anda untuk melanjutkan absensi') }}</textarea>
+                                </div>
+                                
+                                <div class="col-12">
+                                    <div class="alert alert-warning" style="font-size: 0.85rem;">
+                                        <i class="fa fa-exclamation-triangle me-1"></i>
+                                        <strong>Persyaratan:</strong>
+                                        <ul class="mb-0 mt-2">
+                                            <li>Semua karyawan harus punya foto profil dengan wajah jelas (front-facing)</li>
+                                            <li>Browser harus support WebGL (Chrome/Firefox/Edge)</li>
+                                            <li>Model AI (~7MB) akan di-load otomatis via CDN</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Submit Button -->
                 <div class="text-end">
                     <button type="submit" class="btn-save">
@@ -793,6 +872,12 @@
             } else {
                 entry.querySelector('input').value = '';
             }
+        }
+        
+        function toggleFaceSettings() {
+            const checkbox = document.getElementById('enable_face_verification_fallback');
+            const settings = document.getElementById('face-settings');
+            settings.style.display = checkbox.checked ? '' : 'none';
         }
     </script>
     @endpush

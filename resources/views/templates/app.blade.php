@@ -96,6 +96,15 @@
             width: 20px;
             text-align: center;
         }
+
+        /* Fix SweetAlert popup z-index to appear above sidebar */
+        .swal2-container {
+            z-index: 99999 !important;
+        }
+
+        .swal2-popup {
+            z-index: 99999 !important;
+        }
     </style>
     @stack('style')
 </head>

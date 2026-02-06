@@ -126,14 +126,20 @@ class KinerjaService
     }
 
     /**
-     * Delete attendance points when shift is deleted
+     * Reset attendance points when shift is deleted
+     * Points are set to 0 but record is kept so user still appears in charts
      */
     public static function deleteAttendancePoints($mappingShiftId, $userId)
     {
-        // Delete all points associated with this shift
+        // RESET points to 0 instead of deleting
+        // This keeps the user visible in charts with 0 points
         LaporanKinerja::where('reference', 'App\Models\MappingShift')
             ->where('reference_id', $mappingShiftId)
-            ->delete();
+            ->update([
+                'nilai' => 0,
+                'keterangan' => 'Shift dihapus oleh admin - Poin direset ke 0',
+                'updated_at' => now()
+            ]);
 
         // Recalculate running totals
         self::recalculateUserPoints($userId);

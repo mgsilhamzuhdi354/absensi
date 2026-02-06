@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Storage;
 use App\Services\KinerjaService;
+use Illuminate\Support\Facades\Schema;
 
 
 
@@ -32,13 +33,20 @@ class karyawanController extends Controller
     public function index()
     {
         $search = request()->input('search');
-        $sortBy = request()->input('sort_by', 'urutan');
+
+        // Check if urutan column exists, fallback to 'id' if not
+        $hasUrutanColumn = Schema::hasColumn('users', 'urutan');
+        $defaultSort = $hasUrutanColumn ? 'urutan' : 'id';
+        $sortBy = request()->input('sort_by', $defaultSort);
         $sortOrder = request()->input('sort_order', 'asc');
 
         // Valid sortable columns
-        $validSortColumns = ['name', 'username', 'is_admin', 'masa_berlaku', 'created_at', 'urutan'];
+        $validSortColumns = ['name', 'username', 'is_admin', 'masa_berlaku', 'created_at', 'id'];
+        if ($hasUrutanColumn) {
+            $validSortColumns[] = 'urutan';
+        }
         if (!in_array($sortBy, $validSortColumns)) {
-            $sortBy = 'urutan';
+            $sortBy = $defaultSort;
         }
         $sortOrder = in_array($sortOrder, ['asc', 'desc']) ? $sortOrder : 'asc';
 
@@ -60,6 +68,7 @@ class karyawanController extends Controller
         } else {
             $data = $data->paginate(10)->withQueryString();
         }
+
 
 
         if (auth()->user()->is_admin == 'admin') {
@@ -451,7 +460,7 @@ class karyawanController extends Controller
         $image_base64 = base64_decode($image_parts[1]);
         $fileName = 'foto_face_recognition/' . $request["path"] . '.png';
 
-        Storage::put($fileName, $image_base64);
+        Storage::disk('public')->put($fileName, $image_base64);
 
         $user = User::where('username', $request['path'])->update(["foto_face_recognition" => $fileName]);
         return $user;
@@ -609,13 +618,26 @@ class karyawanController extends Controller
     public function deleteShift(Request $request, $id)
     {
         $delete = MappingShift::find($id);
+
+        if (!$delete) {
+            return redirect('/pegawai/shift/' . $request["user_id"])->with('error', 'Data shift tidak ditemukan.');
+        }
+
         $userId = $delete->user_id;
+
+        // Delete associated photos
+        if ($delete->foto_jam_absen) {
+            \Storage::disk('public')->delete($delete->foto_jam_absen);
+        }
+        if ($delete->foto_jam_pulang) {
+            \Storage::disk('public')->delete($delete->foto_jam_pulang);
+        }
 
         // Delete associated performance points before deleting shift
         KinerjaService::deleteAttendancePoints($id, $userId);
 
         $delete->delete();
-        return redirect('/pegawai/shift/' . $request["user_id"])->with('success', 'Data Berhasil di Delete');
+        return redirect('/pegawai/shift/' . $request["user_id"])->with('success', 'Data shift berhasil dihapus. Poin kinerja direset ke 0.');
     }
 
     public function deleteDinas(Request $request, $id)
@@ -892,5 +914,90 @@ class karyawanController extends Controller
         }
 
         return response()->json(['success' => true, 'message' => 'Urutan berhasil diupdate']);
+    }
+
+    // Self-service face registration methods
+    public function registerMyFace()
+    {
+        return view('karyawan.register-my-face', [
+            'title' => 'Daftarkan Wajah Saya'
+        ]);
+    }
+
+    public function saveMyFaceData(Request $request)
+    {
+        try {
+            $request->validate([
+                'user_id' => 'required|integer',
+                'photo' => 'required|string',
+                'descriptor' => 'required|array'
+            ]);
+
+            $userId = $request->user_id;
+            $user = User::find($userId);
+
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'User not found'], 404);
+            }
+
+            // Verify user can only register their own face
+            if (auth()->user()->id != $userId && !auth()->user()->is_admin) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+
+            // Save photo
+            $photoData = $request->photo;
+            if (preg_match('/^data:image\/(\w+);base64,/', $photoData, $type)) {
+                $photoData = substr($photoData, strpos($photoData, ',') + 1);
+                $type = strtolower($type[1]); // jpg, png, gif
+
+                $photoData = base64_decode($photoData);
+                if ($photoData === false) {
+                    throw new \Exception('base64_decode failed');
+                }
+
+                $filename = 'face_' . $userId . '_' . time() . '.' . $type;
+                $path = 'foto_face_recognition/' . $filename;
+                Storage::disk('public')->put($path, $photoData);
+
+                // Update user record
+                $user->foto_face_recognition = $path;
+            }
+
+            // Save descriptor as JSON
+            $descriptorJson = json_encode($request->descriptor);
+            $user->face_descriptor = $descriptorJson;
+
+            $user->save();
+
+            \Log::info('Face registered successfully', [
+                'user_id' => $userId,
+                'descriptor_length' => count($request->descriptor)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Face data saved successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error saving face data: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function checkMyFaceStatus()
+    {
+        $user = auth()->user();
+        $hasRegistered = !empty($user->foto_face_recognition) && !empty($user->face_descriptor);
+
+        return response()->json([
+            'registered' => $hasRegistered,
+            'foto' => $user->foto_face_recognition,
+            'descriptor_exists' => !empty($user->face_descriptor)
+        ]);
     }
 }
