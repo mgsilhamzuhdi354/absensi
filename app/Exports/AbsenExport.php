@@ -105,7 +105,7 @@ class AbsenExport implements FromQuery, WithColumnFormatting, WithMapping, WithH
             $model->jam_pulang ? $model->jam_pulang : '-',
             $quick_return,
             $model->keterangan_pulang,
-            $model->status_absen,
+            $model->status_absen ?? 'Tidak Masuk',
         ];
 
 

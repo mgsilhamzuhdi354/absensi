@@ -251,11 +251,8 @@
             <canvas id="canvas" class="hidden"></canvas>
 
             <div class="btn-group">
-                <button class="btn btn-masuk" id="btnMasuk" onclick="absen('masuk')" disabled>
-                    <i class="fas fa-sign-in-alt"></i> Absen Masuk
-                </button>
-                <button class="btn btn-pulang" id="btnPulang" onclick="absen('pulang')" disabled>
-                    <i class="fas fa-sign-out-alt"></i> Absen Pulang
+                <button class="btn btn-masuk" id="btnAbsen" onclick="absenAuto()" disabled style="width: 100%">
+                    <i class="fas fa-fingerprint"></i> <span id="btnAbsenText">Menunggu Deteksi...</span>
                 </button>
             </div>
 
@@ -288,9 +285,10 @@
         const debugInfo = document.getElementById('debugInfo');
         const userInfo = document.getElementById('userInfo');
         const searchingIndicator = document.getElementById('searchingIndicator');
-        const btnMasuk = document.getElementById('btnMasuk');
-        const btnPulang = document.getElementById('btnPulang');
+        const btnAbsen = document.getElementById('btnAbsen');
+        const btnAbsenText = document.getElementById('btnAbsenText');
         const statusMsg = document.getElementById('statusMessage');
+        let currentAction = null; // 'masuk', 'pulang', 'done', or null
 
         async function init() {
             try {
@@ -436,23 +434,25 @@
                             userInfo.classList.add('active');
                             searchingIndicator.style.display = 'none';
 
-                            btnMasuk.disabled = false;
-                            btnPulang.disabled = false;
+                            // Auto-check status for this user
+                            checkAttendanceStatus(match.user.username);
                         } else {
                             detectedUser = null;
+                            currentAction = null;
                             userInfo.classList.remove('active');
                             searchingIndicator.style.display = 'block';
                             searchingIndicator.innerHTML = '<i class="fas fa-search"></i> Match: ' + match.score.toFixed(1) + '% (need ' + MATCH_THRESHOLD + '%)';
-                            btnMasuk.disabled = true;
-                            btnPulang.disabled = true;
+                            btnAbsen.disabled = true;
+                            btnAbsenText.textContent = 'Menunggu Deteksi...';
                         }
                     } else {
                         detectedUser = null;
+                        currentAction = null;
                         userInfo.classList.remove('active');
                         searchingIndicator.style.display = 'block';
                         searchingIndicator.innerHTML = '<i class="fas fa-search"></i> Mencari wajah...';
-                        btnMasuk.disabled = true;
-                        btnPulang.disabled = true;
+                        btnAbsen.disabled = true;
+                        btnAbsenText.textContent = 'Menunggu Deteksi...';
                     }
                 } catch (e) {
                     console.warn('Detection error:', e);
@@ -495,13 +495,54 @@
             statusMsg.className = 'status-message status-' + type;
         }
 
-        function absen(type) {
-            if (!detectedUser) {
-                showStatus('Wajah belum dikenali', 'error');
+        function checkAttendanceStatus(username) {
+            fetch('{{ url("") }}/attendance/face/status/' + username)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'need_masuk') {
+                        currentAction = 'masuk';
+                        btnAbsen.disabled = false;
+                        btnAbsen.className = 'btn btn-masuk';
+                        btnAbsen.style.width = '100%';
+                        btnAbsenText.textContent = 'Absen Masuk';
+                        btnAbsen.querySelector('i').className = 'fas fa-sign-in-alt';
+                    } else if (data.status === 'need_pulang') {
+                        currentAction = 'pulang';
+                        btnAbsen.disabled = false;
+                        btnAbsen.className = 'btn btn-pulang';
+                        btnAbsen.style.width = '100%';
+                        btnAbsenText.textContent = 'Absen Pulang';
+                        btnAbsen.querySelector('i').className = 'fas fa-sign-out-alt';
+                    } else if (data.status === 'done') {
+                        currentAction = null;
+                        btnAbsen.disabled = true;
+                        btnAbsenText.textContent = 'Sudah Absen Hari Ini';
+                        btnAbsen.querySelector('i').className = 'fas fa-check-circle';
+                        showStatus('Sudah absen masuk & pulang hari ini', 'success');
+                    } else if (data.status === 'noMs') {
+                        currentAction = null;
+                        btnAbsen.disabled = true;
+                        btnAbsenText.textContent = 'Tidak Ada Jadwal Shift';
+                        showStatus('Tidak ada jadwal shift hari ini', 'error');
+                    } else {
+                        currentAction = null;
+                        btnAbsen.disabled = true;
+                        btnAbsenText.textContent = 'User Tidak Ditemukan';
+                    }
+                })
+                .catch(err => {
+                    console.warn('Status check error:', err);
+                });
+        }
+
+        function absenAuto() {
+            if (!detectedUser || !currentAction) {
+                showStatus('Wajah belum dikenali atau tidak ada jadwal', 'error');
                 return;
             }
 
-            showStatus('Memproses...', 'loading');
+            showStatus('Memproses ' + (currentAction === 'masuk' ? 'Masuk' : 'Pulang') + '...', 'loading');
+            btnAbsen.disabled = true;
 
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
@@ -511,9 +552,7 @@
             ctx.drawImage(video, 0, 0);
             const imageData = canvas.toDataURL('image/png');
 
-            const url = type === 'masuk' ? '/attendance/face/masuk' : '/attendance/face/pulang';
-
-            fetch('{{ url("") }}' + url, {
+            fetch('{{ url("") }}/attendance/face/auto', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -540,10 +579,22 @@
 
                     if (data === 'masuk') {
                         Swal.fire({ icon: 'success', title: 'Absen Masuk Berhasil!', html: '<strong>' + detectedUser.name + '</strong>' });
-                        showStatus('Berhasil!', 'success');
+                        showStatus('Berhasil Absen Masuk!', 'success');
+                        // Update button to pulang
+                        currentAction = 'pulang';
+                        btnAbsen.disabled = false;
+                        btnAbsen.className = 'btn btn-pulang';
+                        btnAbsen.style.width = '100%';
+                        btnAbsenText.textContent = 'Absen Pulang';
+                        btnAbsen.querySelector('i').className = 'fas fa-sign-out-alt';
                     } else if (data === 'pulang') {
                         Swal.fire({ icon: 'success', title: 'Absen Pulang Berhasil!', html: '<strong>' + detectedUser.name + '</strong>' });
-                        showStatus('Berhasil!', 'success');
+                        showStatus('Berhasil Absen Pulang!', 'success');
+                        // Update button to done
+                        currentAction = null;
+                        btnAbsen.disabled = true;
+                        btnAbsenText.textContent = 'Sudah Absen Hari Ini';
+                        btnAbsen.querySelector('i').className = 'fas fa-check-circle';
                     } else if (data === 'selesai') {
                         Swal.fire('Info', 'Sudah absen hari ini', 'info');
                     } else if (data === 'noMs') {
@@ -552,16 +603,24 @@
                         Swal.fire('Info', 'User tidak ditemukan', 'warning');
                     } else if (data === 'outlocation') {
                         Swal.fire('Info', 'Di luar area kantor', 'warning');
+                        btnAbsen.disabled = false;
                     } else if (data === 'tooEarly') {
                         Swal.fire('Belum Waktunya', 'Max 30 menit sebelum shift', 'warning');
+                        btnAbsen.disabled = false;
+                    } else if (data === 'tooEarlyPulang') {
+                        Swal.fire('Belum Waktunya', 'Belum waktunya pulang', 'warning');
+                        btnAbsen.disabled = false;
                     } else if (data === 'notClockedIn') {
                         Swal.fire('Info', 'Harus absen masuk dulu', 'warning');
+                        btnAbsen.disabled = false;
                     } else {
                         showStatus('OK', 'success');
+                        btnAbsen.disabled = false;
                     }
                 })
                 .catch(err => {
                     showStatus('Gagal: ' + err.message, 'error');
+                    btnAbsen.disabled = false;
                 });
         }
 

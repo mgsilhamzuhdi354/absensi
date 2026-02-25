@@ -76,7 +76,7 @@
                                             $mulai = new \DateTime($tanggal_mulai);
                                             $akhir = new \DateTime($tanggal_akhir);
                                             $interval = $mulai->diff($akhir);
-                                            $total_alfa = $interval->days + 1 - $masuk - $cuti - $izin_masuk - $libur - $sakit;
+                                            $total_alfa = $interval->days + 1 - $masuk - $cuti - $izin_masuk - $libur - $sakit - $izin_telat - $izin_pulang_cepat;
 
                                         @endphp
                                         <td>

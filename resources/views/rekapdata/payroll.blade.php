@@ -228,7 +228,7 @@
                                 $mulai = new \DateTime($tanggal_mulai);
                                 $akhir = new \DateTime($tanggal_akhir);
                                 $interval = $mulai->diff($akhir);
-                                $total_alfa = $interval->days + 1 - $jumlah_hadir - $cuti - $izin_masuk - $libur - $sakit;
+                                $total_alfa = $interval->days + 1 - $jumlah_hadir - $cuti - $izin_masuk - $libur - $sakit - $jumlah_izin_telat - $jumlah_izin_pulang_cepat;
                                 @endphp
                                 <label for="jumlah_mangkir">Mangkir</label>
                                 <div class="input-group mb-3">

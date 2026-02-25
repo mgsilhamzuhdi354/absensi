@@ -47,6 +47,7 @@ class RekapExport implements FromQuery, WithColumnFormatting, WithMapping, WithH
             'Nama',
             'Total Cuti',
             'Total Izin Masuk',
+            'Total Sakit',
             'Total Izin Telat',
             'Total Izin Pulang Cepat',
             'Total Hadir',
@@ -65,6 +66,7 @@ class RekapExport implements FromQuery, WithColumnFormatting, WithMapping, WithH
         $tanggal_akhir = request()->input('akhir');
         $cuti = $model->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Cuti')->count();
         $izin_masuk = $model->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Izin Masuk')->count();
+        $sakit = $model->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Sakit')->count();
         $izin_telat = $model->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Izin Telat')->count();
         $izin_pulang_cepat = $model->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Izin Pulang Cepat')->count();
         $masuk = $model->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Masuk')->count();
@@ -73,7 +75,7 @@ class RekapExport implements FromQuery, WithColumnFormatting, WithMapping, WithH
         $mulai = new \DateTime($tanggal_mulai);
         $akhir = new \DateTime($tanggal_akhir);
         $interval = $mulai->diff($akhir);
-        $total_alfa = $interval->days + 1 - $masuk - $cuti - $izin_masuk - $libur;
+        $total_alfa = $interval->days + 1 - $masuk - $cuti - $izin_masuk - $libur - $sakit - $izin_telat - $izin_pulang_cepat;
         $total_telat = $model->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->sum('telat');
         $jam   = floor($total_telat / (60 * 60));
         $menit = $total_telat - ( $jam * (60 * 60) );
@@ -97,6 +99,7 @@ class RekapExport implements FromQuery, WithColumnFormatting, WithMapping, WithH
             $model->name,
             $cuti . ' x',
             $izin_masuk . ' x',
+            $sakit . ' x',
             $izin_telat . ' x',
             $izin_pulang_cepat . ' x',
             $total_hadir . ' x',

@@ -73,6 +73,61 @@ class authController extends Controller
         ]);
     }
 
+    // Check attendance status for auto-detect (masuk/pulang)
+    public function faceAttendanceStatus($username)
+    {
+        date_default_timezone_set('Asia/Jakarta');
+        $currentDate = date('Y-m-d');
+        $user = User::where('username', $username)->first();
+
+        if (!$user) {
+            return response()->json(['status' => 'noUser']);
+        }
+
+        $ms = MappingShift::where('user_id', $user->id)->where('tanggal', $currentDate)->first();
+
+        if (!$ms) {
+            return response()->json(['status' => 'noMs', 'message' => 'Tidak ada jadwal shift']);
+        }
+
+        if ($ms->jam_absen == null) {
+            return response()->json(['status' => 'need_masuk', 'message' => 'Absen Masuk']);
+        }
+
+        if ($ms->jam_pulang == null) {
+            return response()->json(['status' => 'need_pulang', 'message' => 'Absen Pulang']);
+        }
+
+        return response()->json(['status' => 'done', 'message' => 'Sudah Absen Hari Ini']);
+    }
+
+    // Auto attendance - determines masuk/pulang automatically
+    public function faceAttendanceAuto(Request $request)
+    {
+        date_default_timezone_set('Asia/Jakarta');
+        $currentDate = date('Y-m-d');
+        $user = User::where('username', $request['username'])->first();
+
+        if (!$user) {
+            return response()->json('noUser');
+        }
+
+        $ms = MappingShift::where('user_id', $user->id)->where('tanggal', $currentDate)->first();
+
+        if (!$ms) {
+            return response()->json('noMs');
+        }
+
+        // Auto-detect: if jam_absen is null -> masuk, if jam_pulang is null -> pulang
+        if ($ms->jam_absen == null) {
+            return $this->presensiStore($request);
+        } elseif ($ms->jam_pulang == null) {
+            return $this->presensiPulangStore($request);
+        } else {
+            return response()->json('selesai');
+        }
+    }
+
     // Get all users with face descriptors for auto-detect
     public function getFaceDescriptors()
     {

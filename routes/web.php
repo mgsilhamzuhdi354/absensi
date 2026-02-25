@@ -71,6 +71,8 @@ Route::get('/attendance/face', [authController::class, 'attendanceFace'])->name(
 Route::get('/attendance/qr', [authController::class, 'attendanceQr'])->name('attendance.qr');
 Route::post('/attendance/face/masuk', [authController::class, 'presensiStore']);
 Route::post('/attendance/face/pulang', [authController::class, 'presensiPulangStore']);
+Route::post('/attendance/face/auto', [authController::class, 'faceAttendanceAuto']);
+Route::get('/attendance/face/status/{username}', [authController::class, 'faceAttendanceStatus']);
 Route::post('/attendance/qr/masuk', [authController::class, 'qrMasukStore']);
 Route::post('/attendance/qr/pulang', [authController::class, 'qrPulangStore']);
 
