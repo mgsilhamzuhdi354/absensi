@@ -266,7 +266,11 @@
         // BPJS Kesehatan 1% employee
         $bpjs_kes_karyawan = $gaji_pokok * 0.01;
 
-        $total_potongan = $keterlambatan + $mangkir + $izin + $kasbon + $potongan_lain + $bpjs_jht_karyawan + $bpjs_kes_karyawan;
+        // PPh21
+        $pph21_persen = $data->pph21_persen ?? 0;
+        $pph21_amount = $data->pph21_amount ?? 0;
+
+        $total_potongan = $keterlambatan + $mangkir + $izin + $kasbon + $potongan_lain + $bpjs_jht_karyawan + $bpjs_kes_karyawan + $pph21_amount;
 
         $gaji_dibayarkan = $total_penghasilan - $total_potongan;
 
@@ -445,11 +449,13 @@
                                 <td class="item-colon">:</td>
                                 <td class="item-value">Rp {{ number_format($bpjs_kes_karyawan, 0, ',', '.') }}</td>
                             </tr>
+                            @if($pph21_amount > 0)
                             <tr>
-                                <td class="item-label">&nbsp;</td>
-                                <td class="item-colon"></td>
-                                <td class="item-value">&nbsp;</td>
+                                <td class="item-label">PPh 21 ({{ number_format($pph21_persen, 2) }}%)</td>
+                                <td class="item-colon">:</td>
+                                <td class="item-value">Rp {{ number_format($pph21_amount, 0, ',', '.') }}</td>
                             </tr>
+                            @endif
                             <tr class="total-row">
                                 <td class="item-label">Total Potongan</td>
                                 <td class="item-colon"></td>
