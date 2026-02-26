@@ -551,7 +551,7 @@
                                     @enderror
                                 </div>
                                 <div class="input-group mb-3">
-                                    <input type="text" class="form-control @error('pph21_persen') is-invalid @enderror" name="pph21_persen" value="{{ old('pph21_persen', '0') }}" id="pph21_persen" readonly style="background-color: #e9ecef">
+                                    <input type="text" class="form-control @error('pph21_persen') is-invalid @enderror" name="pph21_persen" value="{{ old('pph21_persen', '0') }}" id="pph21_persen">
                                     <div class="input-group-text"><span>% dari Gaji Pokok</span></div>
                                     @error('pph21_persen')
                                         <div class="invalid-feedback">{{ $message }}</div>
@@ -661,10 +661,9 @@
                     var bayar_kasbon = $('#bayar_kasbon').val() ? parseFloat(replaceCurrency($('#bayar_kasbon').val())) : 0;
                     var loss = $('#loss').val() ? parseFloat(replaceCurrency($('#loss').val())) : 0;
 
-                    // PPh21 — input nominal, auto-hitung persen
+                    // PPh21 — ambil nilai dari kedua field
                     var pph21_amount = $('#pph21_amount').val() ? parseFloat(replaceCurrency($('#pph21_amount').val())) : 0;
-                    var pph21_persen = gaji_pokok > 0 ? (pph21_amount / gaji_pokok * 100).toFixed(2) : 0;
-                    $('#pph21_persen').val(pph21_persen);
+                    var pph21_persen = $('#pph21_persen').val() ? parseFloat($('#pph21_persen').val()) : 0;
 
                     var total_pengurangan = total_mangkir + total_izin + total_terlambat + bayar_kasbon + loss + pph21_amount;
 
