@@ -87,6 +87,7 @@ class RekapDataController extends Controller
                 'gaji_pokok' => 'required',
                 'total_reimbursement' => 'required',
                 'uang_transport' => 'required',
+                'uang_makan' => 'nullable',
                 'jumlah_mangkir' => 'required',
                 'uang_mangkir' => 'required',
                 'total_mangkir' => 'required',
@@ -121,6 +122,7 @@ class RekapDataController extends Controller
             $validated['gaji_pokok'] = str_replace(',', '', $validated['gaji_pokok']);
             $validated['total_reimbursement'] = str_replace(',', '', $validated['total_reimbursement']);
             $validated['uang_transport'] = str_replace(',', '', $validated['uang_transport']);
+            $validated['uang_makan'] = str_replace(',', '', $validated['uang_makan'] ?? 0);
             $validated['uang_mangkir'] = str_replace(',', '', $validated['uang_mangkir']);
             $validated['total_mangkir'] = str_replace(',', '', $validated['total_mangkir']);
             $validated['uang_lembur'] = str_replace(',', '', $validated['uang_lembur']);
@@ -161,7 +163,7 @@ class RekapDataController extends Controller
     {
         $pdf = Pdf::loadView('rekapdata.detailPdf', [
             'title' => 'Detail PDF',
-            'data' => MappingShift::dataAbsen()->get()
+            'data' => MappingShift::dataAbsen()->reorder('users.name', 'ASC')->orderBy('tanggal', 'ASC')->get()
         ]);
 
         return $pdf->stream();

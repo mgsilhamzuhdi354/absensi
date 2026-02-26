@@ -221,6 +221,20 @@
                     </div>
                     <div class="row">
                         <div class="col mb-4">
+                            <label for="uang_makan">Uang Makan</label>
+                            <input type="text" class="form-control money @error('uang_makan') is-invalid @enderror" id="uang_makan" name="uang_makan" value="{{ old('uang_makan', '0') }}">
+                            @error('uang_makan')
+                                <div class="invalid-feedback">
+                                    {{ $message }}
+                                </div>
+                            @enderror
+                        </div>
+                        <div class="col mb-4">
+                            {{-- kolom kosong untuk layout sejajar --}}
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col mb-4">
                             <div class="card p-4">
                                 @php
                                     $sisa_reimbursement = $user->reimbursement->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status', 'Approved')->sum('sisa');
@@ -611,6 +625,7 @@
                     var gaji_pokok = $('#gaji_pokok').val() ? parseFloat(replaceCurrency($('#gaji_pokok').val())) : 0;
                     var total_reimbursement = $('#total_reimbursement').val() ? parseFloat(replaceCurrency($('#total_reimbursement').val())) : 0;
                     var uang_transport = $('#uang_transport').val() ? parseFloat(replaceCurrency($('#uang_transport').val())) : 0;
+                    var uang_makan = $('#uang_makan').val() ? parseFloat(replaceCurrency($('#uang_makan').val())) : 0;
 
                     var jumlah_lembur = $('#jumlah_lembur').val() ? parseFloat($('#jumlah_lembur').val()) : 0;
                     var uang_lembur = $('#uang_lembur').val() ? parseFloat(replaceCurrency($('#uang_lembur').val())) : 0;
@@ -631,7 +646,7 @@
                     var total_thr = jumlah_thr * uang_thr;
                     $('#total_thr').val(accounting.formatMoney(total_thr, '', 0, ",", "."));
 
-                    var total_penjumlahan = gaji_pokok + total_reimbursement + uang_transport + total_lembur + bonus_pribadi + bonus_team + bonus_jackpot + total_kehadiran + total_thr;
+                    var total_penjumlahan = gaji_pokok + total_reimbursement + uang_transport + uang_makan + total_lembur + bonus_pribadi + bonus_team + bonus_jackpot + total_kehadiran + total_thr;
 
                     $('#total_penjumlahan').val(accounting.formatMoney(total_penjumlahan, '', 0, ",", "."));
 

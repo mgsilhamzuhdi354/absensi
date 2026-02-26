@@ -249,9 +249,10 @@
         $tunjangan_komunikasi = $data->user->bonus_jackpot ?? 0;
         $thr = $data->user->thr ?? 0;
         $reimbursement = $data->reimbursement ?? 0;
+        $uang_makan = $data->uang_makan ?? 0;
 
         $total_penghasilan = $gaji_pokok + $makan_transport + $kehadiran + $lembur +
-            $tunjangan_makan + $tunjangan_transport + $tunjangan_komunikasi + $thr + $reimbursement;
+            $tunjangan_makan + $tunjangan_transport + $tunjangan_komunikasi + $thr + $reimbursement + $uang_makan;
 
         // Deductions
         $keterlambatan = ($data->user->terlambat ?? 0) * $data->total_telat;
@@ -378,6 +379,13 @@
                                 <td class="item-colon">:</td>
                                 <td class="item-value">Rp {{ number_format($lembur, 0, ',', '.') }}</td>
                             </tr>
+                            @if($uang_makan > 0)
+                            <tr>
+                                <td class="item-label">Uang Makan</td>
+                                <td class="item-colon">:</td>
+                                <td class="item-value">Rp {{ number_format($uang_makan, 0, ',', '.') }}</td>
+                            </tr>
+                            @endif
                             <tr>
                                 <td class="item-label">Tunjangan Makan</td>
                                 <td class="item-colon">:</td>
