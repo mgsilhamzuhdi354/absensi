@@ -182,6 +182,16 @@
                     </div>
                     <div class="row">
                         <div class="col mb-4">
+                            <label for="uang_makan">Uang Makan</label>
+                            <input type="text" class="form-control money @error('uang_makan') is-invalid @enderror" id="uang_makan" name="uang_makan" value="{{ old('uang_makan', $data->uang_makan ?? 0) }}">
+                            @error('uang_makan')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="col mb-4"></div>
+                    </div>
+                    <div class="row">
+                        <div class="col mb-4">
                             <div class="card p-4">
                                 <label for="total_reimbursement">Reimbursement</label>
                                 <div class="input-group mb-3">
@@ -439,13 +449,34 @@
                             </div>
                         </div>
                         <div class="col mb-4">
+                            <div class="card p-4">
+                                <label for="pph21_persen">PPh 21</label>
+                                <div class="input-group mb-3">
+                                    <input type="number" step="0.01" min="0" max="100" class="form-control @error('pph21_persen') is-invalid @enderror" name="pph21_persen" value="{{ old('pph21_persen', $data->pph21_persen ?? 0) }}" id="pph21_persen">
+                                    <div class="input-group-text"><span>% dari Gaji Pokok</span></div>
+                                    @error('pph21_persen')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control money @error('pph21_amount') is-invalid @enderror" id="pph21_amount" name="pph21_amount" value="{{ old('pph21_amount', $data->pph21_amount ?? 0) }}" readonly style="background-color: #e9ecef">
+                                    <div class="input-group-text"><span>Nominal PPh 21</span></div>
+                                    @error('pph21_amount')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col mb-4">
                             <label for="loss">Loss</label>
                             <input type="text" class="form-control money @error('loss') is-invalid @enderror" id="loss" name="loss" value="{{ old('loss', $data->loss) }}">
                             @error('loss')
-                            <div class="invalid-feedback">
-                                {{ $message }}
-                            </div>
+                            <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
+                        </div>
+                        <div class="col mb-4">
                             <button class="btn form-control btn-secondary mt-3 mb-3" id="proses">Proses</button>
                             <button type="submit" class="btn form-control btn-primary mt-3 mb-3" id="submit" disabled>Simpan</button>
                         </div>
@@ -503,6 +534,7 @@
                     var gaji_pokok = $('#gaji_pokok').val() ? parseFloat(replaceCurrency($('#gaji_pokok').val())) : 0;
                     var total_reimbursement = $('#total_reimbursement').val() ? parseFloat(replaceCurrency($('#total_reimbursement').val())) : 0;
                     var uang_transport = $('#uang_transport').val() ? parseFloat(replaceCurrency($('#uang_transport').val())) : 0;
+                    var uang_makan = $('#uang_makan').val() ? parseFloat(replaceCurrency($('#uang_makan').val())) : 0;
 
                     var jumlah_lembur = $('#jumlah_lembur').val() ? parseFloat($('#jumlah_lembur').val()) : 0;
                     var uang_lembur = $('#uang_lembur').val() ? parseFloat(replaceCurrency($('#uang_lembur').val())) : 0;
@@ -523,7 +555,7 @@
                     var total_thr = jumlah_thr * uang_thr;
                     $('#total_thr').val(accounting.formatMoney(total_thr, '', 0, ",", "."));
 
-                    var total_penjumlahan = gaji_pokok + total_reimbursement + uang_transport + total_lembur + bonus_pribadi + bonus_team + bonus_jackpot + total_kehadiran + total_thr;
+                    var total_penjumlahan = gaji_pokok + total_reimbursement + uang_transport + uang_makan + total_lembur + bonus_pribadi + bonus_team + bonus_jackpot + total_kehadiran + total_thr;
 
                     $('#total_penjumlahan').val(accounting.formatMoney(total_penjumlahan, '', 0, ",", "."));
 
@@ -546,7 +578,12 @@
                     var bayar_kasbon = $('#bayar_kasbon').val() ? parseFloat(replaceCurrency($('#bayar_kasbon').val())) : 0;
                     var loss = $('#loss').val() ? parseFloat(replaceCurrency($('#loss').val())) : 0;
 
-                    var total_pengurangan = total_mangkir + total_izin + total_terlambat + bayar_kasbon + loss;
+                    // PPh21
+                    var pph21_persen = $('#pph21_persen').val() ? parseFloat($('#pph21_persen').val()) : 0;
+                    var pph21_amount = Math.round(gaji_pokok * pph21_persen / 100);
+                    $('#pph21_amount').val(accounting.formatMoney(pph21_amount, '', 0, ",", "."));
+
+                    var total_pengurangan = total_mangkir + total_izin + total_terlambat + bayar_kasbon + loss + pph21_amount;
 
                     $('#total_pengurangan').val(accounting.formatMoney(total_pengurangan, '', 0, ",", "."));
 

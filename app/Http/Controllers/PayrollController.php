@@ -174,6 +174,9 @@ class PayrollController extends Controller
             'uang_thr' => 'required',
             'total_thr' => 'required',
             'loss' => 'required',
+            'uang_makan' => 'nullable',
+            'pph21_persen' => 'nullable',
+            'pph21_amount' => 'nullable',
             'total_penjumlahan' => 'required',
             'total_pengurangan' => 'required',
             'grand_total' => 'required',
@@ -200,6 +203,9 @@ class PayrollController extends Controller
         $validated['uang_thr'] = str_replace(',', '', $validated['uang_thr']);
         $validated['total_thr'] = str_replace(',', '', $validated['total_thr']);
         $validated['loss'] = str_replace(',', '', $validated['loss']);
+        $validated['uang_makan'] = str_replace(',', '', $validated['uang_makan'] ?? 0);
+        $validated['pph21_persen'] = $validated['pph21_persen'] ?? 0;
+        $validated['pph21_amount'] = str_replace(',', '', $validated['pph21_amount'] ?? 0);
         $validated['total_penjumlahan'] = str_replace(',', '', $validated['total_penjumlahan']);
         $validated['total_pengurangan'] = str_replace(',', '', $validated['total_pengurangan']);
         $validated['grand_total'] = str_replace(',', '', $validated['grand_total']);

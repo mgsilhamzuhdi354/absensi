@@ -239,41 +239,62 @@
 
 <body>
     @php
-        // Calculate totals
-        $gaji_pokok = $data->user->gaji_pokok ?? 0;
-        $makan_transport = $data->user->makan_transport ?? 0;
-        $kehadiran = $data->user->kehadiran ?? 0;
-        $lembur = ($data->user->lembur ?? 0) * ($data->total_jam_lembur ?? 0);
-        $tunjangan_makan = $data->user->bonus_pribadi ?? 0;
-        $tunjangan_transport = $data->user->bonus_team ?? 0;
-        $tunjangan_komunikasi = $data->user->bonus_jackpot ?? 0;
-        $thr = $data->user->thr ?? 0;
-        $reimbursement = $data->reimbursement ?? 0;
-        $uang_makan = $data->uang_makan ?? 0;
+        // ============================================================
+        // PENGHASILAN — ambil dari data payroll yang tersimpan di DB
+        // ============================================================
+        $gaji_pokok          = $data->gaji_pokok ?? 0;
+        $uang_transport      = $data->uang_transport ?? 0;
+        $uang_makan          = $data->uang_makan ?? 0;
+        $total_kehadiran     = $data->total_kehadiran ?? 0;
+        $total_lembur        = $data->total_lembur ?? 0;
+        $bonus_pribadi       = $data->bonus_pribadi ?? 0;  // Tunjangan Makan
+        $bonus_team          = $data->bonus_team ?? 0;     // Tunjangan Transport
+        $bonus_jackpot       = $data->bonus_jackpot ?? 0; // Tunjangan Komunikasi
+        $total_thr           = $data->total_thr ?? 0;
+        $total_reimbursement = $data->total_reimbursement ?? 0;
 
-        $total_penghasilan = $gaji_pokok + $makan_transport + $kehadiran + $lembur +
-            $tunjangan_makan + $tunjangan_transport + $tunjangan_komunikasi + $thr + $reimbursement + $uang_makan;
+        $total_penghasilan = $gaji_pokok + $uang_transport + $uang_makan + $total_kehadiran +
+            $total_lembur + $bonus_pribadi + $bonus_team + $bonus_jackpot + $total_thr + $total_reimbursement;
 
-        // Deductions
-        $keterlambatan = ($data->user->terlambat ?? 0) * $data->total_telat;
-        $mangkir = ($data->user->mangkir ?? 0) * $data->total_mangkir;
-        $izin = ($data->user->izin ?? 0) * $data->total_izin;
-        $kasbon = $data->kasbon ?? 0;
-        $potongan_lain = $data->potongan_lain ?? 0;
+        // ============================================================
+        // POTONGAN — ambil dari data payroll yang tersimpan di DB
+        // ============================================================
+        $total_terlambat = $data->total_terlambat ?? 0;
+        $total_mangkir   = $data->total_mangkir ?? 0;
+        $total_izin      = $data->total_izin ?? 0;
+        $bayar_kasbon    = $data->bayar_kasbon ?? 0;
+        $loss            = $data->loss ?? 0;
 
-        // BPJS JHT 2% employee
+        // BPJS JHT 2% karyawan
         $bpjs_jht_karyawan = $gaji_pokok * 0.02;
 
-        // BPJS Kesehatan 1% employee
+        // BPJS Kesehatan 1% karyawan
         $bpjs_kes_karyawan = $gaji_pokok * 0.01;
 
         // PPh21
         $pph21_persen = $data->pph21_persen ?? 0;
         $pph21_amount = $data->pph21_amount ?? 0;
 
-        $total_potongan = $keterlambatan + $mangkir + $izin + $kasbon + $potongan_lain + $bpjs_jht_karyawan + $bpjs_kes_karyawan + $pph21_amount;
+        $total_potongan = $total_terlambat + $total_mangkir + $total_izin + $bayar_kasbon + $loss
+            + $bpjs_jht_karyawan + $bpjs_kes_karyawan + $pph21_amount;
 
         $gaji_dibayarkan = $total_penghasilan - $total_potongan;
+
+        // ============================================================
+        // ALIAS variabel — mapping nama DB ke nama tampilan HTML
+        // ============================================================
+        $kehadiran          = $total_kehadiran;
+        $lembur             = $total_lembur;
+        $tunjangan_makan    = $bonus_pribadi;     // bonus_pribadi = Tunjangan Makan
+        $tunjangan_transport= $bonus_team;        // bonus_team    = Tunjangan Transport
+        $tunjangan_komunikasi= $bonus_jackpot;    // bonus_jackpot = Tunjangan Komunikasi
+        $thr                = $total_thr;
+        $reimbursement      = $total_reimbursement;
+        $keterlambatan      = $total_terlambat;
+        $mangkir            = $total_mangkir;
+        $izin               = $total_izin;
+        $kasbon             = $bayar_kasbon;
+        $potongan_lain      = $loss;
 
         // Format period using separate bulan and tahun fields
         $bulan = $data->bulan ?? 1;
@@ -375,7 +396,7 @@
                                 <td class="item-value">Rp {{ number_format($kehadiran, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
-                                <td class="item-label">Lembur ({{ $data->total_jam_lembur ?? 0 }} jam)</td>
+                                <td class="item-label">Lembur ({{ $data->jumlah_lembur ?? 0 }} jam)</td>
                                 <td class="item-colon">:</td>
                                 <td class="item-value">Rp {{ number_format($lembur, 0, ',', '.') }}</td>
                             </tr>
@@ -423,17 +444,17 @@
                     <td>
                         <table class="item-table">
                             <tr>
-                                <td class="item-label">Keterlambatan ({{ $data->total_telat ?? 0 }}x)</td>
+                                <td class="item-label">Keterlambatan ({{ $data->jumlah_terlambat ?? 0 }}x)</td>
                                 <td class="item-colon">:</td>
                                 <td class="item-value">Rp {{ number_format($keterlambatan, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
-                                <td class="item-label">Mangkir ({{ $data->total_mangkir ?? 0 }} hari)</td>
+                                <td class="item-label">Mangkir ({{ $data->jumlah_mangkir ?? 0 }} hari)</td>
                                 <td class="item-colon">:</td>
                                 <td class="item-value">Rp {{ number_format($mangkir, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
-                                <td class="item-label">Izin ({{ $data->total_izin ?? 0 }} hari)</td>
+                                <td class="item-label">Izin ({{ $data->jumlah_izin ?? 0 }} hari)</td>
                                 <td class="item-colon">:</td>
                                 <td class="item-value">Rp {{ number_format($izin, 0, ',', '.') }}</td>
                             </tr>
