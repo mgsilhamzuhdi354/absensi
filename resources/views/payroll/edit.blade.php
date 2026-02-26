@@ -9,7 +9,7 @@
                     <div class="row">
                         <div class="col mb-4">
                             <label for="pegawai">Pegawai</label>
-                            <input type="text" class="form-control @error('pegawai') is-invalid @enderror" id="pegawai" name="pegawai" value="{{ old('pegawai', $data->user->name ?? '') }}" readonly>
+                            <input type="text" class="form-control @error('pegawai') is-invalid @enderror" id="pegawai" name="pegawai" value="{{ old('pegawai', $data->user?->name ?? '') }}" readonly>
                             @error('pegawai')
                             <div class="invalid-feedback">
                                 {{ $message }}

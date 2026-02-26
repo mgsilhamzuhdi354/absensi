@@ -351,22 +351,22 @@
                 <tr>
                     <td class="label">NAMA KARYAWAN</td>
                     <td class="colon">:</td>
-                    <td class="value">{{ strtoupper($data->user->name ?? '-') }}</td>
+                    <td class="value">{{ strtoupper($data->user?->name ?? '-') }}</td>
                 </tr>
                 <tr>
                     <td class="label">NIK</td>
                     <td class="colon">:</td>
-                    <td class="value">{{ $data->user->ktp ?? '-' }}</td>
+                    <td class="value">{{ $data->user?->ktp ?? '-' }}</td>
                 </tr>
                 <tr>
                     <td class="label">JABATAN</td>
                     <td class="colon">:</td>
-                    <td class="value">{{ strtoupper($data->user->Jabatan->nama_jabatan ?? '-') }}</td>
+                    <td class="value">{{ strtoupper($data->user?->Jabatan?->nama_jabatan ?? '-') }}</td>
                 </tr>
                 <tr>
                     <td class="label">EMPLOYEE ID</td>
                     <td class="colon">:</td>
-                    <td class="value">{{ $data->user->employee_id ?? '-' }}</td>
+                    <td class="value">{{ $data->user?->employee_id ?? '-' }}</td>
                 </tr>
             </table>
         </div>

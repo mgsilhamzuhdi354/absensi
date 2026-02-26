@@ -11,9 +11,11 @@ use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
 use App\Models\MappingShift;
 
-class AbsenExport implements FromQuery, WithColumnFormatting, WithMapping, WithHeadings, ShouldAutoSize, WithStyles
+class AbsenExport implements FromQuery, WithColumnFormatting, WithMapping, WithHeadings, ShouldAutoSize, WithStyles, WithEvents
 {
     use Exportable;
 
@@ -86,7 +88,7 @@ class AbsenExport implements FromQuery, WithColumnFormatting, WithMapping, WithH
         if ($jam_pulang_cepat <= 0 && $menit_pulang_cepat2 <= 0) {
             $quick_return = '-';
         } else {
-            $quick_return = $jam_pulang_cepat . ' Hour ' . $menit_pulang_cepat2 . ' Minute ' . $detik_pulang_cepat . ' Second';
+            $quick_return = $jam_pulang_cepat . ' Jam ' . $menit_pulang_cepat2 . ' Menit ' . $detik_pulang_cepat . ' Detik';
         }
 
         if ($model->Shift) {
@@ -107,19 +109,45 @@ class AbsenExport implements FromQuery, WithColumnFormatting, WithMapping, WithH
             $model->keterangan_pulang,
             $model->status_absen ?? 'Tidak Masuk',
         ];
-
-
     }
 
     public function columnFormats(): array
     {
-        return [
-
-        ];
+        return [];
     }
 
     public function query()
     {
-        return MappingShift::dataAbsen();
+        // Order by name first (grouped), then by date
+        return MappingShift::dataAbsen()->reorder('users.name', 'ASC')->orderBy('tanggal', 'ASC');
+    }
+
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+                $sheet = $event->sheet->getDelegate();
+                $highestRow = $sheet->getHighestRow();
+                $highestColumn = $sheet->getHighestColumn();
+
+                // Alternating colors per employee name group
+                $currentName = '';
+                $colorIndex = 0;
+                $colors = ['92D050', 'FFFFFF']; // Green and White
+
+                for ($row = 2; $row <= $highestRow; $row++) {
+                    $name = $sheet->getCell('A' . $row)->getValue();
+                    if ($name !== $currentName) {
+                        $currentName = $name;
+                        $colorIndex = ($colorIndex + 1) % 2;
+                    }
+                    $sheet->getStyle("A{$row}:{$highestColumn}{$row}")
+                        ->getFill()
+                        ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                        ->getStartColor()
+                        ->setRGB($colors[$colorIndex]);
+                }
+            },
+        ];
     }
 }

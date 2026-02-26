@@ -62,8 +62,14 @@
                 </tr>
             </thead>
             <tbody>
+                @php $prevName = ''; $colorIdx = 0; $rowColors = ['#92D050', '#FFFFFF']; @endphp
                 @foreach ($data as $d)
                     @php
+                        if ($d->name !== $prevName) {
+                            $prevName = $d->name;
+                            $colorIdx = ($colorIdx + 1) % 2;
+                        }
+                        $bgColor = $rowColors[$colorIdx];
                         $telat = $d->telat;
                         $jam   = floor($telat / (60 * 60));
                         $menit = $telat - ( $jam * (60 * 60) );
@@ -93,8 +99,8 @@
                             $shift_name = '-';
                         }
                     @endphp
-                    <tr>
-                        <td style="border: 1px solid black; padding: 8px;">{{ $d->name }}</td>
+                    <tr style="background-color: {{ $bgColor }};">
+                        <td style="border: 1px solid black; padding: 8px; font-weight: bold;">{{ $d->name }}</td>
                         <td style="border: 1px solid black; padding: 8px;">{{ $shift_name }}</td>
                         <td style="border: 1px solid black; padding: 8px;">{{ $d->tanggal ?? '-' }}</td>
                         <td style="border: 1px solid black; padding: 8px;">{{ $d->jam_absen ? $d->jam_absen : '-' }}</td>
@@ -103,7 +109,7 @@
                         <td style="border: 1px solid black; padding: 8px;">{{ $d->jam_pulang ? $d->jam_pulang : '-' }}</td>
                         <td style="border: 1px solid black; padding: 8px;">{{ $quick_return }}</td>
                         <td style="border: 1px solid black; padding: 8px;">{{ $d->keterangan_pulang }}</td>
-                        <td style="border: 1px solid black; padding: 8px;">{{ $d->status_absen }}</td>
+                        <td style="border: 1px solid black; padding: 8px;">{{ $d->status_absen ?? 'Tidak Masuk' }}</td>
                     </tr>
                 @endforeach
             </tbody>

@@ -211,24 +211,28 @@ class PayrollController extends Controller
         $validated['grand_total'] = str_replace(',', '', $validated['grand_total']);
 
         $user = User::find($payroll->user_id);
+    if ($user) {
         $user->update([
             'saldo_kasbon' => $user->saldo_kasbon + $payroll->bayar_kasbon,
             'bonus_pribadi' => $user->bonus_pribadi + $payroll->bonus_pribadi,
             'bonus_team' => $user->bonus_team + $payroll->bonus_team,
             'bonus_jackpot' => $user->bonus_jackpot + $payroll->bonus_jackpot,
         ]);
-        $payroll->update($validated);
-
-        $user_update = User::find($request->user_id);
-        $user_update->update([
-            'saldo_kasbon' => $user->saldo_kasbon - $validated['bayar_kasbon'],
-            'bonus_pribadi' => $user->bonus_pribadi - $validated['bonus_pribadi'],
-            'bonus_team' => $user->bonus_team - $validated['bonus_team'],
-            'bonus_jackpot' => $user->bonus_jackpot - $validated['bonus_jackpot'],
-        ]);
-
-        return redirect('payroll')->with('success', 'Data Berhasil Diupdate');
     }
+    $payroll->update($validated);
+
+    $user_update = User::find($request->user_id);
+    if ($user_update) {
+        $user_update->update([
+            'saldo_kasbon' => ($user ? $user->saldo_kasbon : 0) - $validated['bayar_kasbon'],
+            'bonus_pribadi' => ($user ? $user->bonus_pribadi : 0) - $validated['bonus_pribadi'],
+            'bonus_team' => ($user ? $user->bonus_team : 0) - $validated['bonus_team'],
+            'bonus_jackpot' => ($user ? $user->bonus_jackpot : 0) - $validated['bonus_jackpot'],
+        ]);
+    }
+
+    return redirect('payroll')->with('success', 'Data Berhasil Diupdate');
+}
 
     public function delete($id)
     {

@@ -111,8 +111,8 @@
                         <tr>
                             <td>{{ ($data->currentpage() - 1) * $data->perpage() + $key + 1 }}.</td>
                             <td>{{ $d->no_gaji }}</td>
-                            <td>{{ $d->user->name  }}</td>
-                            <td>{{ $d->user->Jabatan->nama_jabatan  }}</td>
+                            <td>{{ $d->user?->name ?? '-' }}</td>
+                            <td>{{ $d->user?->Jabatan?->nama_jabatan ?? '-' }}</td>
                             <td>
                                 @php
                                     if ($d->bulan == 1){
