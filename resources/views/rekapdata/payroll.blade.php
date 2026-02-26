@@ -176,6 +176,30 @@
                         </div>
                     </div>
                     <div class="row">
+                        @php
+                            // Ambil shift yang paling sering digunakan karyawan dalam periode ini
+                            $shift_utama = $user->MappingShift
+                                ->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])
+                                ->whereNotNull('shift_id')
+                                ->groupBy('shift_id')
+                                ->sortByDesc(fn($g) => $g->count())
+                                ->first();
+                            $shift_info = $shift_utama ? App\Models\Shift::find($shift_utama->first()->shift_id) : null;
+                        @endphp
+                        <div class="col mb-4">
+                            <label>Nama Shift</label>
+                            <input type="text" class="form-control" value="{{ $shift_info ? $shift_info->nama_shift : '-' }}" readonly>
+                        </div>
+                        <div class="col mb-4">
+                            <label>Jam Masuk</label>
+                            <input type="text" class="form-control" value="{{ $shift_info ? $shift_info->jam_masuk : '-' }}" readonly>
+                        </div>
+                        <div class="col mb-4">
+                            <label>Jam Keluar</label>
+                            <input type="text" class="form-control" value="{{ $shift_info ? $shift_info->jam_keluar : '-' }}" readonly>
+                        </div>
+                    </div>
+                    <div class="row">
                         <div class="col mb-4">
                             <label for="gaji_pokok">Gaji Pokok</label>
                             <input type="text" class="form-control money @error('gaji_pokok') is-invalid @enderror" id="gaji_pokok" name="gaji_pokok" value="{{ old('gaji_pokok', $user->gaji_pokok) }}">

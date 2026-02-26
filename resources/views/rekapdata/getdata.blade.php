@@ -73,10 +73,14 @@
 
                                             $libur = $du->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Libur')->count();
 
-                                            $mulai = new \DateTime($tanggal_mulai);
-                                            $akhir = new \DateTime($tanggal_akhir);
-                                            $interval = $mulai->diff($akhir);
-                                            $total_alfa = $interval->days + 1 - $masuk - $cuti - $izin_masuk - $libur - $sakit - $izin_telat - $izin_pulang_cepat;
+                                            // Alfa dihitung hanya dari mapping_shifts yang ada jadwal tapi tidak punya status kehadiran valid
+                                            $status_valid = ['Masuk', 'Izin Telat', 'Izin Pulang Cepat', 'Libur', 'Cuti', 'Izin Masuk', 'Sakit', 'Tidak Masuk'];
+                                            $total_alfa = $du->MappingShift
+                                                ->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])
+                                                ->filter(function($item) use ($status_valid) {
+                                                    return !in_array($item->status_absen, $status_valid);
+                                                })
+                                                ->count();
 
                                         @endphp
                                         <td>
