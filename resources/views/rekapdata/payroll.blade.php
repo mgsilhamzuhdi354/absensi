@@ -225,10 +225,14 @@
                                 $cuti = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Cuti')->count();
                                 $izin_masuk = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Izin Masuk')->count();
                                 $sakit = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Sakit')->count();
-                                $mulai = new \DateTime($tanggal_mulai);
-                                $akhir = new \DateTime($tanggal_akhir);
-                                $interval = $mulai->diff($akhir);
-                                $total_alfa = $interval->days + 1 - $jumlah_hadir - $cuti - $izin_masuk - $libur - $sakit - $jumlah_izin_telat - $jumlah_izin_pulang_cepat;
+                                // Mangkir dihitung dari data mapping_shifts yang ada jadwal tapi tidak punya status kehadiran valid
+                                $status_valid = ['Masuk', 'Izin Telat', 'Izin Pulang Cepat', 'Libur', 'Cuti', 'Izin Masuk', 'Sakit'];
+                                $total_alfa = $user->MappingShift
+                                    ->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])
+                                    ->filter(function($item) use ($status_valid) {
+                                        return !in_array($item->status_absen, $status_valid);
+                                    })
+                                    ->count();
                                 @endphp
                                 <label for="jumlah_mangkir">Mangkir</label>
                                 <div class="input-group mb-3">
