@@ -15,7 +15,7 @@
                                 {{ $message }}
                             </div>
                             @enderror
-                            <input type="hidden" name="user_id" value="{{ $data->id }}">
+                            <input type="hidden" name="user_id" value="{{ $data->user_id }}">
                         </div>
                         @php
                             $bulan = array(
