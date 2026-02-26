@@ -204,7 +204,7 @@ class PayrollController extends Controller
         $validated['total_thr'] = str_replace(',', '', $validated['total_thr']);
         $validated['loss'] = str_replace(',', '', $validated['loss']);
         $validated['uang_makan'] = str_replace(',', '', $validated['uang_makan'] ?? 0);
-        $validated['pph21_persen'] = $validated['pph21_persen'] ?? 0;
+        $validated['pph21_persen'] = str_replace(',', '.', $validated['pph21_persen'] ?? 0);
         $validated['pph21_amount'] = str_replace(',', '', $validated['pph21_amount'] ?? 0);
         $validated['total_penjumlahan'] = str_replace(',', '', $validated['total_penjumlahan']);
         $validated['total_pengurangan'] = str_replace(',', '', $validated['total_pengurangan']);
@@ -237,8 +237,13 @@ class PayrollController extends Controller
     public function delete($id)
     {
         $payroll = Payroll::find($id);
+        if (!$payroll) {
+            return redirect('/payroll')->with('error', 'Data payroll tidak ditemukan');
+        }
         $user = User::find($payroll->user_id);
-        $user->update(['saldo_kasbon' => $user->saldo_kasbon + $payroll->bayar_kasbon]);
+        if ($user) {
+            $user->update(['saldo_kasbon' => $user->saldo_kasbon + $payroll->bayar_kasbon]);
+        }
         $payroll->delete();
         return redirect('/payroll')->with('success', 'Data Berhasil di Hapus');
     }
