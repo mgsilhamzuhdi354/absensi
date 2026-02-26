@@ -560,6 +560,46 @@
                             </div>
                         </div>
                         <div class="col mb-4">
+                            <div class="card p-4">
+                                <label for="bpjs_jht_amount">BPJS JHT Karyawan</label>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control money @error('bpjs_jht_amount') is-invalid @enderror" id="bpjs_jht_amount" name="bpjs_jht_amount" value="{{ old('bpjs_jht_amount', '0') }}">
+                                    <div class="input-group-text"><span>Nominal BPJS JHT</span></div>
+                                    @error('bpjs_jht_amount')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control @error('bpjs_jht_persen') is-invalid @enderror" name="bpjs_jht_persen" value="{{ old('bpjs_jht_persen', '2') }}" id="bpjs_jht_persen">
+                                    <div class="input-group-text"><span>% dari Gaji Pokok</span></div>
+                                    @error('bpjs_jht_persen')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col mb-4">
+                            <div class="card p-4">
+                                <label for="bpjs_kes_amount">BPJS Kesehatan Karyawan</label>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control money @error('bpjs_kes_amount') is-invalid @enderror" id="bpjs_kes_amount" name="bpjs_kes_amount" value="{{ old('bpjs_kes_amount', '0') }}">
+                                    <div class="input-group-text"><span>Nominal BPJS Kes</span></div>
+                                    @error('bpjs_kes_amount')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control @error('bpjs_kes_persen') is-invalid @enderror" name="bpjs_kes_persen" value="{{ old('bpjs_kes_persen', '1') }}" id="bpjs_kes_persen">
+                                    <div class="input-group-text"><span>% dari Gaji Pokok</span></div>
+                                    @error('bpjs_kes_persen')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col mb-4">
                             <button class="btn form-control btn-secondary mt-3 mb-3" id="proses">Proses</button>
                             <button type="submit" class="btn form-control btn-primary mt-3 mb-3" id="submit" disabled>Simpan</button>
                         </div>
@@ -627,6 +667,38 @@
                     $('#pph21_amount').val(accounting.formatMoney(amount, '', 0, ",", "."));
                 });
 
+                // BPJS JHT real-time: ubah nominal → auto hitung persen
+                $('#bpjs_jht_amount').on('keyup', function() {
+                    var gaji_pokok = $('#gaji_pokok').val() ? parseFloat(replaceCurrency($('#gaji_pokok').val())) : 0;
+                    var amount = $(this).val() ? parseFloat(replaceCurrency($(this).val())) : 0;
+                    if (gaji_pokok > 0) {
+                        $('#bpjs_jht_persen').val((amount / gaji_pokok * 100).toFixed(2));
+                    }
+                });
+                // BPJS JHT real-time: ubah persen → auto hitung nominal
+                $('#bpjs_jht_persen').on('keyup', function() {
+                    var gaji_pokok = $('#gaji_pokok').val() ? parseFloat(replaceCurrency($('#gaji_pokok').val())) : 0;
+                    var persen = $(this).val() ? parseFloat($(this).val()) : 0;
+                    var amount = Math.round(gaji_pokok * persen / 100);
+                    $('#bpjs_jht_amount').val(accounting.formatMoney(amount, '', 0, ",", "."));
+                });
+
+                // BPJS Kesehatan real-time: ubah nominal → auto hitung persen
+                $('#bpjs_kes_amount').on('keyup', function() {
+                    var gaji_pokok = $('#gaji_pokok').val() ? parseFloat(replaceCurrency($('#gaji_pokok').val())) : 0;
+                    var amount = $(this).val() ? parseFloat(replaceCurrency($(this).val())) : 0;
+                    if (gaji_pokok > 0) {
+                        $('#bpjs_kes_persen').val((amount / gaji_pokok * 100).toFixed(2));
+                    }
+                });
+                // BPJS Kesehatan real-time: ubah persen → auto hitung nominal
+                $('#bpjs_kes_persen').on('keyup', function() {
+                    var gaji_pokok = $('#gaji_pokok').val() ? parseFloat(replaceCurrency($('#gaji_pokok').val())) : 0;
+                    var persen = $(this).val() ? parseFloat($(this).val()) : 0;
+                    var amount = Math.round(gaji_pokok * persen / 100);
+                    $('#bpjs_kes_amount').val(accounting.formatMoney(amount, '', 0, ",", "."));
+                });
+
                 $("#proses").click(function(e) {
                     e.preventDefault();
 
@@ -682,7 +754,11 @@
                     var pph21_amount = $('#pph21_amount').val() ? parseFloat(replaceCurrency($('#pph21_amount').val())) : 0;
                     var pph21_persen = $('#pph21_persen').val() ? parseFloat($('#pph21_persen').val()) : 0;
 
-                    var total_pengurangan = total_mangkir + total_izin + total_terlambat + bayar_kasbon + loss + pph21_amount;
+                    // BPJS JHT & Kesehatan
+                    var bpjs_jht_amount = $('#bpjs_jht_amount').val() ? parseFloat(replaceCurrency($('#bpjs_jht_amount').val())) : 0;
+                    var bpjs_kes_amount = $('#bpjs_kes_amount').val() ? parseFloat(replaceCurrency($('#bpjs_kes_amount').val())) : 0;
+
+                    var total_pengurangan = total_mangkir + total_izin + total_terlambat + bayar_kasbon + loss + pph21_amount + bpjs_jht_amount + bpjs_kes_amount;
 
                     $('#total_pengurangan').val(accounting.formatMoney(total_pengurangan, '', 0, ",", "."));
 

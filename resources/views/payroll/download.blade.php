@@ -265,11 +265,13 @@
         $bayar_kasbon    = $data->bayar_kasbon ?? 0;
         $loss            = $data->loss ?? 0;
 
-        // BPJS JHT 2% karyawan
-        $bpjs_jht_karyawan = $gaji_pokok * 0.02;
+        // BPJS JHT karyawan (dari DB, default 2%)
+        $bpjs_jht_persen = $data->bpjs_jht_persen ?? 2;
+        $bpjs_jht_karyawan = $data->bpjs_jht_amount ?? ($gaji_pokok * $bpjs_jht_persen / 100);
 
-        // BPJS Kesehatan 1% karyawan
-        $bpjs_kes_karyawan = $gaji_pokok * 0.01;
+        // BPJS Kesehatan karyawan (dari DB, default 1%)
+        $bpjs_kes_persen = $data->bpjs_kes_persen ?? 1;
+        $bpjs_kes_karyawan = $data->bpjs_kes_amount ?? ($gaji_pokok * $bpjs_kes_persen / 100);
 
         // PPh21
         $pph21_persen = $data->pph21_persen ?? 0;
@@ -463,12 +465,12 @@
                                 <td class="item-value">Rp {{ number_format($potongan_lain, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
-                                <td class="item-label">BPJS JHT 2% Karyawan</td>
+                                <td class="item-label">BPJS JHT {{ number_format($bpjs_jht_persen, 1) }}% Karyawan</td>
                                 <td class="item-colon">:</td>
                                 <td class="item-value">Rp {{ number_format($bpjs_jht_karyawan, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
-                                <td class="item-label">BPJS Kesehatan 1% Karyawan</td>
+                                <td class="item-label">BPJS Kesehatan {{ number_format($bpjs_kes_persen, 1) }}% Karyawan</td>
                                 <td class="item-colon">:</td>
                                 <td class="item-value">Rp {{ number_format($bpjs_kes_karyawan, 0, ',', '.') }}</td>
                             </tr>

@@ -114,6 +114,10 @@ class RekapDataController extends Controller
                 'loss' => 'required',
                 'pph21_persen' => 'nullable',
                 'pph21_amount' => 'nullable',
+                'bpjs_jht_persen' => 'nullable',
+                'bpjs_jht_amount' => 'nullable',
+                'bpjs_kes_persen' => 'nullable',
+                'bpjs_kes_amount' => 'nullable',
                 'total_penjumlahan' => 'required',
                 'total_pengurangan' => 'required',
                 'grand_total' => 'required',
@@ -143,6 +147,10 @@ class RekapDataController extends Controller
             $validated['loss'] = str_replace(',', '', $validated['loss']);
             $validated['pph21_persen'] = str_replace(',', '.', $validated['pph21_persen'] ?? 0);
             $validated['pph21_amount'] = str_replace(',', '', $validated['pph21_amount'] ?? 0);
+            $validated['bpjs_jht_persen'] = str_replace(',', '.', $validated['bpjs_jht_persen'] ?? 2);
+            $validated['bpjs_jht_amount'] = str_replace(',', '', $validated['bpjs_jht_amount'] ?? 0);
+            $validated['bpjs_kes_persen'] = str_replace(',', '.', $validated['bpjs_kes_persen'] ?? 1);
+            $validated['bpjs_kes_amount'] = str_replace(',', '', $validated['bpjs_kes_amount'] ?? 0);
             $validated['total_penjumlahan'] = str_replace(',', '', $validated['total_penjumlahan']);
             $validated['total_pengurangan'] = str_replace(',', '', $validated['total_pengurangan']);
             $validated['grand_total'] = str_replace(',', '', $validated['grand_total']);
