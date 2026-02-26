@@ -527,6 +527,23 @@
                     reverse: true
                 });
 
+                // PPh21 real-time: ubah nominal → auto hitung persen
+                $('#pph21_amount').on('keyup', function() {
+                    var gaji_pokok = $('#gaji_pokok').val() ? parseFloat(replaceCurrency($('#gaji_pokok').val())) : 0;
+                    var amount = $(this).val() ? parseFloat(replaceCurrency($(this).val())) : 0;
+                    if (gaji_pokok > 0) {
+                        $('#pph21_persen').val((amount / gaji_pokok * 100).toFixed(2));
+                    }
+                });
+
+                // PPh21 real-time: ubah persen → auto hitung nominal
+                $('#pph21_persen').on('keyup', function() {
+                    var gaji_pokok = $('#gaji_pokok').val() ? parseFloat(replaceCurrency($('#gaji_pokok').val())) : 0;
+                    var persen = $(this).val() ? parseFloat($(this).val()) : 0;
+                    var amount = Math.round(gaji_pokok * persen / 100);
+                    $('#pph21_amount').val(accounting.formatMoney(amount, '', 0, ",", "."));
+                });
+
                 $("#proses").click(function(e) {
                     e.preventDefault();
 
