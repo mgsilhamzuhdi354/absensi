@@ -254,7 +254,7 @@
         $total_reimbursement = $data->total_reimbursement ?? 0;
 
         $total_penghasilan = $gaji_pokok + $uang_transport + $uang_makan + $total_kehadiran +
-            $total_lembur + $bonus_pribadi + $bonus_team + $bonus_jackpot + $total_thr + $total_reimbursement;
+            $total_lembur + $bonus_team + $bonus_jackpot + $total_thr + $total_reimbursement;
 
         // ============================================================
         // POTONGAN — ambil dari data payroll yang tersimpan di DB
@@ -407,11 +407,7 @@
                                 <td class="item-value">Rp {{ number_format($uang_makan, 0, ',', '.') }}</td>
                             </tr>
                             @endif
-                            <tr>
-                                <td class="item-label">Tunjangan Makan</td>
-                                <td class="item-colon">:</td>
-                                <td class="item-value">Rp {{ number_format($tunjangan_makan, 0, ',', '.') }}</td>
-                            </tr>
+
                             <tr>
                                 <td class="item-label">Tunjangan Transport</td>
                                 <td class="item-colon">:</td>

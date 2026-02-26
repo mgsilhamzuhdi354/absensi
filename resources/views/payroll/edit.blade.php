@@ -450,18 +450,18 @@
                         </div>
                         <div class="col mb-4">
                             <div class="card p-4">
-                                <label for="pph21_persen">PPh 21</label>
+                                <label for="pph21_amount">PPh 21</label>
                                 <div class="input-group mb-3">
-                                    <input type="number" step="0.01" min="0" max="100" class="form-control @error('pph21_persen') is-invalid @enderror" name="pph21_persen" value="{{ old('pph21_persen', $data->pph21_persen ?? 0) }}" id="pph21_persen">
-                                    <div class="input-group-text"><span>% dari Gaji Pokok</span></div>
-                                    @error('pph21_persen')
+                                    <input type="text" class="form-control money @error('pph21_amount') is-invalid @enderror" id="pph21_amount" name="pph21_amount" value="{{ old('pph21_amount', $data->pph21_amount ?? 0) }}">
+                                    <div class="input-group-text"><span>Nominal PPh 21</span></div>
+                                    @error('pph21_amount')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
                                 <div class="input-group mb-3">
-                                    <input type="text" class="form-control money @error('pph21_amount') is-invalid @enderror" id="pph21_amount" name="pph21_amount" value="{{ old('pph21_amount', $data->pph21_amount ?? 0) }}" readonly style="background-color: #e9ecef">
-                                    <div class="input-group-text"><span>Nominal PPh 21</span></div>
-                                    @error('pph21_amount')
+                                    <input type="text" class="form-control @error('pph21_persen') is-invalid @enderror" name="pph21_persen" value="{{ old('pph21_persen', $data->pph21_persen ?? 0) }}" id="pph21_persen" readonly style="background-color: #e9ecef">
+                                    <div class="input-group-text"><span>% dari Gaji Pokok</span></div>
+                                    @error('pph21_persen')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
@@ -578,10 +578,10 @@
                     var bayar_kasbon = $('#bayar_kasbon').val() ? parseFloat(replaceCurrency($('#bayar_kasbon').val())) : 0;
                     var loss = $('#loss').val() ? parseFloat(replaceCurrency($('#loss').val())) : 0;
 
-                    // PPh21
-                    var pph21_persen = $('#pph21_persen').val() ? parseFloat($('#pph21_persen').val()) : 0;
-                    var pph21_amount = Math.round(gaji_pokok * pph21_persen / 100);
-                    $('#pph21_amount').val(accounting.formatMoney(pph21_amount, '', 0, ",", "."));
+                    // PPh21 — input nominal, auto-hitung persen
+                    var pph21_amount = $('#pph21_amount').val() ? parseFloat(replaceCurrency($('#pph21_amount').val())) : 0;
+                    var pph21_persen = gaji_pokok > 0 ? (pph21_amount / gaji_pokok * 100).toFixed(2) : 0;
+                    $('#pph21_persen').val(pph21_persen);
 
                     var total_pengurangan = total_mangkir + total_izin + total_terlambat + bayar_kasbon + loss + pph21_amount;
 
