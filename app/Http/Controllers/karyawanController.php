@@ -213,6 +213,7 @@ class karyawanController extends Controller
             'tanggal_mulai_pkwt' => 'nullable',
             'tanggal_berakhir_pkwt' => 'nullable',
             'rekening' => 'nullable',
+            'nama_bank' => 'nullable',
             'nama_rekening' => 'nullable',
             'alamat' => 'nullable',
             'izin_cuti' => 'nullable',
@@ -305,6 +306,7 @@ class karyawanController extends Controller
             'tanggal_mulai_pkwt' => 'nullable',
             'tanggal_berakhir_pkwt' => 'nullable',
             'rekening' => 'nullable',
+            'nama_bank' => 'nullable',
             'nama_rekening' => 'nullable',
             'alamat' => 'nullable',
             'izin_cuti' => 'nullable',
@@ -791,6 +793,7 @@ class karyawanController extends Controller
             'npwp' => 'nullable',
             'sim' => 'nullable',
             'rekening' => 'nullable',
+            'nama_bank' => 'nullable',
             'nama_rekening' => 'nullable',
             'alamat' => 'nullable',
         ];

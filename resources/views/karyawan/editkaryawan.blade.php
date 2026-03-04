@@ -474,6 +474,20 @@
                                     </div>
                                 </div>
                                 <div class="row">
+                                    <div class="col-6 mb-4">
+                                        <label for="nama_bank">Nama Bank</label>
+                                        <input type="text" class="form-control @error('nama_bank') is-invalid @enderror"
+                                            id="nama_bank" name="nama_bank"
+                                            value="{{ old('nama_bank', $karyawan->nama_bank) }}"
+                                            placeholder="Contoh: BCA, BRI, Mandiri">
+                                        @error('nama_bank')
+                                            <div class="invalid-feedback">
+                                                {{ $message }}
+                                            </div>
+                                        @enderror
+                                    </div>
+                                </div>
+                                <div class="row">
                                     <div class="col mb-4">
                                         <label for="rekening">Nomor Rekening</label>
                                         <input type="number" class="form-control @error('rekening') is-invalid @enderror"

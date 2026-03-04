@@ -450,6 +450,19 @@
                                             </div>
 
                                             <div class="group-input">
+                                                <label for="nama_bank">Nama Bank</label>
+                                                <input type="text" class="@error('nama_bank') is-invalid @enderror"
+                                                    id="nama_bank" name="nama_bank"
+                                                    value="{{ old('nama_bank', auth()->user()->nama_bank) }}"
+                                                    placeholder="Contoh: BCA, BRI, Mandiri">
+                                                @error('nama_bank')
+                                                    <div class="invalid-feedback">
+                                                        {{ $message }}
+                                                    </div>
+                                                @enderror
+                                            </div>
+
+                                            <div class="group-input">
                                                 <label for="rekening">Nomor Rekening</label>
                                                 <input type="number" class="@error('rekening') is-invalid @enderror"
                                                     id="rekening" name="rekening"

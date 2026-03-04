@@ -501,7 +501,7 @@
                         <tr>
                             <td style="width: 80px;">Bank</td>
                             <td style="width: 10px;">:</td>
-                            <td>-</td>
+                            <td>{{ $data->user->nama_bank ?? '-' }}</td>
                         </tr>
                         <tr>
                             <td>Atas Nama</td>
