@@ -151,11 +151,11 @@ class RekapDataController extends Controller
             $validated['uang_thr'] = str_replace(',', '', $validated['uang_thr']);
             $validated['total_thr'] = str_replace(',', '', $validated['total_thr']);
             $validated['loss'] = str_replace(',', '', $validated['loss']);
-            $validated['pph21_persen'] = str_replace(',', '.', $validated['pph21_persen'] ?? 0);
+            $validated['pph21_persen'] = $this->normalizePercentInput($validated['pph21_persen'] ?? null, 0);
             $validated['pph21_amount'] = str_replace(',', '', $validated['pph21_amount'] ?? 0);
-            $validated['bpjs_jht_persen'] = str_replace(',', '.', $validated['bpjs_jht_persen'] ?? 2);
+            $validated['bpjs_jht_persen'] = $this->normalizePercentInput($validated['bpjs_jht_persen'] ?? null, 2);
             $validated['bpjs_jht_amount'] = str_replace(',', '', $validated['bpjs_jht_amount'] ?? 0);
-            $validated['bpjs_kes_persen'] = str_replace(',', '.', $validated['bpjs_kes_persen'] ?? 1);
+            $validated['bpjs_kes_persen'] = $this->normalizePercentInput($validated['bpjs_kes_persen'] ?? null, 1);
             $validated['bpjs_kes_amount'] = str_replace(',', '', $validated['bpjs_kes_amount'] ?? 0);
             $validated['total_penjumlahan'] = str_replace(',', '', $validated['total_penjumlahan']);
             $validated['total_pengurangan'] = str_replace(',', '', $validated['total_pengurangan']);
@@ -172,6 +172,24 @@ class RekapDataController extends Controller
             Payroll::create($validated);
             return redirect('/rekap-data/get-data?mulai=' . $request['tanggal_mulai'] . '&akhir=' . $request['tanggal_akhir'])->with('success', 'Data Berhasil Disimpan');
         }
+    }
+
+    private function normalizePercentInput($value, $default = 0)
+    {
+        if ($value === null || $value === '') {
+            return number_format((float) $default, 2, '.', '');
+        }
+
+        $normalized = trim((string) $value);
+        $normalized = str_replace(['%', ' '], '', $normalized);
+        $normalized = preg_replace('/[^0-9,.\-]/', '', $normalized);
+        $normalized = str_replace(',', '.', $normalized);
+
+        if ($normalized === '' || !is_numeric($normalized)) {
+            return number_format((float) $default, 2, '.', '');
+        }
+
+        return number_format((float) $normalized, 2, '.', '');
     }
 
     public function detailPdf()
