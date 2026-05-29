@@ -93,8 +93,48 @@
             <div class="card">
                 <div class="p-4">
                     <center>
-                        <h2>Hubungi Admin Untuk Input Shift Anda</h2>
+                        <h4>Belum Ada Shift Dinas Luar Hari Ini</h4>
+                        <p class="text-muted">Silakan ajukan dinas luar atau cek pengajuan yang sudah ada.</p>
+                        <a href="{{ url('/data-pengajuan-dinas') }}" class="btn btn-primary btn-sm mt-2">
+                            <i class="fas fa-clipboard-list me-1"></i> Kelola Pengajuan Dinas Luar
+                        </a>
                     </center>
+
+                    {{-- Status Pengajuan Aktif --}}
+                    @if($pengajuan_aktif->count() > 0)
+                        <hr>
+                        <h5>Pengajuan Aktif Anda:</h5>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Shift</th>
+                                        <th>Tanggal</th>
+                                        <th>Lokasi</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($pengajuan_aktif as $pa)
+                                    <tr>
+                                        <td>{{ $pa->Shift->nama_shift ?? '-' }}</td>
+                                        <td>{{ $pa->tanggal_mulai }} s/d {{ $pa->tanggal_akhir }}</td>
+                                        <td>{{ $pa->lokasi_tujuan ?? '-' }}</td>
+                                        <td>
+                                            @if($pa->status == 'Pending')
+                                                <span class="badge badge-warning">Pending</span>
+                                            @elseif($pa->status == 'Approved')
+                                                <span class="badge badge-success">Approved</span>
+                                            @else
+                                                <span class="badge badge-danger">Ditolak</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

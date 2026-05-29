@@ -60,7 +60,7 @@ class AbsenController extends Controller
                 return response()->json(['success' => false, 'message' => $message], 400);
             }
             Alert::error($title, $message);
-            return redirect('/absen');
+            return redirect('/absen')->with('error', $message);
         };
 
         // Check IP restriction first (before transaction)
@@ -264,7 +264,7 @@ class AbsenController extends Controller
                     'lat_absen' => 'required',
                     'long_absen' => 'required',
                     'jarak_masuk' => 'required',
-                    'keterangan_masuk' => 'required',
+                    'keterangan_masuk' => 'nullable',
                     'status_absen' => 'required'
                 ]);
             }
@@ -647,14 +647,26 @@ class AbsenController extends Controller
         }
 
         $validatedData = $request->validate([
-            'jam_absen' => 'required',
-            'telat' => 'nullable',
+            'jam_absen'    => 'required',
+            'telat'        => 'nullable',
             'foto_jam_absen' => 'image|max:5000',
-            'lat_absen' => 'required',
-            'long_absen' => 'required',
-            'jarak_masuk' => 'required',
+            'lat_absen'    => 'required',
+            'long_absen'   => 'required',
+            'jarak_masuk'  => 'nullable',
             'status_absen' => 'required'
         ]);
+
+        // Jika admin set status Izin Telat → auto-nol telat, set jam ke shift masuk
+        if ($request->status_absen === 'Izin Telat') {
+            $validatedData['telat']     = 0;
+            $validatedData['jam_absen'] = $mp->Shift->jam_masuk;
+        }
+
+        // Jika admin set status Tidak Masuk → kosongkan jam
+        if ($request->status_absen === 'Tidak Masuk') {
+            $validatedData['jam_absen'] = null;
+            $validatedData['telat']     = 0;
+        }
 
         if ($request->file('foto_jam_absen')) {
             if ($request->foto_jam_absen_lama) {
@@ -736,13 +748,21 @@ class AbsenController extends Controller
         }
 
         $validatedData = $request->validate([
-            'jam_pulang' => 'required',
+            'jam_pulang'    => 'required',
             'foto_jam_pulang' => 'image|max:5000',
-            'lat_pulang' => 'required',
-            'long_pulang' => 'required',
-            'pulang_cepat' => 'required',
-            'jarak_pulang' => 'required'
+            'lat_pulang'    => 'required',
+            'long_pulang'   => 'required',
+            'pulang_cepat'  => 'nullable',
+            'jarak_pulang'  => 'nullable',
+            'status_absen'  => 'nullable',
         ]);
+
+        // Jika admin set status Izin Pulang Cepat → auto-nol pulang_cepat, set jam ke shift keluar
+        if ($request->status_absen === 'Izin Pulang Cepat') {
+            $validatedData['pulang_cepat'] = 0;
+            $validatedData['jam_pulang']   = $mp->Shift->jam_keluar;
+            $validatedData['status_absen'] = 'Izin Pulang Cepat';
+        }
 
         if ($request->file('foto_jam_pulang')) {
             if ($request->foto_jam_pulang_lama) {

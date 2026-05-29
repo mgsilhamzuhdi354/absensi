@@ -8,6 +8,7 @@ use App\Models\Lembur;
 use App\Models\Counter;
 use App\Models\Payroll;
 use App\Exports\RekapExport;
+use App\Exports\DinasLuarExport;
 use App\Models\MappingShift;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -48,6 +49,11 @@ class RekapDataController extends Controller
     public function export()
     {
         return (new RekapExport($_GET))->download('List Rekap Data.xlsx');
+    }
+
+    public function exportDinasLuar()
+    {
+        return (new DinasLuarExport())->download('Data Dinas Luar.xlsx');
     }
 
     public function payroll($id)
@@ -170,9 +176,26 @@ class RekapDataController extends Controller
 
     public function detailPdf()
     {
+        $mulai = request()->input('mulai');
+        $akhir = request()->input('akhir');
+
+        $dinasLuarQuery = \App\Models\dinasLuar::with(['User', 'Shift'])
+            ->join('users', 'users.id', '=', 'dinas_luars.user_id')
+            ->orderBy('users.name', 'ASC')
+            ->orderBy('dinas_luars.tanggal', 'ASC')
+            ->select('dinas_luars.*');
+
+        if (request('user_id')) {
+            $dinasLuarQuery->where('dinas_luars.user_id', request('user_id'));
+        }
+        if ($mulai && $akhir) {
+            $dinasLuarQuery->whereBetween('dinas_luars.tanggal', [$mulai, $akhir]);
+        }
+
         $pdf = Pdf::loadView('rekapdata.detailPdf', [
             'title' => 'Detail PDF',
-            'data' => MappingShift::dataAbsen()->reorder('users.name', 'ASC')->orderBy('tanggal', 'ASC')->get()
+            'data' => MappingShift::dataAbsen()->reorder('users.name', 'ASC')->orderBy('tanggal', 'ASC')->get(),
+            'dinas_luar' => $dinasLuarQuery->get()
         ]);
 
         return $pdf->stream();

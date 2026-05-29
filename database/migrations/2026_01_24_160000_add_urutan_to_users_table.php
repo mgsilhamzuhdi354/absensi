@@ -17,9 +17,16 @@ return new class extends Migration
             $table->integer('urutan')->default(0)->after('id');
         });
 
-        // Set initial order based on name
-        \DB::statement('SET @row_number = 0');
-        \DB::statement('UPDATE users SET urutan = (@row_number:=@row_number + 1) ORDER BY name ASC');
+        // Set initial order based on name without MySQL-only user variables.
+        \DB::table('users')
+            ->orderBy('name', 'ASC')
+            ->pluck('id')
+            ->values()
+            ->each(function ($id, $index) {
+                \DB::table('users')
+                    ->where('id', $id)
+                    ->update(['urutan' => $index + 1]);
+            });
     }
 
     /**

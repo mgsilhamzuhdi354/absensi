@@ -347,9 +347,14 @@
                           data-feather="clock"></i><span>Absensi</span></a>
                       <ul class="sidebar-submenu">
                         <li><a href="{{ url('/absen') }}">Absen</a></li>
-                        <li><a href="{{ url('/data-absen') }}">Data Absen</a></li>
+                        @if (auth()->user()->hasRole('admin') || auth()->user()->hasRole('hrd') || auth()->user()->hasRole('kepala_cabang') || auth()->user()->hasRole('general_manager'))
+                          <li><a href="{{ url('/data-absen') }}">Data Absen</a></li>
+                        @endif
                         <li><a href="{{ url('/dinas-luar') }}">Absen Dinas Luar</a></li>
-                        <li><a href="{{ url('/data-dinas-luar') }}">Data Dinas Luar</a></li>
+                        @if (auth()->user()->hasRole('admin') || auth()->user()->hasRole('hrd') || auth()->user()->hasRole('kepala_cabang') || auth()->user()->hasRole('general_manager'))
+                          <li><a href="{{ url('/data-dinas-luar') }}">Data Dinas Luar</a></li>
+                          <li><a href="{{ url('/smart-import-absen') }}"><i class="fas fa-robot" style="font-size:10px;margin-right:4px;"></i>Smart Import</a></li>
+                        @endif
                       </ul>
                     </li>
 
@@ -357,7 +362,9 @@
                           data-feather="film"></i><span>Overtime</span></a>
                       <ul class="sidebar-submenu">
                         <li><a href="{{ url('/lembur') }}">Lembur</a></li>
-                        <li><a href="{{ url('/data-lembur') }}">Data Lembur</a></li>
+                        @if (auth()->user()->hasRole('admin') || auth()->user()->hasRole('hrd') || auth()->user()->hasRole('kepala_cabang') || auth()->user()->hasRole('general_manager'))
+                          <li><a href="{{ url('/data-lembur') }}">Data Lembur</a></li>
+                        @endif
                       </ul>
                     </li>
 
@@ -431,10 +438,12 @@
                     @endif
 
 
+                    @if (auth()->user()->hasRole('admin') || auth()->user()->hasRole('hrd') || auth()->user()->hasRole('general_manager'))
                     <li class="sidebar-list">
                       <a class="sidebar-link sidebar-title link-nav {{ Request::is('dokumen*') ? 'active' : '' }}"
                         href="{{ url('/dokumen') }}"><i data-feather="folder"> </i><span>Dokumen Pegawai</span></a>
                     </li>
+                    @endif
 
                     @if (auth()->user()->hasRole('admin'))
                       <li class="sidebar-list">

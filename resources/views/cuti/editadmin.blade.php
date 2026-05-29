@@ -84,6 +84,75 @@
                             @enderror
                         </div>
                     </div>
+
+                    {{-- Section Sakit: muncul hanya jika nama_cuti = Sakit --}}
+                    @if($data_cuti_karyawan->nama_cuti === 'Sakit')
+                    <div class="form-row">
+                        <div class="col-12 mb-3">
+                            {{-- Tampilkan foto lampiran yang di-upload user --}}
+                            @if($data_cuti_karyawan->foto_cuti)
+                                <div class="alert alert-info d-flex align-items-center">
+                                    <i class="fas fa-paperclip me-2"></i>
+                                    <div>
+                                        <strong>Lampiran dari Karyawan:</strong>
+                                        <a href="{{ url('storage/'.$data_cuti_karyawan->foto_cuti) }}" target="_blank" class="ms-2">
+                                            <i class="fas fa-image"></i> Lihat Foto Lampiran
+                                        </a>
+                                        <span class="badge badge-success ms-2">📎 Karyawan mengirim foto/surat</span>
+                                    </div>
+                                </div>
+                            @else
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Tidak ada lampiran foto dari karyawan.</strong>
+                                </div>
+                            @endif
+                        </div>
+                        <div class="col mb-4">
+                            <label class="font-weight-bold">Jenis Sakit</label>
+                            @php
+                                $tipeLabels = [
+                                    'surat_dokter'      => ['label' => '🟢 Sakit Dengan Surat Dokter', 'keterangan' => 'Tidak dipotong gaji'],
+                                    'tanpa_surat_dokter' => ['label' => '🔴 Sakit Tanpa Surat Dokter', 'keterangan' => 'Dipotong gaji'],
+                                    'keluarga_meninggal' => ['label' => '💙 Keluarga Meninggal',       'keterangan' => 'Tidak dipotong gaji'],
+                                ];
+                                $tipe = $data_cuti_karyawan->tipe_sakit;
+                                // Auto-detect: jika ada foto dan belum ada tipe, suggest surat_dokter
+                                if (!$tipe && $data_cuti_karyawan->foto_cuti) {
+                                    $tipe = 'surat_dokter';
+                                }
+                            @endphp
+                            <select name="tipe_sakit" id="tipe_sakit_admin" class="form-control">
+                                <option value="">-- Pilih Jenis Sakit --</option>
+                                @foreach($tipeLabels as $key => $val)
+                                    <option value="{{ $key }}" {{ old('tipe_sakit', $tipe) == $key ? 'selected' : '' }}>
+                                        {{ $val['label'] }} ({{ $val['keterangan'] }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            @if(!$data_cuti_karyawan->tipe_sakit && $data_cuti_karyawan->foto_cuti)
+                                <small class="text-info"><i class="fas fa-magic"></i> Otomatis dipilih "Surat Dokter" karena karyawan mengirim foto.</small>
+                            @endif
+                        </div>
+                        <div class="col mb-4" id="field-potongan-gaji" style="{{ old('tipe_sakit', $tipe) === 'tanpa_surat_dokter' ? '' : 'display:none;' }}">
+                            <label for="potongan_gaji" class="font-weight-bold text-danger">
+                                Nominal Potongan Gaji (Rp) <span class="text-muted small">— diputuskan admin</span>
+                            </label>
+                            @php
+                                $potongan_per_hari = ($gaji_pokok > 0) ? round($gaji_pokok / 22) : 0;
+                                $existing_potongan = $data_cuti_karyawan->potongan_gaji ?? $potongan_per_hari;
+                            @endphp
+                            <input type="number" name="potongan_gaji" id="potongan_gaji" class="form-control"
+                                value="{{ old('potongan_gaji', $existing_potongan) }}"
+                                placeholder="Masukkan nominal potongan (Rp)" min="0" step="1000">
+                            <small class="text-muted">
+                                Gaji Pokok: <strong>Rp {{ number_format($gaji_pokok, 0, ',', '.') }}</strong>
+                                &nbsp;|&nbsp; Potongan/hari (÷22): <strong>Rp {{ number_format($potongan_per_hari, 0, ',', '.') }}</strong>
+                            </small>
+                        </div>
+                    </div>
+                    @endif
+
                     <input type="hidden" name="jam_absen">
                     <input type="hidden" name="telat">
                     <input type="hidden" name="lat_absen">
@@ -92,7 +161,6 @@
                     <input type="hidden" name="foto_jam_absen">
                     <input type="hidden" name="jam_pulang">
                     <input type="hidden" name="pulang_cepat">
-                    <input type="hidden" name="foto_jam_pulang">
                     <input type="hidden" name="foto_jam_pulang">
                     <input type="hidden" name="lat_pulang">
                     <input type="hidden" name="long_pulang">
@@ -107,4 +175,26 @@
             </div>
         </div>
     </div>
+    @push('script')
+    <script>
+        $(document).ready(function() {
+            var gajiPokok = {{ $gaji_pokok ?? 0 }};
+            var potonganPerHari = gajiPokok > 0 ? Math.round(gajiPokok / 22) : 0;
+
+            function togglePotonganGaji() {
+                if ($('#tipe_sakit_admin').val() === 'tanpa_surat_dokter') {
+                    $('#field-potongan-gaji').show();
+                    // Jika potongan masih 0, auto-fill dengan gaji/22
+                    if (parseInt($('#potongan_gaji').val()) === 0 || !$('#potongan_gaji').val()) {
+                        $('#potongan_gaji').val(potonganPerHari);
+                    }
+                } else {
+                    $('#field-potongan-gaji').hide();
+                    $('#potongan_gaji').val(0);
+                }
+            }
+            $('#tipe_sakit_admin').on('change', togglePotonganGaji);
+        });
+    </script>
+    @endpush
 @endsection

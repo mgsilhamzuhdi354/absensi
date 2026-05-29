@@ -158,20 +158,24 @@ class AttendanceTest extends TestCase
     }
 
     /** @test */
-    public function qr_attendance_works_without_authentication()
+    public function public_qr_attendance_works_without_authentication()
     {
-        $mappingShift = MappingShift::first();
+        $user = User::first();
 
-        $response = $this->postJson('/qr-masuk', [
-            'user_id' => $mappingShift->user_id,
-            'tanggal' => $mappingShift->tanggal,
-            'foto_jam_absen' => 'data:image/png;base64,test',
+        $response = $this->postJson('/attendance/qr/masuk', [
+            'username' => $user->username,
             'lat' => '-6.200000',
             'long' => '106.816666',
         ]);
 
-        // Should work without login
-        $response->assertJsonFragment(['status' => 'success']);
+        // Public QR attendance should work without login.
+        $response->assertOk();
+        $this->assertSame('"masuk"', $response->getContent());
+
+        $this->assertDatabaseHas('mapping_shifts', [
+            'user_id' => $user->id,
+            'status_absen' => 'Masuk',
+        ]);
     }
 
     /** @test */
@@ -184,6 +188,7 @@ class AttendanceTest extends TestCase
         // Create performance point with correct column names
         DB::table('laporan_kinerjas')->insert([
             'user_id' => $userId,
+            'reference' => 'App\Models\MappingShift',
             'reference_id' => $shiftId,
             'jenis_kinerja_id' => 1,
             'nilai' => 10,  // Use 'nilai' not 'bobot'
@@ -200,9 +205,11 @@ class AttendanceTest extends TestCase
         // Delete shift through service (cascade)
         \App\Services\KinerjaService::deleteAttendancePoints($shiftId, $userId);
 
-        // Performance point should be deleted
-        $this->assertDatabaseMissing('laporan_kinerjas', [
+        // Performance point should be reset, not deleted, to preserve historical charts.
+        $this->assertDatabaseHas('laporan_kinerjas', [
             'reference_id' => $shiftId,
+            'nilai' => 0,
+            'keterangan' => 'Shift dihapus oleh admin - Poin direset ke 0',
         ]);
     }
 

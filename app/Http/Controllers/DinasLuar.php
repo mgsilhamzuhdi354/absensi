@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Shift;
+use App\Models\PengajuanDinasLuar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Models\dinasLuar as ModelsDinasLuar;
@@ -31,15 +33,28 @@ class DinasLuar extends Controller
         } else {
             $tanggal = $tglskrg;
         }
+
+        // Data tambahan untuk form pengajuan (jika belum ada shift)
+        $shifts = Shift::orderBy('nama_shift')->get();
+        $pengajuan_aktif = PengajuanDinasLuar::where('user_id', $user_login)
+            ->whereIn('status', ['Pending', 'Approved'])
+            ->where('tanggal_akhir', '>=', $tglskrg)
+            ->orderBy('id', 'desc')
+            ->get();
+
         if (auth()->user()->is_admin == 'admin') {
             return view('dinasluar.index', [
                 'title' => 'Absen',
-                'dinas_luar' => ModelsDinasLuar::where('user_id', $user_login)->where('tanggal', $tanggal)->get()
+                'dinas_luar' => ModelsDinasLuar::where('user_id', $user_login)->where('tanggal', $tanggal)->get(),
+                'shifts' => $shifts,
+                'pengajuan_aktif' => $pengajuan_aktif,
             ]);
         } else {
             return view('dinasluar.indexuser', [
                 'title' => 'Absen',
-                'dinas_luar' => ModelsDinasLuar::where('user_id', $user_login)->where('tanggal', $tanggal)->first()
+                'dinas_luar' => ModelsDinasLuar::where('user_id', $user_login)->where('tanggal', $tanggal)->first(),
+                'shifts' => $shifts,
+                'pengajuan_aktif' => $pengajuan_aktif,
             ]);
         }
     }
@@ -216,7 +231,7 @@ class DinasLuar extends Controller
                 return $query->where('user_id', auth()->user()->id);
             })
             ->when($user_id, function ($query) use ($user_id) {
-                return $query->where('users.id', $user_id);
+                return $query->where('user_id', $user_id);
             })
             ->when($mulai && $akhir, function ($q) use ($mulai, $akhir, $user_id) {
                 return ModelsDinasLuar::when(auth()->user()->is_admin == 'user', function ($query) {
@@ -226,7 +241,7 @@ class DinasLuar extends Controller
                         return $query->whereBetween('tanggal', [$mulai, $akhir]);
                     })
                     ->when($user_id, function ($query) use ($user_id) {
-                        return $query->where('users.id', $user_id);
+                        return $query->where('user_id', $user_id);
                     });
             });
 

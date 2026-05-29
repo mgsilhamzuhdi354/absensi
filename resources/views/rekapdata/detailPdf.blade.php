@@ -114,6 +114,55 @@
                 @endforeach
             </tbody>
         </table>
+
+        @if(isset($dinas_luar) && count($dinas_luar) > 0)
+        <br><br>
+        <center>
+        <div class="header">Data Dinas Luar</div>
+        </center>
+
+        <table style="border-collapse: collapse; width: 100%; font-size: 8px;">
+            <thead>
+                <tr>
+                    <td style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase;">Nama Pegawai</td>
+                    <td style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase;">Shift</td>
+                    <td style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase;">Tanggal</td>
+                    <td style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase;">Jam Masuk</td>
+                    <td style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase;">Jam Pulang</td>
+                    <td style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase;">Lokasi</td>
+                    <td style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase;">Status Absen</td>
+                </tr>
+            </thead>
+            <tbody>
+                @php $prevNameDl = ''; $colorIdxDl = 0; @endphp
+                @foreach ($dinas_luar as $dl)
+                    @php
+                        if ($dl->User && $dl->User->name !== $prevNameDl) {
+                            $prevNameDl = $dl->User->name;
+                            $colorIdxDl = ($colorIdxDl + 1) % 2;
+                        }
+                        $bgColorDl = $rowColors[$colorIdxDl];
+
+                        if ($dl->Shift) {
+                            $shift_dl = $dl->Shift->nama_shift . ' (' . $dl->Shift->jam_masuk . ' - ' . $dl->Shift->jam_keluar . ')';
+                        } else {
+                            $shift_dl = '-';
+                        }
+                    @endphp
+                    <tr style="background-color: {{ $bgColorDl }};">
+                        <td style="border: 1px solid black; padding: 8px; font-weight: bold;">{{ $dl->User->name ?? '-' }}</td>
+                        <td style="border: 1px solid black; padding: 8px;">{{ $shift_dl }}</td>
+                        <td style="border: 1px solid black; padding: 8px;">{{ $dl->tanggal ?? '-' }}</td>
+                        <td style="border: 1px solid black; padding: 8px;">{{ $dl->jam_absen ?? '-' }}</td>
+                        <td style="border: 1px solid black; padding: 8px;">{{ $dl->jam_pulang ?? '-' }}</td>
+                        <td style="border: 1px solid black; padding: 8px;">{{ $dl->lokasi ?? '-' }}</td>
+                        <td style="border: 1px solid black; padding: 8px;">{{ $dl->status_absen ?? '-' }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+        @endif
+
     </div>
 
 </body>

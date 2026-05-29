@@ -122,15 +122,6 @@
                     </div>
                     <div class="row">
                         <div class="col mb-4">
-                            <label for="jabatan">Jabatan</label>
-                            <input type="text" class="form-control @error('jabatan') is-invalid @enderror" id="jabatan" name="jabatan" value="{{ old('jabatan', $data->user->Jabatan->nama_jabatan ?? '') }}" readonly>
-                            @error('jabatan')
-                                <div class="invalid-feedback">
-                                    {{ $message }}
-                                </div>
-                            @enderror
-                        </div>
-                        <div class="col mb-4">
                             <label for="no_gaji">Nomor Gaji</label>
                             <input type="text" class="form-control @error('no_gaji') is-invalid @enderror" id="no_gaji" name="no_gaji" value="{{ old('no_gaji', $data->no_gaji) }}" readonly>
                             @error('no_gaji')
@@ -139,6 +130,7 @@
                                 </div>
                             @enderror
                         </div>
+                        <div class="col mb-4"></div>
                     </div>
                     <div class="row">
                         <div class="col mb-4">
@@ -188,7 +180,15 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
-                        <div class="col mb-4"></div>
+                        <div class="col mb-4">
+                            <label for="jabatan">Jabatan</label>
+                            <input type="text" class="form-control @error('jabatan') is-invalid @enderror" id="jabatan" name="jabatan" value="{{ old('jabatan', $data->user->Jabatan->nama_jabatan ?? '-') }}" readonly>
+                            @error('jabatan')
+                                <div class="invalid-feedback">
+                                    {{ $message }}
+                                </div>
+                            @enderror
+                        </div>
                     </div>
                     <div class="row">
                         <div class="col mb-4">

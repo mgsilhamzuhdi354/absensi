@@ -18,8 +18,8 @@
                     </div>
 
                     <div class="group-input">
-                        <label for="jenis" style="z-index: 100">Jenis Keberhentian</label>
-                        <select name="jenis" id="jenis" class="@error('jenis') is-invalid @enderror selectpicker" data-live-search="true">
+                        <label for="jenis">Jenis Keberhentian</label>
+                        <select name="jenis" id="jenis" class="@error('jenis') is-invalid @enderror selectpicker" data-live-search="true" style="width: 100%;">
                             <option value="">-- Pilih Jenis Keberhentian --</option>
                             @foreach ($exitTypes as $type)
                                 <option value="{{ $type->value }}" {{ old('jenis', $pegawai_keluar->jenis) == $type->value ? 'selected' : '' }}>{{ $type->name }}</option>
@@ -33,8 +33,8 @@
                     </div>
 
                     <div class="group-input">
-                        <label for="alasan" class="form-label">alasan</label>
-                        <textarea name="alasan" id="alasan" class="@error('alasan') is-invalid @enderror" cols="30" rows="10">{{ old('alasan', $pegawai_keluar->alasan) }}</textarea>
+                        <label for="alasan" class="form-label">Alasan</label>
+                        <textarea name="alasan" id="alasan" class="@error('alasan') is-invalid @enderror" cols="30" rows="5">{{ old('alasan', $pegawai_keluar->alasan) }}</textarea>
                         @error('alasan')
                         <div class="invalid-feedback">
                             {{ $message }}

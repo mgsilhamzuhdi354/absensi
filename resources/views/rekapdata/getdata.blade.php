@@ -11,6 +11,9 @@
                         <a href="{{ url('/rekap-data') }}" class="btn btn-danger btn-sm ms-2">Back</a>
                         <button class="btn btn-primary ms-2" type="button" data-bs-toggle="modal" data-original-title="test" data-bs-target="#exampleModal2">Export Rekap</button>
                         <button class="btn btn-success" type="button" data-bs-toggle="modal" data-original-title="test" data-bs-target="#exampleModal">Export Details</button>
+                        <a href="{{ url('/rekap-data/export-dinas-luar') }}{{ $_GET?'?'.$_SERVER['QUERY_STRING']: '' }}" class="btn btn-info ms-2">
+                            <i class="fa fa-file-excel me-1"></i> Export Dinas Luar
+                        </a>
                     </div>
                 </div>
             </div>
@@ -44,6 +47,7 @@
                                     <th>Total Izin Telat</th>
                                     <th>Total Izin Pulang Cepat</th>
                                     <th>Total Hadir</th>
+                                    <th>Total Dinas Luar</th>
                                     <th>Total Alfa</th>
                                     <th>Total Libur</th>
                                     <th>Total Telat</th>
@@ -72,6 +76,11 @@
                                             $total_hadir = $masuk + $izin_telat + $izin_pulang_cepat;
 
                                             $libur = $du->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Libur')->count();
+
+                                            // Total Dinas Luar: dari tabel dinas_luars
+                                            $total_dinas_luar = \App\Models\dinasLuar::where('user_id', $du->id)
+                                                ->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])
+                                                ->count();
 
                                             // Alfa dihitung hanya dari mapping_shifts yang ada jadwal tapi tidak punya status kehadiran valid
                                             $status_valid = ['Masuk', 'Izin Telat', 'Izin Pulang Cepat', 'Libur', 'Cuti', 'Izin Masuk', 'Sakit', 'Tidak Masuk'];
@@ -104,6 +113,9 @@
                                         </td>
                                         <td>
                                             {{ $total_hadir }} x
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-info">{{ $total_dinas_luar }} x</span>
                                         </td>
                                         <td>
                                             {{ $total_alfa }}
@@ -162,9 +174,11 @@
                                                 $timestamp_akhir = strtotime($tanggal_akhir);
                                                 $selisih_timestamp = $timestamp_akhir - $timestamp_mulai;
                                                 $jumlah_hari = (floor($selisih_timestamp / (60 * 60 * 24)))+1;
-                                                $persentase_kehadiran = (($total_hadir + $libur) / $jumlah_hari) * 100;
+                                                $hari_kerja = $jumlah_hari - $libur;
+                                                $persentase_kehadiran = $hari_kerja > 0 ? ($total_hadir / $hari_kerja) * 100 : 0;
+                                                $persentase_kehadiran = min(100, max(0, $persentase_kehadiran));
                                             @endphp
-                                            {{ number_format($persentase_kehadiran, 2) }} %
+                                            {{ number_format($persentase_kehadiran, 1) }} %
                                         </td>
                                         <td>
                                             @php

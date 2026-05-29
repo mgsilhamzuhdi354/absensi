@@ -56,6 +56,7 @@
                     <td style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase;">Izin Telat</td>
                     <td style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase;">Izin Pulang Cepat</td>
                     <td style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase;">Hadir</td>
+                    <td style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase;">Dinas Luar</td>
                     <td style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase;">Alfa</td>
                     <td style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase;">Libur</td>
                     <td style="border: 1px solid black; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase;">Total Telat</td>
@@ -77,10 +78,17 @@
                         $masuk = $d->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Masuk')->count();
                         $total_hadir = $masuk + $izin_telat + $izin_pulang_cepat;
                         $libur = $d->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Libur')->count();
-                        $mulai = new \DateTime($tanggal_mulai);
-                        $akhir = new \DateTime($tanggal_akhir);
-                        $interval = $mulai->diff($akhir);
-                        $total_alfa = $interval->days + 1 - $masuk - $cuti - $izin_masuk - $libur - $sakit - $izin_telat - $izin_pulang_cepat;
+                        // Total Dinas Luar
+                        $total_dinas_luar = \App\Models\dinasLuar::where('user_id', $d->id)
+                            ->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])
+                            ->count();
+                        // Total Alfa: filter status tidak valid (konsisten dgn web & Excel)
+                        $status_valid = ['Masuk', 'Izin Telat', 'Izin Pulang Cepat', 'Libur', 'Cuti', 'Izin Masuk', 'Sakit', 'Tidak Masuk'];
+                        $total_alfa = $d->MappingShift
+                            ->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])
+                            ->filter(function ($item) use ($status_valid) {
+                                return !in_array($item->status_absen, $status_valid);
+                            })->count();
                         $total_telat = $d->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->sum('telat');
                         $jam   = floor($total_telat / (60 * 60));
                         $menit = $total_telat - ( $jam * (60 * 60) );
@@ -95,11 +103,13 @@
                         $jam_lembur   = floor($total_lembur / (60 * 60));
                         $menit_lembur = $total_lembur - ( $jam_lembur * (60 * 60) );
                         $menit_lembur2 = floor($menit_lembur / 60);
+                        // Persentase kehadiran: hadir / (total_hari - libur) * 100
                         $timestamp_mulai = strtotime($tanggal_mulai);
                         $timestamp_akhir = strtotime($tanggal_akhir);
-                        $selisih_timestamp = $timestamp_akhir - $timestamp_mulai;
-                        $jumlah_hari = (floor($selisih_timestamp / (60 * 60 * 24)))+1;
-                        $persentase_kehadiran = (($total_hadir + $libur) / $jumlah_hari) * 100;
+                        $jumlah_hari = (floor(($timestamp_akhir - $timestamp_mulai) / (60 * 60 * 24))) + 1;
+                        $hari_kerja = $jumlah_hari - $libur;
+                        $persentase_kehadiran = $hari_kerja > 0 ? ($total_hadir / $hari_kerja) * 100 : 0;
+                        $persentase_kehadiran = min(100, max(0, $persentase_kehadiran));
                     @endphp
                     <tr>
                         <td style="border: 1px solid black; padding: 8px;">{{ $d->name }}</td>
@@ -108,6 +118,7 @@
                         <td style="border: 1px solid black; padding: 8px;">{{ $izin_telat }} x</td>
                         <td style="border: 1px solid black; padding: 8px;">{{ $izin_pulang_cepat }} x</td>
                         <td style="border: 1px solid black; padding: 8px;">{{ $total_hadir }} x</td>
+                        <td style="border: 1px solid black; padding: 8px;">{{ $total_dinas_luar }} x</td>
                         <td style="border: 1px solid black; padding: 8px;">{{ $total_alfa }} x</td>
                         <td style="border: 1px solid black; padding: 8px;">{{ $libur }} x</td>
                         <td style="border: 1px solid black; padding: 8px;">
@@ -119,7 +130,7 @@
                             <p>{{ $jumlah_pulang_cepat . " x" }}</p>
                         </td>
                         <td style="border: 1px solid black; padding: 8px;">{{ $jam_lembur." Jam ".$menit_lembur2." Menit" }}</td>
-                        <td style="border: 1px solid black; padding: 8px;">{{ $persentase_kehadiran }} x</td>
+                        <td style="border: 1px solid black; padding: 8px;">{{ number_format($persentase_kehadiran, 1) }} %</td>
                     </tr>
                 @endforeach
             </tbody>

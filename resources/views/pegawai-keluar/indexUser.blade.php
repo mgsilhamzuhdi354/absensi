@@ -39,8 +39,8 @@
                     <thead>
                         <tr>
                             <th class="text-center" style="position: sticky; left: 0; background-color: rgb(215, 215, 215); z-index: 2;">No.</th>
-                            <th style="40px; background-color: rgb(215, 215, 215); min-width: 230px;" class="text-center">Nama Pegawai</th>
-                            <th style="min-width: 170px; background-color:rgb(243, 243, 243);" class="text-center">Tanggal</centh>
+                            <th style="background-color: rgb(215, 215, 215); min-width: 230px;" class="text-center">Nama Pegawai</th>
+                            <th style="min-width: 170px; background-color:rgb(243, 243, 243);" class="text-center">Tanggal</th>
                             <th style="min-width: 250px; background-color:rgb(243, 243, 243);" class="text-center">Jenis</th>
                             <th style="min-width: 250px; background-color:rgb(243, 243, 243);" class="text-center">Alasan</th>
                             <th style="min-width: 230px; background-color:rgb(243, 243, 243);" class="text-center">File</th>

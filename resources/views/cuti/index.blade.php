@@ -56,12 +56,29 @@
                                 <option value="{{ $dc["nama"] }}">{{ $dc["nama_cuti"] }}</option>
                                 @endif
                                 @endforeach
+                                <option value="Sakit" {{ old('nama_cuti') == 'Sakit' ? 'selected' : '' }}>Sakit</option>
                             </select>
                             @error('nama_cuti')
                             <div class="invalid-feedback">
                                 {{ $message }}
                             </div>
                             @enderror
+                            {{-- Sub-pilihan sakit: muncul hanya jika pilih Sakit --}}
+                            <div id="sakit-options" class="mt-3 p-3 border rounded" style="display:none;background:#f8f9fa;">
+                                <label class="font-weight-bold">Jenis Sakit <span class="text-danger">*</span></label><br>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="tipe_sakit" id="sakit_surat" value="surat_dokter" {{ old('tipe_sakit') == 'surat_dokter' ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="sakit_surat">🟢 Sakit Dengan Surat Dokter <small class="text-muted">(tidak dipotong gaji)</small></label>
+                                </div><br>
+                                <div class="form-check form-check-inline mt-1">
+                                    <input class="form-check-input" type="radio" name="tipe_sakit" id="sakit_tanpa" value="tanpa_surat_dokter" {{ old('tipe_sakit') == 'tanpa_surat_dokter' ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="sakit_tanpa">🔴 Sakit Tanpa Surat Dokter <small class="text-muted">(dipotong gaji — diputuskan admin)</small></label>
+                                </div><br>
+                                <div class="form-check form-check-inline mt-1">
+                                    <input class="form-check-input" type="radio" name="tipe_sakit" id="sakit_keluarga" value="keluarga_meninggal" {{ old('tipe_sakit') == 'keluarga_meninggal' ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="sakit_keluarga">💙 Keluarga Meninggal <small class="text-muted">(tidak dipotong gaji)</small></label>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <br>
@@ -205,6 +222,19 @@
                     var mulai = $(this).val();
                 $('#akhir').val(mulai);
                 });
+
+                // Toggle sub-pilihan sakit
+                function toggleSakitOptions() {
+                    var val = $('#nama_cuti').val();
+                    if (val === 'Sakit') {
+                        $('#sakit-options').show();
+                    } else {
+                        $('#sakit-options').hide();
+                        $('input[name="tipe_sakit"]').prop('checked', false);
+                    }
+                }
+                $('#nama_cuti').on('change', toggleSakitOptions);
+                toggleSakitOptions(); // init on load
             });
         </script>
     @endpush

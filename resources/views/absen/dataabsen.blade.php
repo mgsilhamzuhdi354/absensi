@@ -10,6 +10,9 @@
                     <div class="col-md-6 p-0">
                         <a href="{{ url('/data-absen/export') }}{{ $_GET ? '?' . $_SERVER['QUERY_STRING'] : '' }}"
                             class="btn btn-success">Export</a>
+                        <a href="{{ url('/smart-import-absen') }}" class="btn btn-primary ms-1">
+                            <i class="fas fa-robot me-1"></i>Smart Import
+                        </a>
                     </div>
                 </div>
             </div>

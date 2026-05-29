@@ -943,9 +943,9 @@ class karyawanController extends Controller
                 return response()->json(['success' => false, 'message' => 'User not found'], 404);
             }
 
-            // Verify user can only register their own face
-            if (auth()->user()->id != $userId && !auth()->user()->is_admin) {
-                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            // Verify user can only register their own face (admin can register anyone)
+            if (auth()->user()->id != $userId && auth()->user()->is_admin !== 'admin') {
+                return response()->json(['success' => false, 'message' => 'Unauthorized - Anda hanya bisa mendaftarkan wajah sendiri'], 403);
             }
 
             // Save photo
@@ -967,24 +967,61 @@ class karyawanController extends Controller
                 $user->foto_face_recognition = $path;
             }
 
-            // Save descriptor as JSON
-            $descriptorJson = json_encode($request->descriptor);
-            $user->face_descriptor = $descriptorJson;
+            // Save descriptor — store the full training data (descriptors + average + metadata)
+            $descriptorData = $request->descriptor;
+            $user->face_descriptor = json_encode($descriptorData);
 
             $user->save();
 
+            // Also update neural.json for legacy compatibility
+            try {
+                $neuralPath = public_path('neural.json');
+                if (file_exists($neuralPath)) {
+                    $neural = json_decode(file_get_contents($neuralPath), true) ?? [];
+
+                    // Remove old entries for this user
+                    $neural = array_values(array_filter($neural, function($item) use ($user) {
+                        return ($item['label'] ?? '') !== $user->username;
+                    }));
+
+                    // Add new entries from all 12 descriptors
+                    if (isset($descriptorData['descriptors']) && is_array($descriptorData['descriptors'])) {
+                        foreach ($descriptorData['descriptors'] as $desc) {
+                            $neural[] = [
+                                'label' => $user->username,
+                                'descriptions' => [$desc]
+                            ];
+                        }
+                    }
+
+                    file_put_contents($neuralPath, json_encode($neural, JSON_PRETTY_PRINT));
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Failed to update neural.json: ' . $e->getMessage());
+            }
+
+            $descriptorCount = isset($descriptorData['descriptors']) ? count($descriptorData['descriptors']) : 0;
+
             \Log::info('Face registered successfully', [
                 'user_id' => $userId,
-                'descriptor_length' => count($request->descriptor)
+                'descriptor_count' => $descriptorCount,
+                'has_average' => isset($descriptorData['average']),
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Face data saved successfully'
+                'message' => 'Wajah berhasil didaftarkan dengan ' . $descriptorCount . ' data training'
             ]);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal: ' . implode(', ', $e->validator->errors()->all())
+            ], 422);
         } catch (\Exception $e) {
-            \Log::error('Error saving face data: ' . $e->getMessage());
+            \Log::error('Error saving face data: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Error: ' . $e->getMessage()

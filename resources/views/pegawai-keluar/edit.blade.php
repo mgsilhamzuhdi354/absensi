@@ -20,7 +20,7 @@
                     @csrf
                     <div class="form-group">
                         <label for="user_id" class="float-left">Nama Pegawai</label>
-                        <select class="form-control selectpicker @error('user_id') is-invalid @enderror" id="user_id" name="user_id" data-live-search="true">
+                        <select class="form-control selectpicker @error('user_id') is-invalid @enderror" id="user_id" name="user_id" data-live-search="true" style="width: 100%;">
                             <option value="">-- Pilih Pegawai --</option>
                             @foreach ($users as $user)
                                 @if(old('user_id', $pegawai_keluar->user_id) == $user->id)
@@ -39,7 +39,7 @@
 
                     <div class="form-group">
                         <label for="jenis">Jenis Keberhentian</label>
-                        <select name="jenis" id="jenis" class="form-control @error('jenis') is-invalid @enderror selectpicker" data-live-search="true">
+                        <select name="jenis" id="jenis" class="form-control @error('jenis') is-invalid @enderror selectpicker" data-live-search="true" style="width: 100%;">
                             <option value="">-- Pilih Jenis Keberhentian --</option>
                             @foreach ($exitTypes as $type)
                                 <option value="{{ $type->value }}" {{ old('jenis', $pegawai_keluar->jenis) == $type->value ? 'selected' : '' }}>{{ $type->name }}</option>
@@ -53,8 +53,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="alasan" class="form-label">alasan</label>
-                        <textarea name="alasan" id="alasan" class="form-control @error('alasan') is-invalid @enderror" cols="30" rows="10">{{ old('alasan', $pegawai_keluar->alasan) }}</textarea>
+                        <label for="alasan" class="form-label">Alasan</label>
+                        <textarea name="alasan" id="alasan" class="form-control @error('alasan') is-invalid @enderror" cols="30" rows="5">{{ old('alasan', $pegawai_keluar->alasan) }}</textarea>
                         @error('alasan')
                         <div class="invalid-feedback">
                             {{ $message }}

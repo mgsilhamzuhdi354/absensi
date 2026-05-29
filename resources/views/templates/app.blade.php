@@ -396,6 +396,14 @@
                                 </a>
                             </li>
                             <li>
+                                <a href="{{ url('/pengajuan-dinas-luar') }}" class="nav-link">
+                                    <i class="fa fa-file-alt"
+                                        style="{{ Request::is('pengajuan-dinas-luar*') ? 'color: blue' : 'color: black' }}"></i>
+                                    <span style="{{ Request::is('pengajuan-dinas-luar*') ? 'color: blue' : '' }}">Pengajuan
+                                        Dinas Luar</span>
+                                </a>
+                            </li>
+                            <li>
                                 <a href="{{ url('/lembur') }}" class="nav-link">
                                     <i class="fa fa-user-clock"
                                         style="{{ Request::is('lembur*') ? 'color: blue' : 'color: black' }}"></i>

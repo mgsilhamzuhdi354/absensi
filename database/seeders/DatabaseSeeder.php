@@ -31,6 +31,8 @@ class DatabaseSeeder extends Seeder
     {
         date_default_timezone_set('Asia/Jakarta');
 
+        $this->call(MasterLookupSeeder::class);
+
         Kategori::create([
             'name' => 'Bensin Pertalite (Mobil)',
             'jumlah' => 200000,

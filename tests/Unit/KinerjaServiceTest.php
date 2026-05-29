@@ -14,7 +14,7 @@ class KinerjaServiceTest extends TestCase
     use RefreshDatabase;
 
     /** @test */
-    public function can_delete_attendance_points()
+    public function can_reset_attendance_points()
     {
         // Create test data
         $user = User::factory()->create();
@@ -22,6 +22,7 @@ class KinerjaServiceTest extends TestCase
 
         LaporanKinerja::create([
             'user_id' => $user->id,
+            'reference' => 'App\Models\MappingShift',
             'reference_id' => $mappingShift->id,
             'jenis_kinerja_id' => 1,
             'nilai' => 10,  // Use 'nilai' not 'bobot'
@@ -35,9 +36,11 @@ class KinerjaServiceTest extends TestCase
         // Delete points
         KinerjaService::deleteAttendancePoints($mappingShift->id, $user->id);
 
-        // Verify deleted
-        $this->assertDatabaseMissing('laporan_kinerjas', [
+        // Verify reset, not deleted, so historical charts can still show zero points.
+        $this->assertDatabaseHas('laporan_kinerjas', [
             'reference_id' => $mappingShift->id,
+            'nilai' => 0,
+            'keterangan' => 'Shift dihapus oleh admin - Poin direset ke 0',
         ]);
     }
 

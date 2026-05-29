@@ -66,15 +66,17 @@ class CutiController extends Controller
 
             $request['status_cuti'] = "Pending";
             $validatedData = $request->validate([
-                'user_id' => 'required',
-                'nama_cuti' => 'required',
-                'tanggal' => 'required',
-                'alasan_cuti' => 'required',
-                'foto_cuti' => 'image|file|max:10240',
-                'status_cuti' => 'required',
+                'user_id'    => 'required',
+                'nama_cuti'  => 'required',
+                'tanggal'    => 'required',
+                'alasan_cuti'=> 'required',
+                'foto_cuti'  => 'image|file|max:10240',
+                'status_cuti'=> 'required',
+                'tipe_sakit' => 'nullable|string',
             ]);
 
-            $validatedData['lokasi_id'] = auth()->user()->lokasi_id;
+            $validatedData['lokasi_id']  = auth()->user()->lokasi_id;
+            $validatedData['tipe_sakit'] = ($request->nama_cuti === 'Sakit') ? $request->tipe_sakit : null;
 
             if ($request->file('foto_cuti')) {
                 $validatedData['foto_cuti'] = $request->file('foto_cuti')->store('foto_cuti');
@@ -283,19 +285,21 @@ class CutiController extends Controller
 
             $request['status_cuti'] = "Pending";
             $validatedData = $request->validate([
-                'user_id' => 'required',
-                'nama_cuti' => 'required',
-                'tanggal' => 'required',
-                'alasan_cuti' => 'required',
-                'foto_cuti' => 'image|file|max:10240',
-                'status_cuti' => 'required',
+                'user_id'    => 'required',
+                'nama_cuti'  => 'required',
+                'tanggal'    => 'required',
+                'alasan_cuti'=> 'required',
+                'foto_cuti'  => 'image|file|max:10240',
+                'status_cuti'=> 'required',
+                'tipe_sakit' => 'nullable|string',
             ]);
 
             if ($request->file('foto_cuti')) {
                 $validatedData['foto_cuti'] = $request->file('foto_cuti')->store('foto_cuti');
             }
 
-            $validatedData['lokasi_id'] = $user_cuti->lokasi_id;
+            $validatedData['lokasi_id']  = $user_cuti->lokasi_id;
+            $validatedData['tipe_sakit'] = ($request->nama_cuti === 'Sakit') ? $request->tipe_sakit : null;
 
             $cuti = Cuti::create($validatedData);
         }
@@ -333,9 +337,13 @@ class CutiController extends Controller
 
     public function editAdmin($id)
     {
+        $cuti = Cuti::findOrFail($id);
+        $user = User::findOrFail($cuti->user_id);
+
         return view('cuti.editadmin', [
             'title' => 'Edit Cuti Karyawan',
-            'data_cuti_karyawan' => Cuti::findOrFail($id)
+            'data_cuti_karyawan' => $cuti,
+            'gaji_pokok' => $user->gaji_pokok ?? 0,
         ]);
     }
 
@@ -347,12 +355,22 @@ class CutiController extends Controller
         $old_status = $cuti->status_cuti; // Simpan status lama sebelum update
 
         $validated = $request->validate([
-            'nama_cuti' => 'required',
-            'tanggal' => 'required',
-            'status_cuti' => 'required',
-            'catatan' => 'nullable',
+            'nama_cuti'    => 'required',
+            'tanggal'      => 'required',
+            'status_cuti'  => 'required',
+            'catatan'      => 'nullable',
+            'tipe_sakit'   => 'nullable|string',
+            'potongan_gaji'=> 'nullable|numeric|min:0',
         ]);
         $validated['user_approval'] = auth()->user()->id;
+        // Handle field sakit
+        if ($validated['nama_cuti'] === 'Sakit') {
+            $validated['tipe_sakit']    = $request->tipe_sakit;
+            $validated['potongan_gaji'] = ($request->tipe_sakit === 'tanpa_surat_dokter') ? ($request->potongan_gaji ?? 0) : 0;
+        } else {
+            $validated['tipe_sakit']    = null;
+            $validated['potongan_gaji'] = 0;
+        }
         $cuti->update($validated);
 
         $user = User::find($cuti->user_id);
@@ -361,111 +379,81 @@ class CutiController extends Controller
         // Hanya proses jika status berubah dari non-Diterima menjadi Diterima
         if ($request["status_cuti"] == "Diterima" && $old_status != "Diterima") {
             if ($request["nama_cuti"] == "Cuti") {
-                $user->update([
-                    'izin_cuti' => $user->izin_cuti - 1
-                ]);
-
-                if ($mapping_shift) {
-                    $mapping_shift->update([
-                        'status_absen' => $request["nama_cuti"]
-                    ]);
-                } else {
-                    MappingShift::create([
-                        'user_id' => $cuti->user_id,
-                        'tanggal' => $cuti->tanggal,
-                        'status_absen' => $request["nama_cuti"]
-                    ]);
-                }
+                $user->update(['izin_cuti' => $user->izin_cuti - 1]);
+                // updateOrCreate: cegah duplikat saat edit ulang
+                MappingShift::updateOrCreate(
+                    ['user_id' => $cuti->user_id, 'tanggal' => $cuti->tanggal],
+                    ['status_absen' => $request["nama_cuti"]]
+                );
             } else if ($request["nama_cuti"] == "Izin Masuk") {
-                $user->update([
-                    'izin_lainnya' => $user->izin_lainnya - 1
-                ]);
-
-                if ($mapping_shift) {
-                    $mapping_shift->update([
-                        'status_absen' => $request["nama_cuti"]
-                    ]);
-                } else {
-                    MappingShift::create([
-                        'user_id' => $cuti->user_id,
-                        'tanggal' => $cuti->tanggal,
-                        'status_absen' => $request["nama_cuti"]
-                    ]);
-                }
+                $user->update(['izin_lainnya' => $user->izin_lainnya - 1]);
+                MappingShift::updateOrCreate(
+                    ['user_id' => $cuti->user_id, 'tanggal' => $cuti->tanggal],
+                    ['status_absen' => $request["nama_cuti"]]
+                );
             } else if ($request["nama_cuti"] == "Sakit") {
-                if ($mapping_shift) {
-                    $mapping_shift->update([
-                        'status_absen' => $request["nama_cuti"]
-                    ]);
-                } else {
-                    MappingShift::create([
-                        'user_id' => $cuti->user_id,
-                        'tanggal' => $cuti->tanggal,
-                        'status_absen' => $request["nama_cuti"]
-                    ]);
-                }
+                // Sakit tidak kurangi kuota izin
+                MappingShift::updateOrCreate(
+                    ['user_id' => $cuti->user_id, 'tanggal' => $cuti->tanggal],
+                    ['status_absen' => $request["nama_cuti"]]
+                );
             } else if ($request["nama_cuti"] == "Izin Telat") {
-                if ($mapping_shift) {
-                    // Check if Shift and Lokasi relations exist
-                    if (!$mapping_shift->Shift) {
-                        Alert::error('Error', 'Data shift tidak ditemukan untuk tanggal tersebut.');
-                        return redirect('/data-cuti');
-                    }
-
-                    $user->update([
-                        'izin_telat' => $user->izin_telat - 1
-                    ]);
-
-                    // Safe access to Lokasi
-                    $lokasi = $user->Lokasi;
-                    $lat_kantor = $lokasi ? $lokasi->lat_kantor : null;
-                    $long_kantor = $lokasi ? $lokasi->long_kantor : null;
-
-                    $mapping_shift->update([
-                        'jam_absen' => $mapping_shift->Shift->jam_masuk,
-                        'telat' => 0,
-                        'lat_absen' => $lat_kantor,
-                        'long_absen' => $long_kantor,
-                        'jarak_masuk' => 0,
+                if (!$mapping_shift) {
+                    $cuti->update(['status_cuti' => 'Pending']);
+                    Alert::error('Failed', 'Anda Belum Absen Masuk Pada Tanggal Tersebut');
+                    return redirect('/data-cuti');
+                }
+                if (!$mapping_shift->Shift) {
+                    Alert::error('Error', 'Data shift tidak ditemukan untuk tanggal tersebut.');
+                    return redirect('/data-cuti');
+                }
+                $user->update(['izin_telat' => $user->izin_telat - 1]);
+                $lokasi      = $user->Lokasi;
+                $lat_kantor  = $lokasi ? $lokasi->lat_kantor : null;
+                $long_kantor = $lokasi ? $lokasi->long_kantor : null;
+                // updateOrCreate: cegah duplikat
+                MappingShift::updateOrCreate(
+                    ['user_id' => $cuti->user_id, 'tanggal' => $cuti->tanggal],
+                    [
+                        'jam_absen'      => $mapping_shift->Shift->jam_masuk,
+                        'telat'          => 0,
+                        'lat_absen'      => $lat_kantor,
+                        'long_absen'     => $long_kantor,
+                        'jarak_masuk'    => 0,
                         'foto_jam_absen' => $cuti->foto_cuti,
-                        'status_absen' => $request["nama_cuti"],
-                    ]);
-                } else {
-                    $cuti->update(['status_cuti' => 'Pending']);
-                    Alert::error('Failed', 'Anda Belum Absen Masuk Pada Tanggal Tersebut');
-                    return redirect('/data-cuti');
-                }
+                        'status_absen'   => $request["nama_cuti"],
+                        'shift_id'       => $mapping_shift->shift_id,
+                    ]
+                );
             } else {
-                if ($mapping_shift) {
-                    // Check if Shift and Lokasi relations exist
-                    if (!$mapping_shift->Shift) {
-                        Alert::error('Error', 'Data shift tidak ditemukan untuk tanggal tersebut.');
-                        return redirect('/data-cuti');
-                    }
-
-                    $user->update([
-                        'izin_pulang_cepat' => $user->izin_pulang_cepat - 1
-                    ]);
-
-                    // Safe access to Lokasi
-                    $lokasi = $user->Lokasi;
-                    $lat_kantor = $lokasi ? $lokasi->lat_kantor : null;
-                    $long_kantor = $lokasi ? $lokasi->long_kantor : null;
-
-                    $mapping_shift->update([
-                        'jam_pulang' => $mapping_shift->Shift->jam_keluar,
-                        'lat_pulang' => $lat_kantor,
-                        'long_pulang' => $long_kantor,
-                        'pulang_cepat' => 0,
-                        'jarak_pulang' => 0,
-                        'foto_jam_pulang' => $cuti->foto_cuti,
-                        'status_absen' => $request["nama_cuti"],
-                    ]);
-                } else {
+                // Izin Pulang Cepat
+                if (!$mapping_shift) {
                     $cuti->update(['status_cuti' => 'Pending']);
                     Alert::error('Failed', 'Anda Belum Absen Masuk Pada Tanggal Tersebut');
                     return redirect('/data-cuti');
                 }
+                if (!$mapping_shift->Shift) {
+                    Alert::error('Error', 'Data shift tidak ditemukan untuk tanggal tersebut.');
+                    return redirect('/data-cuti');
+                }
+                $user->update(['izin_pulang_cepat' => $user->izin_pulang_cepat - 1]);
+                $lokasi      = $user->Lokasi;
+                $lat_kantor  = $lokasi ? $lokasi->lat_kantor : null;
+                $long_kantor = $lokasi ? $lokasi->long_kantor : null;
+                // updateOrCreate: cegah duplikat
+                MappingShift::updateOrCreate(
+                    ['user_id' => $cuti->user_id, 'tanggal' => $cuti->tanggal],
+                    [
+                        'jam_pulang'      => $mapping_shift->Shift->jam_keluar,
+                        'lat_pulang'      => $lat_kantor,
+                        'long_pulang'     => $long_kantor,
+                        'pulang_cepat'    => 0,
+                        'jarak_pulang'    => 0,
+                        'foto_jam_pulang' => $cuti->foto_cuti,
+                        'status_absen'    => $request["nama_cuti"],
+                        'shift_id'        => $mapping_shift->shift_id,
+                    ]
+                );
             }
 
             $type = 'Approved';
@@ -502,6 +490,20 @@ class CutiController extends Controller
 
         $request->session()->flash('success', 'Data Berhasil di Update');
         return redirect('/data-cuti');
+    }
+
+    /**
+     * Generate printable PDF view untuk surat cuti/izin
+     */
+    public function pdf($id)
+    {
+        $cuti = Cuti::with(['User', 'lokasi', 'ua'])->findOrFail($id);
+        $settings = settings::first();
+
+        return view('cuti.pdf', [
+            'cuti' => $cuti,
+            'company_name' => $settings->name ?? null,
+        ]);
     }
 
 }

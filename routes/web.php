@@ -45,6 +45,8 @@ use App\Http\Controllers\LaporanKinerjaController;
 use App\Http\Controllers\PengajuanKeuanganController;
 use App\Http\Controllers\MasterLookupController;
 use App\Http\Controllers\BackupController;
+use App\Http\Controllers\PengajuanDinasLuarController;
+use App\Http\Controllers\SmartAbsenImportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -266,6 +268,24 @@ Route::post('/data-cuti/proses-tambah', [CutiController::class, 'tambahAdminPros
 Route::delete('/data-cuti/delete/{id}', [CutiController::class, 'deleteAdmin'])->middleware('role:admin|hrd|kepala_cabang|general_manager');
 Route::get('/data-cuti/edit/{id}', [CutiController::class, 'editAdmin'])->middleware('role:admin|hrd|kepala_cabang|general_manager');
 Route::put('/data-cuti/edit-proses/{id}', [CutiController::class, 'editAdminProses'])->middleware('role:admin|hrd|kepala_cabang|general_manager');
+Route::get('/cuti/pdf/{id}', [CutiController::class, 'pdf'])->middleware('auth');
+Route::get('/data-cuti/pdf/{id}', [CutiController::class, 'pdf'])->middleware('role:admin|hrd|kepala_cabang|general_manager');
+
+// =============================================
+// Pengajuan Dinas Luar (Fitur Baru)
+// =============================================
+// Karyawan
+Route::get('/pengajuan-dinas-luar', [PengajuanDinasLuarController::class, 'index'])->middleware('auth');
+Route::get('/pengajuan-dinas-luar/tambah', [PengajuanDinasLuarController::class, 'tambah'])->middleware('auth');
+Route::post('/pengajuan-dinas-luar/store', [PengajuanDinasLuarController::class, 'store'])->middleware('auth');
+Route::post('/dinas-luar/ajukan', [PengajuanDinasLuarController::class, 'storeFromDinasLuar'])->middleware('auth');
+Route::delete('/pengajuan-dinas-luar/delete/{id}', [PengajuanDinasLuarController::class, 'delete'])->middleware('auth');
+// Admin
+Route::get('/data-pengajuan-dinas', [PengajuanDinasLuarController::class, 'adminIndex'])->middleware('role:admin|hrd|kepala_cabang|general_manager');
+Route::post('/data-pengajuan-dinas/approval/{id}', [PengajuanDinasLuarController::class, 'approval'])->middleware('role:admin|hrd|kepala_cabang|general_manager');
+Route::get('/pengajuan-dinas-luar/manual', [PengajuanDinasLuarController::class, 'manualForm'])->middleware('role:admin|hrd|kepala_cabang|general_manager');
+Route::post('/pengajuan-dinas-luar/manual', [PengajuanDinasLuarController::class, 'manualStore'])->middleware('role:admin|hrd|kepala_cabang|general_manager');
+
 Route::get('/my-profile', [KaryawanController::class, 'myProfile'])->middleware('auth');
 Route::put('/my-profile/update/{id}', [KaryawanController::class, 'myProfileUpdate'])->middleware('auth');
 Route::get('/my-profile/edit-password', [KaryawanController::class, 'editPassMyProfile'])->middleware('auth');
@@ -379,6 +399,11 @@ Route::put('/pajak-pph21/{id}/update', [PajakController::class, 'update'])->midd
 Route::delete('/pajak-pph21/{id}/delete', [PajakController::class, 'delete'])->middleware('admin');
 
 Route::get('/data-absen/export', [AbsenController::class, 'exportDataAbsen'])->middleware('admin');
+
+// Smart Import Absensi (Mesin Sidik Jari)
+Route::get('/smart-import-absen', [SmartAbsenImportController::class, 'showForm'])->middleware('admin');
+Route::post('/smart-import-absen/preview', [SmartAbsenImportController::class, 'preview'])->middleware('admin');
+Route::post('/smart-import-absen/import', [SmartAbsenImportController::class, 'importData'])->middleware('admin');
 
 Route::get('/settings', [SettingsController::class, 'index'])->middleware('admin');
 Route::post('/settings/store', [SettingsController::class, 'store'])->middleware('admin');
