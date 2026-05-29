@@ -8,6 +8,7 @@
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="author" content="pixelstrap">
   <link rel="shortcut icon" href="{{ url('/storage/' . $settings->logo) }}" />
   <link rel="apple-touch-icon-precomposed" href="{{ url('/storage/' . $settings->logo) }}" />
@@ -55,6 +56,7 @@
   <!-- Custom Theme CSS -->
   <link rel="stylesheet" type="text/css" href="{{ url('/css/animations.css') }}">
   <link rel="stylesheet" type="text/css" href="{{ url('/css/themes.css') }}">
+  <link rel="stylesheet" type="text/css" href="{{ url('/css/admin-responsive.css') }}">
   <style>
     /* Dynamic Theme Colors from Settings */
     :root {
@@ -154,7 +156,7 @@
   @stack('style')
 </head>
 
-<body data-theme-mode="{{ $settings->theme_mode ?? 'light' }}">
+<body class="admin-dashboard" data-theme-mode="{{ $settings->theme_mode ?? 'light' }}">
   <div class="tap-top"><i data-feather="chevrons-up"></i></div>
   <div class="loader-wrapper">
     <div class="loader"></div>
@@ -704,6 +706,27 @@
     })
     $(function () {
       $('.selectpicker').select2();
+      $('.table').each(function () {
+        var $table = $(this);
+        if (!$table.closest('.table-responsive').length) {
+          $table.wrap('<div class="table-responsive"></div>');
+        }
+
+        var headers = [];
+        $table.find('thead th').each(function () {
+          headers.push($(this).text().trim());
+        });
+
+        if (headers.length) {
+          $table.find('tbody tr').each(function () {
+            $(this).children('td').each(function (index) {
+              if (!$(this).attr('data-label') && headers[index]) {
+                $(this).attr('data-label', headers[index]);
+              }
+            });
+          });
+        }
+      });
       $('#mytable').DataTable({
         "responsive": true,
         "paging": false,

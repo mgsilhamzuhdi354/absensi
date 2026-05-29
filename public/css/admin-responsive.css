@@ -1,0 +1,364 @@
+/* Admin mobile usability layer */
+
+.admin-dashboard {
+    background: #f8fafc;
+}
+
+.admin-dashboard .page-body .container-fluid.default-dash {
+    max-width: 100%;
+}
+
+.admin-dashboard .card {
+    border-radius: 8px;
+}
+
+.admin-dashboard .card .card-header,
+.admin-dashboard .project-list .card > .row {
+    gap: 12px;
+}
+
+.admin-dashboard .form-control,
+.admin-dashboard .form-select,
+.admin-dashboard .select2-container--default .select2-selection--single,
+.admin-dashboard .select2-container--default .select2-selection--multiple {
+    min-height: 42px;
+}
+
+.admin-dashboard textarea.form-control {
+    min-height: 110px;
+}
+
+.admin-dashboard .select2-container {
+    max-width: 100%;
+    width: 100% !important;
+}
+
+.admin-dashboard .table-responsive {
+    border-radius: 8px;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+}
+
+.admin-dashboard .table-responsive > .table {
+    margin-bottom: 0;
+}
+
+.admin-dashboard .table th,
+.admin-dashboard .table td {
+    vertical-align: middle;
+}
+
+.admin-dashboard ul.action,
+.admin-dashboard .action {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.admin-dashboard .action li,
+.admin-dashboard .action form {
+    display: inline-flex;
+}
+
+.admin-dashboard .action a,
+.admin-dashboard .action button {
+    align-items: center;
+    border-radius: 8px;
+    display: inline-flex;
+    justify-content: center;
+    min-height: 36px;
+    min-width: 36px;
+    padding: 6px;
+}
+
+.admin-dashboard .modal-dialog {
+    max-width: min(720px, calc(100vw - 24px));
+}
+
+.admin-dashboard .modal-body {
+    overflow-x: auto;
+}
+
+@media (max-width: 991.98px) {
+    .admin-dashboard .page-body {
+        margin-left: 0 !important;
+    }
+
+    .admin-dashboard .page-header {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+
+    .admin-dashboard .page-header .header-wrapper {
+        align-items: center;
+        gap: 8px;
+        min-height: 64px;
+        padding: 8px 12px;
+    }
+
+    .admin-dashboard .page-header .search-full {
+        display: none;
+    }
+
+    .admin-dashboard .page-header .left-header {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .admin-dashboard .page-header .left-header .btn {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .admin-dashboard .page-header .nav-right {
+        flex: 0 0 auto;
+        max-width: none;
+        width: auto;
+    }
+
+    .admin-dashboard .page-header .nav-menus {
+        align-items: center;
+        gap: 6px;
+        justify-content: flex-end;
+    }
+
+    .admin-dashboard .profile-media {
+        align-items: center;
+    }
+
+    .admin-dashboard .profile-media img {
+        height: 38px !important;
+        width: 38px !important;
+    }
+
+    .admin-dashboard .profile-media .flex-grow-1 {
+        display: none;
+    }
+
+    .admin-dashboard .page-body .container-fluid.default-dash {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .admin-dashboard .footer {
+        margin-left: 0 !important;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .admin-dashboard .page-body {
+        padding-top: 76px;
+    }
+
+    .admin-dashboard .container-fluid.default-dash > .row {
+        margin-left: -6px;
+        margin-right: -6px;
+    }
+
+    .admin-dashboard .container-fluid.default-dash > .row > [class*="col"] {
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+
+    .admin-dashboard .card {
+        margin-bottom: 14px;
+    }
+
+    .admin-dashboard .card-body,
+    .admin-dashboard .card form.p-4,
+    .admin-dashboard .card .p-4 {
+        padding: 14px !important;
+    }
+
+    .admin-dashboard .card-header,
+    .admin-dashboard .project-list .card {
+        padding: 14px !important;
+    }
+
+    .admin-dashboard .project-list .card > .row,
+    .admin-dashboard .card-header .row,
+    .admin-dashboard form > .row,
+    .admin-dashboard .card form .row {
+        row-gap: 10px;
+    }
+
+    .admin-dashboard .row > .col,
+    .admin-dashboard .row > [class*="col-"] {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+
+    .admin-dashboard .project-list .col-md-6,
+    .admin-dashboard .project-list .col-md-12,
+    .admin-dashboard .card-header [class*="col-"] {
+        align-items: stretch !important;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        text-align: left !important;
+    }
+
+    .admin-dashboard .project-list h4,
+    .admin-dashboard .card h4,
+    .admin-dashboard .card h5 {
+        font-size: 1rem;
+        line-height: 1.35;
+        margin-bottom: 0;
+    }
+
+    .admin-dashboard label {
+        font-size: 0.86rem;
+        line-height: 1.3;
+        margin-bottom: 6px;
+    }
+
+    .admin-dashboard .form-control,
+    .admin-dashboard .form-select,
+    .admin-dashboard .btn,
+    .admin-dashboard button,
+    .admin-dashboard input,
+    .admin-dashboard select {
+        font-size: 0.92rem;
+    }
+
+    .admin-dashboard .form-control,
+    .admin-dashboard .form-select,
+    .admin-dashboard .select2-container--default .select2-selection--single,
+    .admin-dashboard .select2-container--default .select2-selection--multiple {
+        min-height: 44px;
+    }
+
+    .admin-dashboard .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 42px;
+    }
+
+    .admin-dashboard .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 42px;
+    }
+
+    .admin-dashboard form .btn,
+    .admin-dashboard .project-list .btn,
+    .admin-dashboard .card-header .btn {
+        justify-content: center;
+        min-height: 42px;
+        width: 100%;
+    }
+
+    .admin-dashboard .table-responsive {
+        margin-left: -2px;
+        margin-right: -2px;
+        padding-bottom: 8px;
+    }
+
+    .admin-dashboard .table-responsive > .table {
+        min-width: 760px;
+    }
+
+    .admin-dashboard .table th,
+    .admin-dashboard .table td {
+        font-size: 0.82rem;
+        line-height: 1.35;
+        padding: 0.65rem 0.55rem;
+        white-space: nowrap;
+    }
+
+    .admin-dashboard .table td img {
+        height: auto;
+        max-width: 72px;
+    }
+
+    .admin-dashboard .action {
+        min-width: 92px;
+    }
+
+    .admin-dashboard .action a,
+    .admin-dashboard .action button,
+    .admin-dashboard .btn-circle {
+        min-height: 40px;
+        min-width: 40px;
+    }
+
+    .admin-dashboard .pagination {
+        flex-wrap: wrap;
+        gap: 4px;
+        justify-content: center;
+    }
+
+    .admin-dashboard .dataTables_wrapper .row {
+        row-gap: 8px;
+    }
+
+    .admin-dashboard .dataTables_wrapper .dataTables_filter,
+    .admin-dashboard .dataTables_wrapper .dataTables_length,
+    .admin-dashboard .dataTables_wrapper .dataTables_info,
+    .admin-dashboard .dataTables_wrapper .dataTables_paginate {
+        text-align: left !important;
+        width: 100%;
+    }
+
+    .admin-dashboard .dataTables_wrapper .dataTables_filter input,
+    .admin-dashboard .dataTables_wrapper .dataTables_length select {
+        margin-left: 0;
+        margin-top: 6px;
+        width: 100%;
+    }
+
+    .admin-dashboard .modal {
+        padding-left: 0 !important;
+    }
+
+    .admin-dashboard .modal-dialog {
+        margin: 10px auto;
+        max-width: calc(100vw - 20px);
+    }
+
+    .admin-dashboard .modal-content {
+        border-radius: 8px;
+    }
+
+    .admin-dashboard .modal-footer {
+        gap: 8px;
+    }
+
+    .admin-dashboard .modal-footer .btn {
+        flex: 1 1 140px;
+    }
+}
+
+@media (max-width: 420px) {
+    .admin-dashboard .page-header .header-wrapper {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .admin-dashboard .page-body .container-fluid.default-dash {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .admin-dashboard .card-body,
+    .admin-dashboard .card form.p-4,
+    .admin-dashboard .card .p-4 {
+        padding: 12px !important;
+    }
+
+    .admin-dashboard .table th,
+    .admin-dashboard .table td {
+        font-size: 0.78rem;
+    }
+}
+
+@media (hover: none) {
+    .admin-dashboard .card:hover {
+        box-shadow: none !important;
+        transform: none !important;
+    }
+}
