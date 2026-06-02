@@ -490,6 +490,10 @@ Route::get('/inventory/tambah', [InventoryController::class, 'tambah'])->middlew
 Route::post('/inventory/store', [InventoryController::class, 'store'])->middleware('admin');
 Route::get('/inventory/scan', [InventoryController::class, 'scan'])->middleware('admin');
 Route::get('/inventory/scan/lookup', [InventoryController::class, 'scanLookup'])->middleware('admin');
+Route::get('/my-inventory-bast', [InventoryController::class, 'myBastDocuments'])->middleware('auth');
+Route::get('/my-inventory-bast/{id}', [InventoryController::class, 'showMyBastDocument'])->middleware('auth');
+Route::post('/my-inventory-bast/{id}/sign', [InventoryController::class, 'signMyBastDocument'])->middleware('auth');
+Route::get('/my-inventory-bast/{id}/download', [InventoryController::class, 'downloadMyBastDocument'])->middleware('auth');
 Route::post('/inventory/transactions/{id}/bast', [InventoryController::class, 'createBast'])->middleware('admin');
 Route::delete('/inventory/transactions/{id}', [InventoryController::class, 'deleteStockTransaction'])->middleware('admin');
 Route::get('/inventory/bast/{id}/download', [InventoryController::class, 'downloadBast'])->middleware('admin');

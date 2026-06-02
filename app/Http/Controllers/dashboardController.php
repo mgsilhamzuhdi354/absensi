@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use App\Models\Reimbursement;
 use App\Models\LaporanKinerja;
 use App\Models\JenisKinerja;
+use App\Models\InventoryBastDocument;
 
 class dashboardController extends Controller
 {
@@ -169,6 +170,11 @@ class dashboardController extends Controller
                                 })
                                 ->groupBy('nama')
                                 ->get();
+            $pending_inventory_bast_count = InventoryBastDocument::whereNull('signed_at')
+                ->whereHas('transaction', function ($query) use ($user_login) {
+                    $query->where('penerima_user_id', $user_login);
+                })
+                ->count();
             
             return view('dashboard.indexUser', [
                 'title' => 'Dashboard',
@@ -178,6 +184,7 @@ class dashboardController extends Controller
                 'skor_kinerja' => $skor_kinerja,
                 'total_nilai_kinerja' => $total_nilai_kinerja,
                 'data_kinerja' => $data_kinerja,
+                'pending_inventory_bast_count' => $pending_inventory_bast_count,
             ]);
         }
     }

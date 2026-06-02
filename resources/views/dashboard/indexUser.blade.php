@@ -85,6 +85,31 @@
 
     </div>
 
+    @if(($pending_inventory_bast_count ?? 0) > 0)
+        <div class="mt-4">
+            <div class="tf-container">
+                <a href="{{ url('/my-inventory-bast') }}" style="text-decoration: none;">
+                    <div class="card" style="border-radius: 15px; background: #fff7ed; border: 1px solid #fed7aa;">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3" style="width: 48px; height: 48px; background: #fb923c; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-file-signature" style="font-size: 22px; color: white;"></i>
+                                    </div>
+                                    <div>
+                                        <p class="mb-0" style="color: #9a3412; font-size: 12px;">BAST Inventory</p>
+                                        <h4 class="mb-0 fw_6" style="color: #431407;">{{ $pending_inventory_bast_count }} surat menunggu tanda tangan</h4>
+                                    </div>
+                                </div>
+                                <i class="fas fa-chevron-right" style="color: #9a3412;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    @endif
+
     <!-- KPI / Data Kinerja Section -->
     <div class="mt-4">
         <div class="tf-container">

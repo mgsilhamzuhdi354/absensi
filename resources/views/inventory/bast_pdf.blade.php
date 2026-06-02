@@ -11,6 +11,8 @@
     $divisiInventory = $inventory->jabatan->nama_jabatan ?? null;
     $jabatanPihakPertama = $divisiInventory ?: ($document->jabatan_penyerah ?: 'IT Engineer');
     $deptPihakPertama = $divisiInventory ?: $jabatanPihakPertama;
+    $signedAt = $document->signed_at ? \Carbon\Carbon::parse($document->signed_at) : null;
+    $signedAtText = $signedAt ? $signedAt->format('d/m/Y H:i') : null;
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -116,6 +118,12 @@
         }
         .signature-space {
             height: 62px;
+        }
+        .signature-digital {
+            height: 62px;
+            font-size: 9px;
+            color: #1f4b86;
+            padding-top: 10px;
         }
         ol {
             padding-left: 18px;
@@ -230,7 +238,15 @@
             <td>
                 <strong>PIHAK KEDUA</strong><br>
                 Yang Menerima
-                <div class="signature-space"></div>
+                @if ($document->signed_at)
+                    <div class="signature-digital">
+                        Ditandatangani elektronik<br>
+                        oleh {{ $document->receiver_signature_name ?: $pihakKedua }}<br>
+                        {{ $signedAtText }}
+                    </div>
+                @else
+                    <div class="signature-space"></div>
+                @endif
                 <strong>{{ $pihakKedua }}</strong><br>
                 {{ $jabatanPihakKedua }}
             </td>

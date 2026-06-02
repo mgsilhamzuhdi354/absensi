@@ -352,6 +352,14 @@
                                 </a>
                             </li>
                             <li>
+                                <a href="{{ url('/my-inventory-bast') }}" class="nav-link">
+                                    <i class="fas fa-file-signature"
+                                        style="{{ Request::is('my-inventory-bast*') ? 'color: blue' : 'color: black' }}"></i>
+                                    <span style="{{ Request::is('my-inventory-bast*') ? 'color: blue' : '' }}">BAST
+                                        Inventory</span>
+                                </a>
+                            </li>
+                            <li>
                                 <a href="{{ url('/kasbon') }}" class="nav-link">
                                     <i class="fa fa-comments-dollar"
                                         style="{{ Request::is('kasbon*') ? 'color: blue' : 'color: black' }}"></i>

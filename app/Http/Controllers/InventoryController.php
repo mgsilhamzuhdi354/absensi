@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\InventoryBastService;
 use App\Services\InventoryQrService;
 use App\Services\InventoryStockService;
+use App\Notifications\UserNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -247,6 +248,7 @@ class InventoryController extends Controller
                     'tanggal_surat' => $validated['tanggal_transaksi'],
                     'nama_mengetahui' => $validated['nama_mengetahui'] ?? null,
                 ], auth()->user());
+                $this->notifyBastReceiver($document, auth()->user());
                 $bastMessage = ' dan Surat BAST otomatis dibuat (' . $document->nomor_surat . ')';
             } catch (\Throwable $e) {
                 \Log::error('Auto BAST creation failed for transaction ' . $transaction->id . ': ' . $e->getMessage());
@@ -325,6 +327,7 @@ class InventoryController extends Controller
         ]);
 
         $document = $this->bastService->createForTransaction($transaction, $validated, auth()->user());
+        $this->notifyBastReceiver($document, auth()->user());
 
         return redirect('/inventory/' . $transaction->inventory_id . '/detail')
             ->with('success', 'Surat BAST berhasil dibuat: ' . $document->nomor_surat);
@@ -333,6 +336,71 @@ class InventoryController extends Controller
     public function downloadBast($id)
     {
         $document = InventoryBastDocument::with('transaction.inventory')->findOrFail($id);
+        $document = $this->bastService->storePdf($document);
+
+        if (!$document->file_pdf || !Storage::disk('public')->exists($document->file_pdf)) {
+            abort(404);
+        }
+
+        return Storage::disk('public')->download(
+            $document->file_pdf,
+            'bast-' . $this->safeFilename($document->nomor_surat) . '.pdf'
+        );
+    }
+
+    public function myBastDocuments()
+    {
+        $title = 'BAST Inventory Saya';
+        $documents = $this->myBastDocumentQuery(auth()->id())
+            ->latest('inventory_bast_documents.created_at')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('inventory.my_bast_index', compact('title', 'documents'));
+    }
+
+    public function showMyBastDocument($id)
+    {
+        $title = 'Detail BAST Inventory';
+        $document = $this->myBastDocumentQuery(auth()->id())->findOrFail($id);
+
+        return view('inventory.my_bast_show', compact('title', 'document'));
+    }
+
+    public function signMyBastDocument(Request $request, $id)
+    {
+        $request->validate([
+            'agreement' => 'accepted',
+        ], [
+            'agreement.accepted' => 'Centang persetujuan sebelum tanda tangan.',
+        ]);
+
+        $document = $this->myBastDocumentQuery(auth()->id())->findOrFail($id);
+
+        if ($document->transaction && method_exists($document->transaction, 'trashed') && $document->transaction->trashed()) {
+            return redirect('/my-inventory-bast/' . $document->id)
+                ->with('error', 'BAST ini belum bisa ditandatangani karena transaksi stoknya sudah dihapus.');
+        }
+
+        if (!$document->signed_at) {
+            $document->forceFill([
+                'signed_by_user_id' => auth()->id(),
+                'receiver_signature_name' => auth()->user()->name,
+                'signed_at' => now(),
+                'signature_ip' => $request->ip(),
+                'signature_user_agent' => substr((string) $request->userAgent(), 0, 1000),
+            ])->save();
+
+            $this->bastService->storePdf($document->fresh());
+        }
+
+        return redirect('/my-inventory-bast/' . $document->id)
+            ->with('success', 'BAST berhasil ditandatangani dan PDF sudah diperbarui.');
+    }
+
+    public function downloadMyBastDocument($id)
+    {
+        $document = $this->myBastDocumentQuery(auth()->id())->findOrFail($id);
         $document = $this->bastService->storePdf($document);
 
         if (!$document->file_pdf || !Storage::disk('public')->exists($document->file_pdf)) {
@@ -395,6 +463,41 @@ class InventoryController extends Controller
             ->update([
                 'kondisi_barang' => $inventory->kondisi,
             ]);
+    }
+
+    private function notifyBastReceiver(InventoryBastDocument $document, User $sender)
+    {
+        $document->loadMissing('transaction.inventory', 'transaction.penerima');
+
+        if (!$document->transaction || !$document->transaction->penerima) {
+            return;
+        }
+
+        $receiver = $document->transaction->penerima;
+        $inventoryName = $document->transaction->inventory->nama_barang ?? 'barang inventori';
+        $message = 'Surat BAST ' . $document->nomor_surat . ' untuk ' . $inventoryName . ' menunggu tanda tangan Anda.';
+
+        $receiver->messages = [
+            'user_id' => $sender->id,
+            'from' => $sender->name,
+            'message' => $message,
+            'action' => '/my-inventory-bast/' . $document->id,
+            'bast_document_id' => $document->id,
+        ];
+        $receiver->notify(new UserNotification);
+    }
+
+    private function myBastDocumentQuery($userId)
+    {
+        return InventoryBastDocument::with([
+                'signedBy',
+                'transaction.inventory.lokasi',
+                'transaction.inventory.jabatan',
+                'transaction.processedBy',
+            ])
+            ->whereHas('transaction', function ($query) use ($userId) {
+                $query->where('penerima_user_id', $userId);
+            });
     }
 
     private function findInventoryByQrInput($value)

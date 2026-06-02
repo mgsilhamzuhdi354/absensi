@@ -286,6 +286,115 @@ class InventoryQrStockTest extends TestCase
     }
 
     /** @test */
+    public function receiver_gets_bast_notification_and_can_sign_the_document()
+    {
+        Storage::fake('public');
+
+        $inventory = Inventory::create($this->inventoryPayload(['stok' => 1]));
+
+        $response = $this->actingAs($this->admin)->post('/inventory/' . $inventory->id . '/stock-out', [
+            'tanggal_transaksi' => '2026-05-29',
+            'jumlah' => 1,
+            'penerima_user_id' => $this->employee->id,
+            'keperluan' => 'Fasilitas kerja',
+            'kondisi_barang' => 'Baik',
+            'buat_bast_otomatis' => 1,
+        ]);
+
+        $response->assertRedirect('/inventory/' . $inventory->id . '/detail');
+
+        $document = InventoryBastDocument::first();
+        $this->assertNotNull($document);
+
+        $notification = $this->employee->notifications()->first();
+        $this->assertNotNull($notification);
+        $this->assertSame('/my-inventory-bast/' . $document->id, $notification->data['action']);
+        $this->assertSame($document->id, $notification->data['bast_document_id']);
+
+        $this->actingAs($this->employee)
+            ->get('/my-inventory-bast')
+            ->assertOk()
+            ->assertSee($document->nomor_surat)
+            ->assertSee('Menunggu TTD');
+
+        $this->actingAs($this->employee)
+            ->get('/my-inventory-bast/' . $document->id)
+            ->assertOk()
+            ->assertSee('Tanda Tangani / Terima Barang');
+
+        $this->actingAs($this->employee)
+            ->post('/my-inventory-bast/' . $document->id . '/sign', [
+                'agreement' => 1,
+            ])
+            ->assertRedirect('/my-inventory-bast/' . $document->id);
+
+        $document->refresh();
+        $this->assertSame($this->employee->id, $document->signed_by_user_id);
+        $this->assertSame($this->employee->name, $document->receiver_signature_name);
+        $this->assertNotNull($document->signed_at);
+        Storage::disk('public')->assertExists($document->file_pdf);
+
+        $transaction = InventoryStockTransaction::with('inventory.jabatan', 'processedBy')->first();
+        $html = view('inventory.bast_pdf', [
+            'document' => $document,
+            'transaction' => $transaction,
+            'inventory' => $transaction->inventory,
+        ])->render();
+
+        $this->assertStringContainsString('Ditandatangani elektronik', $html);
+        $this->assertStringContainsString($this->employee->name, $html);
+    }
+
+    /** @test */
+    public function non_receiver_cannot_open_or_sign_another_users_bast()
+    {
+        Storage::fake('public');
+
+        $otherUser = User::create([
+            'name' => 'Other User',
+            'username' => 'other-user',
+            'email' => 'other-user@example.test',
+            'is_admin' => 'user',
+            'jabatan_id' => $this->jabatan->id,
+        ]);
+
+        $inventory = Inventory::create($this->inventoryPayload(['stok' => 1]));
+        $transaction = InventoryStockTransaction::create([
+            'inventory_id' => $inventory->id,
+            'jenis_transaksi' => 'keluar',
+            'jumlah' => 1,
+            'stok_sebelum' => 1,
+            'stok_sesudah' => 0,
+            'tanggal_transaksi' => '2026-05-29',
+            'penerima_user_id' => $this->employee->id,
+            'penerima_barang' => $this->employee->name,
+            'jabatan_penerima' => $this->jabatan->nama_jabatan,
+            'kondisi_barang' => 'Baik',
+            'diproses_oleh' => $this->admin->id,
+        ]);
+
+        $document = $this->actingAs($this->admin)
+            ->post('/inventory/transactions/' . $transaction->id . '/bast', [
+                'tanggal_surat' => '2026-05-29',
+            ]);
+
+        $document->assertRedirect('/inventory/' . $inventory->id . '/detail');
+        $bast = InventoryBastDocument::first();
+
+        $this->actingAs($otherUser)
+            ->get('/my-inventory-bast/' . $bast->id)
+            ->assertNotFound();
+
+        $this->actingAs($otherUser)
+            ->post('/my-inventory-bast/' . $bast->id . '/sign', [
+                'agreement' => 1,
+            ])
+            ->assertNotFound();
+
+        $this->assertNull($bast->fresh()->signed_at);
+    }
+
+    /** @test */
     public function updating_inventory_refreshes_related_handover_history_and_bast_file()
     {
         Storage::fake('public');

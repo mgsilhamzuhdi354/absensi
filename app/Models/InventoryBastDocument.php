@@ -13,10 +13,21 @@ class InventoryBastDocument extends Model
 
     protected $casts = [
         'tanggal_surat' => 'date',
+        'signed_at' => 'datetime',
     ];
 
     public function transaction()
     {
         return $this->belongsTo(InventoryStockTransaction::class, 'inventory_stock_transaction_id')->withTrashed();
+    }
+
+    public function signedBy()
+    {
+        return $this->belongsTo(User::class, 'signed_by_user_id');
+    }
+
+    public function getIsSignedAttribute()
+    {
+        return $this->signed_at !== null;
     }
 }

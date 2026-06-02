@@ -287,6 +287,14 @@
                                                 @if ($transaction->bastDocument)
                                                     <a href="{{ url('/inventory/bast/'.$transaction->bastDocument->id.'/download') }}" class="btn btn-sm btn-info">Download BAST</a>
                                                     <div class="small mt-1">{{ $transaction->bastDocument->nomor_surat }}</div>
+                                                    @if ($transaction->bastDocument->signed_at)
+                                                        <span class="badge bg-success mt-1">
+                                                            TTD: {{ $transaction->bastDocument->receiver_signature_name ?? 'Penerima' }}
+                                                        </span>
+                                                        <div class="small text-muted">{{ $transaction->bastDocument->signed_at->format('d/m/Y H:i') }}</div>
+                                                    @elseif ($transaction->penerima_user_id)
+                                                        <span class="badge bg-warning text-dark mt-1">Menunggu TTD penerima</span>
+                                                    @endif
                                                 @else
                                                     <form method="post" action="{{ url('/inventory/transactions/'.$transaction->id.'/bast') }}">
                                                         @csrf
@@ -363,6 +371,14 @@
                                             @if ($transaction->bastDocument)
                                                 <a href="{{ url('/inventory/bast/'.$transaction->bastDocument->id.'/download') }}" class="btn btn-sm btn-info">Download BAST</a>
                                                 <div class="small mt-1">{{ $transaction->bastDocument->nomor_surat }}</div>
+                                                @if ($transaction->bastDocument->signed_at)
+                                                    <span class="badge bg-success mt-1">
+                                                        TTD: {{ $transaction->bastDocument->receiver_signature_name ?? 'Penerima' }}
+                                                    </span>
+                                                    <div class="small text-muted">{{ $transaction->bastDocument->signed_at->format('d/m/Y H:i') }}</div>
+                                                @elseif ($transaction->penerima_user_id)
+                                                    <span class="badge bg-warning text-dark mt-1">Menunggu TTD penerima</span>
+                                                @endif
                                             @else
                                                 -
                                             @endif
