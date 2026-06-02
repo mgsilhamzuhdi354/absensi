@@ -164,7 +164,11 @@ class InventoryController extends Controller
 
     public function scanLookup(Request $request)
     {
-        $code = trim($request->query('code', $request->input('code', '')));
+        $code = $request->query('code', $request->input('code', ''));
+        if (is_array($code)) {
+            $code = reset($code);
+        }
+        $code = trim((string) $code);
         $inventory = $this->findInventoryByQrInput($code);
 
         if (!$inventory) {
@@ -430,6 +434,9 @@ class InventoryController extends Controller
 
         $raw = preg_replace('/[\x00-\x1F\x7F\x{200B}-\x{200D}\x{FEFF}]/u', '', $raw);
         $candidates = [$raw];
+        if (ctype_digit($raw)) {
+            $candidates[] = 'id:' . $raw;
+        }
 
         for ($i = 0; $i < 2; $i++) {
             $decoded = urldecode($raw);
@@ -449,7 +456,7 @@ class InventoryController extends Controller
                 $candidates[] = 'id:' . $matches[1];
             }
 
-            if ($path && preg_match('#/assets/detail/([^/?#]+)#i', $path, $matches)) {
+            if ($path && preg_match('~/assets/detail/([^/?#]+)~i', $path, $matches)) {
                 $candidates[] = trim(urldecode($matches[1]));
             }
 

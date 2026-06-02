@@ -89,6 +89,33 @@ class InventoryQrStockTest extends TestCase
     }
 
     /** @test */
+    public function scan_lookup_accepts_common_qr_payload_formats()
+    {
+        $inventory = Inventory::create($this->inventoryPayload([
+            'qr_token' => 'inventory-token-123',
+            'qr_code_value' => 'http://127.0.0.1:8000/inventory/scan/lookup?code=inventory-token-123',
+        ]));
+
+        $expectedUrl = url('/inventory/' . $inventory->id . '/detail');
+        $payloads = [
+            'http://127.0.0.1:8000/inventory/scan/lookup?code=inventory-token-123',
+            url('/inventory/' . $inventory->id . '/detail'),
+            (string) $inventory->id,
+            'INV-000001',
+        ];
+
+        foreach ($payloads as $payload) {
+            $this->actingAs($this->admin)
+                ->getJson('/inventory/scan/lookup?code=' . urlencode($payload))
+                ->assertOk()
+                ->assertJson([
+                    'success' => true,
+                    'url' => $expectedUrl,
+                ]);
+        }
+    }
+
+    /** @test */
     public function detail_and_scan_pages_can_render()
     {
         Storage::fake('public');

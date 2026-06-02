@@ -50,6 +50,7 @@
         var scanStarted = false;
         var lastScannedCode = '';
         var lastScanAt = 0;
+        var scannerLibraryPromise = null;
 
         function setScanStatus(message, type) {
             var status = document.getElementById('scan-status');
@@ -58,7 +59,43 @@
         }
 
         function normalizeScanValue(value) {
-            return String(value || '').trim();
+            return String(value || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function showManualForm(focusInput) {
+            var form = document.getElementById('manual-scan-form');
+            form.style.display = 'block';
+            if (focusInput) {
+                document.getElementById('manual-code').focus();
+            }
+        }
+
+        function loadScannerLibrary() {
+            if (typeof Html5Qrcode !== 'undefined') {
+                return Promise.resolve(true);
+            }
+
+            if (scannerLibraryPromise) {
+                return scannerLibraryPromise;
+            }
+
+            scannerLibraryPromise = new Promise(function (resolve, reject) {
+                var script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
+                script.onload = function () {
+                    if (typeof Html5Qrcode !== 'undefined') {
+                        resolve(true);
+                        return;
+                    }
+                    reject(new Error('Scanner QR belum bisa dimuat.'));
+                };
+                script.onerror = function () {
+                    reject(new Error('Scanner QR belum bisa dimuat.'));
+                };
+                document.head.appendChild(script);
+            });
+
+            return scannerLibraryPromise;
         }
 
         function lookupInventory(code) {
@@ -78,14 +115,30 @@
             setScanStatus('Memproses QR barang...', 'info');
 
             fetch('{{ url('/inventory/scan/lookup') }}?code=' + encodeURIComponent(code), {
+                credentials: 'same-origin',
                 headers: {
-                    'Accept': 'application/json'
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
             })
                 .then(function (response) {
+                    var contentType = response.headers.get('content-type') || '';
+
+                    if (contentType.indexOf('application/json') === -1) {
+                        if (response.redirected && response.url) {
+                            window.location.href = response.url;
+                            throw new Error('Sesi login dialihkan. Silakan login lalu scan ulang.');
+                        }
+
+                        throw new Error('Server tidak mengirim data scan. Refresh halaman lalu coba lagi.');
+                    }
+
                     return response.json().then(function (data) {
                         if (!response.ok) {
                             throw new Error(data.message || 'Barang tidak ditemukan.');
+                        }
+                        if (!data.url) {
+                            throw new Error('Data scan tidak lengkap. Coba scan ulang.');
                         }
                         return data;
                     });
@@ -106,19 +159,29 @@
 
         function onScanSuccess(decodedText) {
             if (scanner) {
-                scanner.pause();
+                try {
+                    scanner.pause();
+                } catch (e) {}
             }
             lookupInventory(decodedText);
         }
 
         async function startInventoryScanner() {
-            if (!window.isSecureContext) {
-                setScanStatus('Kamera hanya dapat dipakai di koneksi HTTPS. Gunakan input manual.', 'warning');
+            if (scanStarted) {
                 return;
             }
 
-            if (typeof Html5Qrcode === 'undefined') {
-                setScanStatus('Scanner QR belum bisa dimuat. Gunakan input manual.', 'warning');
+            if (!window.isSecureContext) {
+                setScanStatus('Kamera hanya dapat dipakai di koneksi HTTPS. Gunakan input manual.', 'warning');
+                showManualForm(false);
+                return;
+            }
+
+            try {
+                await loadScannerLibrary();
+            } catch (libraryError) {
+                setScanStatus(libraryError.message + ' Gunakan input manual.', 'warning');
+                showManualForm(false);
                 return;
             }
 
@@ -134,24 +197,28 @@
 
             try {
                 setScanStatus('Menyalakan kamera...', 'info');
-                var cameras = await Html5Qrcode.getCameras();
-                var selectedCamera = null;
-                if (Array.isArray(cameras) && cameras.length) {
-                    selectedCamera = cameras.find(function (camera) {
-                        return /back|rear|environment/i.test(camera.label || '');
-                    }) || cameras[0];
-                }
-
-                if (selectedCamera && selectedCamera.id) {
-                    await scanner.start({ deviceId: { exact: selectedCamera.id } }, qrConfig, onScanSuccess, function () {});
-                } else {
-                    await scanner.start({ facingMode: 'environment' }, qrConfig, onScanSuccess, function () {});
-                }
-
+                await scanner.start({ facingMode: 'environment' }, qrConfig, onScanSuccess, function () {});
                 scanStarted = true;
                 setScanStatus('Kamera aktif. Arahkan ke QR barang.', 'success');
                 return;
             } catch (primaryError) {
+                try {
+                    var cameras = await Html5Qrcode.getCameras();
+                    var selectedCamera = null;
+                    if (Array.isArray(cameras) && cameras.length) {
+                        selectedCamera = cameras.find(function (camera) {
+                            return /back|rear|environment/i.test(camera.label || '');
+                        }) || cameras[0];
+                    }
+
+                    if (selectedCamera && selectedCamera.id) {
+                        await scanner.start({ deviceId: { exact: selectedCamera.id } }, qrConfig, onScanSuccess, function () {});
+                        scanStarted = true;
+                        setScanStatus('Kamera aktif. Arahkan ke QR barang.', 'success');
+                        return;
+                    }
+                } catch (cameraListError) {}
+
                 try {
                     await scanner.start({ facingMode: 'user' }, qrConfig, onScanSuccess, function () {});
                     scanStarted = true;
@@ -159,6 +226,7 @@
                     return;
                 } catch (fallbackError) {
                     scanStarted = false;
+                    showManualForm(false);
                     setScanStatus('Kamera tidak dapat diakses. Gunakan input manual.', 'warning');
                 }
             }
