@@ -142,10 +142,12 @@ class InventoryController extends Controller
             'stockTransactions.lokasi',
             'stockTransactions.penerima.Jabatan',
             'stockTransactions.processedBy',
-            'stockTransactions.bastDocument',
+            'stockTransactions.bastDocument.signedBy',
+            'stockTransactions.bastDocument.knownBy',
+            'stockTransactions.bastDocument.firstParty',
         ]);
         $deletedStockTransactions = InventoryStockTransaction::onlyTrashed()
-            ->with(['processedBy', 'deletedBy', 'bastDocument'])
+            ->with(['processedBy', 'deletedBy', 'bastDocument.signedBy', 'bastDocument.knownBy', 'bastDocument.firstParty'])
             ->where('inventory_id', $inventory->id)
             ->latest('deleted_at')
             ->latest('id')
@@ -227,6 +229,8 @@ class InventoryController extends Controller
             'catatan' => 'nullable|string',
             'buat_bast_otomatis' => 'nullable|boolean',
             'nama_mengetahui' => 'nullable|string|max:255',
+            'known_by_user_id' => 'nullable|exists:users,id',
+            'first_party_user_id' => 'nullable|exists:users,id',
         ]);
 
         if (!empty($validated['penerima_user_id'])) {
@@ -247,8 +251,10 @@ class InventoryController extends Controller
                 $document = $this->bastService->createForTransaction($transaction, [
                     'tanggal_surat' => $validated['tanggal_transaksi'],
                     'nama_mengetahui' => $validated['nama_mengetahui'] ?? null,
+                    'known_by_user_id' => $validated['known_by_user_id'] ?? null,
+                    'first_party_user_id' => $validated['first_party_user_id'] ?? null,
                 ], auth()->user());
-                $this->notifyBastReceiver($document, auth()->user());
+                $this->notifyBastSigners($document, auth()->user());
                 $bastMessage = ' dan Surat BAST otomatis dibuat (' . $document->nomor_surat . ')';
             } catch (\Throwable $e) {
                 \Log::error('Auto BAST creation failed for transaction ' . $transaction->id . ': ' . $e->getMessage());
@@ -324,10 +330,12 @@ class InventoryController extends Controller
         $validated = $request->validate([
             'tanggal_surat' => 'nullable|date',
             'nama_mengetahui' => 'nullable|string|max:255',
+            'known_by_user_id' => 'nullable|exists:users,id',
+            'first_party_user_id' => 'nullable|exists:users,id',
         ]);
 
         $document = $this->bastService->createForTransaction($transaction, $validated, auth()->user());
-        $this->notifyBastReceiver($document, auth()->user());
+        $this->notifyBastSigners($document, auth()->user());
 
         return redirect('/inventory/' . $transaction->inventory_id . '/detail')
             ->with('success', 'Surat BAST berhasil dibuat: ' . $document->nomor_surat);
@@ -367,13 +375,14 @@ class InventoryController extends Controller
         return view('inventory.my_bast_show', compact('title', 'document'));
     }
 
-    public function signMyBastDocument(Request $request, $id)
+    public function signMyBastDocument(Request $request, $id, $role = 'receiver')
     {
-        $request->validate([
-            'agreement' => 'accepted',
-        ], [
-            'agreement.accepted' => 'Centang persetujuan sebelum tanda tangan.',
-        ]);
+        $role = (string) $role;
+        $roleConfig = InventoryBastDocument::signatureRoles()[$role] ?? null;
+
+        if (!$roleConfig) {
+            abort(404);
+        }
 
         $document = $this->myBastDocumentQuery(auth()->id())->findOrFail($id);
 
@@ -382,20 +391,35 @@ class InventoryController extends Controller
                 ->with('error', 'BAST ini belum bisa ditandatangani karena transaksi stoknya sudah dihapus.');
         }
 
-        if (!$document->signed_at) {
+        if (!$document->canUserSignRole(auth()->user(), $role)) {
+            abort(404);
+        }
+
+        $request->validate([
+            'agreement' => 'accepted',
+            'signature_data' => ['required', 'string', 'regex:/^data:image\/png;base64,/'],
+        ], [
+            'agreement.accepted' => 'Centang persetujuan sebelum tanda tangan.',
+            'signature_data.required' => 'Bubuhkan tanda tangan di kotak tanda tangan.',
+            'signature_data.regex' => 'Format tanda tangan tidak valid.',
+        ]);
+
+        if (!$document->{$roleConfig['signed_at']}) {
+            $signaturePath = $this->storeBastSignatureImage($document, $role, $request->input('signature_data'));
             $document->forceFill([
-                'signed_by_user_id' => auth()->id(),
-                'receiver_signature_name' => auth()->user()->name,
-                'signed_at' => now(),
-                'signature_ip' => $request->ip(),
-                'signature_user_agent' => substr((string) $request->userAgent(), 0, 1000),
+                $roleConfig['user_id'] => auth()->id(),
+                $roleConfig['name'] => auth()->user()->name,
+                $roleConfig['image'] => $signaturePath,
+                $roleConfig['signed_at'] => now(),
+                $roleConfig['ip'] => $request->ip(),
+                $roleConfig['user_agent'] => substr((string) $request->userAgent(), 0, 1000),
             ])->save();
 
             $this->bastService->storePdf($document->fresh());
         }
 
         return redirect('/my-inventory-bast/' . $document->id)
-            ->with('success', 'BAST berhasil ditandatangani dan PDF sudah diperbarui.');
+            ->with('success', $roleConfig['label'] . ' berhasil ditandatangani dan PDF sudah diperbarui.');
     }
 
     public function downloadMyBastDocument($id)
@@ -465,39 +489,69 @@ class InventoryController extends Controller
             ]);
     }
 
-    private function notifyBastReceiver(InventoryBastDocument $document, User $sender)
+    private function notifyBastSigners(InventoryBastDocument $document, User $sender)
     {
-        $document->loadMissing('transaction.inventory', 'transaction.penerima');
+        $document->loadMissing('transaction.inventory', 'transaction.penerima', 'knownBy', 'firstParty');
 
-        if (!$document->transaction || !$document->transaction->penerima) {
+        if (!$document->transaction) {
             return;
         }
 
-        $receiver = $document->transaction->penerima;
         $inventoryName = $document->transaction->inventory->nama_barang ?? 'barang inventori';
         $message = 'Surat BAST ' . $document->nomor_surat . ' untuk ' . $inventoryName . ' menunggu tanda tangan Anda.';
+        $signers = collect([
+            $document->transaction->penerima,
+            $document->knownBy,
+            $document->firstParty,
+        ])->filter()->unique('id');
 
-        $receiver->messages = [
-            'user_id' => $sender->id,
-            'from' => $sender->name,
-            'message' => $message,
-            'action' => '/my-inventory-bast/' . $document->id,
-            'bast_document_id' => $document->id,
-        ];
-        $receiver->notify(new UserNotification);
+        foreach ($signers as $signer) {
+            $signer->messages = [
+                'user_id' => $sender->id,
+                'from' => $sender->name,
+                'message' => $message,
+                'action' => '/my-inventory-bast/' . $document->id,
+                'bast_document_id' => $document->id,
+            ];
+            $signer->notify(new UserNotification);
+        }
     }
 
     private function myBastDocumentQuery($userId)
     {
         return InventoryBastDocument::with([
-                'signedBy',
+                'signedBy.Jabatan',
+                'knownBy.Jabatan',
+                'firstParty.Jabatan',
                 'transaction.inventory.lokasi',
                 'transaction.inventory.jabatan',
                 'transaction.processedBy',
+                'transaction.penerima.Jabatan',
             ])
-            ->whereHas('transaction', function ($query) use ($userId) {
-                $query->where('penerima_user_id', $userId);
+            ->where(function ($query) use ($userId) {
+                $query->whereHas('transaction', function ($transactionQuery) use ($userId) {
+                    $transactionQuery->where('penerima_user_id', $userId);
+                })
+                    ->orWhere('known_by_user_id', $userId)
+                    ->orWhere('first_party_user_id', $userId);
             });
+    }
+
+    private function storeBastSignatureImage(InventoryBastDocument $document, $role, $signatureData)
+    {
+        $payload = preg_replace('/^data:image\/png;base64,/', '', (string) $signatureData);
+        $binary = base64_decode($payload, true);
+
+        if ($binary === false || strlen($binary) < 20) {
+            throw ValidationException::withMessages([
+                'signature_data' => 'Tanda tangan tidak valid. Silakan hapus dan tanda tangani ulang.',
+            ]);
+        }
+
+        $path = 'inventory/bast/signatures/' . $document->id . '-' . $this->safeFilename($role) . '-' . time() . '.png';
+        Storage::disk('public')->put($path, $binary);
+
+        return $path;
     }
 
     private function findInventoryByQrInput($value)

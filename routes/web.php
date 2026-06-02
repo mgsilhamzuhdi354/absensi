@@ -493,6 +493,7 @@ Route::get('/inventory/scan/lookup', [InventoryController::class, 'scanLookup'])
 Route::get('/my-inventory-bast', [InventoryController::class, 'myBastDocuments'])->middleware('auth');
 Route::get('/my-inventory-bast/{id}', [InventoryController::class, 'showMyBastDocument'])->middleware('auth');
 Route::post('/my-inventory-bast/{id}/sign', [InventoryController::class, 'signMyBastDocument'])->middleware('auth');
+Route::post('/my-inventory-bast/{id}/sign/{role}', [InventoryController::class, 'signMyBastDocument'])->middleware('auth');
 Route::get('/my-inventory-bast/{id}/download', [InventoryController::class, 'downloadMyBastDocument'])->middleware('auth');
 Route::post('/inventory/transactions/{id}/bast', [InventoryController::class, 'createBast'])->middleware('admin');
 Route::delete('/inventory/transactions/{id}', [InventoryController::class, 'deleteStockTransaction'])->middleware('admin');

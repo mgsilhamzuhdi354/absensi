@@ -170,9 +170,21 @@ class dashboardController extends Controller
                                 })
                                 ->groupBy('nama')
                                 ->get();
-            $pending_inventory_bast_count = InventoryBastDocument::whereNull('signed_at')
-                ->whereHas('transaction', function ($query) use ($user_login) {
-                    $query->where('penerima_user_id', $user_login);
+            $pending_inventory_bast_count = InventoryBastDocument::where(function ($query) use ($user_login) {
+                    $query->where(function ($receiverQuery) use ($user_login) {
+                        $receiverQuery->whereNull('signed_at')
+                            ->whereHas('transaction', function ($transactionQuery) use ($user_login) {
+                                $transactionQuery->where('penerima_user_id', $user_login);
+                            });
+                    })
+                        ->orWhere(function ($knownQuery) use ($user_login) {
+                            $knownQuery->where('known_by_user_id', $user_login)
+                                ->whereNull('known_signed_at');
+                        })
+                        ->orWhere(function ($firstPartyQuery) use ($user_login) {
+                            $firstPartyQuery->where('first_party_user_id', $user_login)
+                                ->whereNull('first_party_signed_at');
+                        });
                 })
                 ->count();
             

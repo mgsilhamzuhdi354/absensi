@@ -1,5 +1,18 @@
 @extends('templates.app')
 @section('container')
+    @php
+        $signatureRoles = \App\Models\InventoryBastDocument::signatureRoles();
+        $pendingCount = $documents->getCollection()->filter(function ($document) use ($signatureRoles) {
+            foreach ($signatureRoles as $role => $config) {
+                if ($document->canUserSignRole(auth()->user(), $role) && !$document->{$config['signed_at']}) {
+                    return true;
+                }
+            }
+
+            return false;
+        })->count();
+    @endphp
+
     <div class="card-secton transfer-section">
         <div class="tf-container">
             <div class="tf-balance-box">
@@ -7,11 +20,8 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h3 class="mb-1">BAST Inventory</h3>
-                        <p class="text-muted mb-0">Surat serah terima barang yang ditujukan kepada Anda.</p>
+                        <p class="text-muted mb-0">Surat serah terima barang yang terkait dengan akun Anda.</p>
                     </div>
-                    @php
-                        $pendingCount = $documents->getCollection()->whereNull('signed_at')->count();
-                    @endphp
                     @if ($pendingCount > 0)
                         <span class="badge bg-warning text-dark">{{ $pendingCount }} perlu TTD</span>
                     @endif
@@ -29,6 +39,12 @@
                         @php
                             $transaction = $document->transaction;
                             $inventory = $transaction ? $transaction->inventory : null;
+                            $userRoles = collect($signatureRoles)->filter(function ($config, $role) use ($document) {
+                                return $document->canUserSignRole(auth()->user(), $role);
+                            });
+                            $hasPending = $userRoles->contains(function ($config) use ($document) {
+                                return !$document->{$config['signed_at']};
+                            });
                         @endphp
                         <li class="list-card-invoice tf-topbar d-flex justify-content-between align-items-center p-3 mb-3"
                             style="background-color: #fff; border-radius: 14px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);">
@@ -40,14 +56,23 @@
                                         <p class="mb-0 text-muted">
                                             {{ optional($document->tanggal_surat)->format('d/m/Y') ?? '-' }}
                                             @if ($inventory)
-                                                · {{ $inventory->kode_barang ?? '-' }}
+                                                - {{ $inventory->kode_barang ?? '-' }}
                                             @endif
                                         </p>
+                                        <div class="mt-2">
+                                            @foreach ($userRoles as $config)
+                                                @if ($document->{$config['signed_at']})
+                                                    <span class="badge bg-success me-1">{{ $config['short_label'] }} sudah TTD</span>
+                                                @else
+                                                    <span class="badge bg-warning text-dark me-1">{{ $config['short_label'] }} perlu TTD</span>
+                                                @endif
+                                            @endforeach
+                                        </div>
                                     </div>
-                                    @if ($document->signed_at)
-                                        <span class="badge bg-success">Sudah TTD</span>
-                                    @else
+                                    @if ($hasPending)
                                         <span class="badge bg-warning text-dark">Menunggu TTD</span>
+                                    @else
+                                        <span class="badge bg-success">Selesai</span>
                                     @endif
                                 </div>
                             </a>

@@ -19,7 +19,10 @@ class InventoryQrStockTest extends TestCase
 
     private $admin;
     private $employee;
+    private $hrd;
+    private $firstParty;
     private $jabatan;
+    private $hrdJabatan;
     private $lokasi;
 
     protected function setUp(): void
@@ -33,6 +36,10 @@ class InventoryQrStockTest extends TestCase
 
         $this->jabatan = Jabatan::create([
             'nama_jabatan' => 'IT Engineer',
+        ]);
+
+        $this->hrdJabatan = Jabatan::create([
+            'nama_jabatan' => 'HRD / Manager',
         ]);
 
         $this->lokasi = Lokasi::create([
@@ -51,6 +58,22 @@ class InventoryQrStockTest extends TestCase
             'name' => 'Employee One',
             'username' => 'employee-one',
             'email' => 'employee-one@example.test',
+            'is_admin' => 'user',
+            'jabatan_id' => $this->jabatan->id,
+        ]);
+
+        $this->hrd = User::create([
+            'name' => 'HRD One',
+            'username' => 'hrd-one',
+            'email' => 'hrd-one@example.test',
+            'is_admin' => 'user',
+            'jabatan_id' => $this->hrdJabatan->id,
+        ]);
+
+        $this->firstParty = User::create([
+            'name' => 'IT PIC One',
+            'username' => 'it-pic-one',
+            'email' => 'it-pic-one@example.test',
             'is_admin' => 'user',
             'jabatan_id' => $this->jabatan->id,
         ]);
@@ -286,7 +309,7 @@ class InventoryQrStockTest extends TestCase
     }
 
     /** @test */
-    public function receiver_gets_bast_notification_and_can_sign_the_document()
+    public function assigned_signers_get_bast_notifications_and_can_sign_their_roles()
     {
         Storage::fake('public');
 
@@ -299,17 +322,25 @@ class InventoryQrStockTest extends TestCase
             'keperluan' => 'Fasilitas kerja',
             'kondisi_barang' => 'Baik',
             'buat_bast_otomatis' => 1,
+            'known_by_user_id' => $this->hrd->id,
+            'first_party_user_id' => $this->firstParty->id,
         ]);
 
         $response->assertRedirect('/inventory/' . $inventory->id . '/detail');
 
         $document = InventoryBastDocument::first();
         $this->assertNotNull($document);
+        $this->assertSame($this->hrd->id, $document->known_by_user_id);
+        $this->assertSame($this->firstParty->id, $document->first_party_user_id);
+        $this->assertSame($this->hrd->name, $document->nama_mengetahui);
+        $this->assertSame($this->firstParty->name, $document->nama_penyerah);
 
-        $notification = $this->employee->notifications()->first();
-        $this->assertNotNull($notification);
-        $this->assertSame('/my-inventory-bast/' . $document->id, $notification->data['action']);
-        $this->assertSame($document->id, $notification->data['bast_document_id']);
+        foreach ([$this->employee, $this->hrd, $this->firstParty] as $signer) {
+            $notification = $signer->notifications()->first();
+            $this->assertNotNull($notification);
+            $this->assertSame('/my-inventory-bast/' . $document->id, $notification->data['action']);
+            $this->assertSame($document->id, $notification->data['bast_document_id']);
+        }
 
         $this->actingAs($this->employee)
             ->get('/my-inventory-bast')
@@ -320,11 +351,39 @@ class InventoryQrStockTest extends TestCase
         $this->actingAs($this->employee)
             ->get('/my-inventory-bast/' . $document->id)
             ->assertOk()
-            ->assertSee('Tanda Tangani / Terima Barang');
+            ->assertSee('PIHAK KEDUA')
+            ->assertSee('Tanda Tangani');
 
         $this->actingAs($this->employee)
-            ->post('/my-inventory-bast/' . $document->id . '/sign', [
+            ->post('/my-inventory-bast/' . $document->id . '/sign/receiver', [
                 'agreement' => 1,
+                'signature_data' => $this->signatureData(),
+            ])
+            ->assertRedirect('/my-inventory-bast/' . $document->id);
+
+        $this->actingAs($this->hrd)
+            ->get('/my-inventory-bast/' . $document->id)
+            ->assertOk()
+            ->assertSee('MENGETAHUI')
+            ->assertSee('Tanda Tangani');
+
+        $this->actingAs($this->hrd)
+            ->post('/my-inventory-bast/' . $document->id . '/sign/known', [
+                'agreement' => 1,
+                'signature_data' => $this->signatureData(),
+            ])
+            ->assertRedirect('/my-inventory-bast/' . $document->id);
+
+        $this->actingAs($this->firstParty)
+            ->get('/my-inventory-bast/' . $document->id)
+            ->assertOk()
+            ->assertSee('PIHAK PERTAMA')
+            ->assertSee('Tanda Tangani');
+
+        $this->actingAs($this->firstParty)
+            ->post('/my-inventory-bast/' . $document->id . '/sign/first_party', [
+                'agreement' => 1,
+                'signature_data' => $this->signatureData(),
             ])
             ->assertRedirect('/my-inventory-bast/' . $document->id);
 
@@ -332,17 +391,29 @@ class InventoryQrStockTest extends TestCase
         $this->assertSame($this->employee->id, $document->signed_by_user_id);
         $this->assertSame($this->employee->name, $document->receiver_signature_name);
         $this->assertNotNull($document->signed_at);
+        $this->assertSame($this->hrd->id, $document->known_by_user_id);
+        $this->assertSame($this->hrd->name, $document->known_signature_name);
+        $this->assertNotNull($document->known_signed_at);
+        $this->assertSame($this->firstParty->id, $document->first_party_user_id);
+        $this->assertSame($this->firstParty->name, $document->first_party_signature_name);
+        $this->assertNotNull($document->first_party_signed_at);
+        Storage::disk('public')->assertExists($document->receiver_signature_image);
+        Storage::disk('public')->assertExists($document->known_signature_image);
+        Storage::disk('public')->assertExists($document->first_party_signature_image);
         Storage::disk('public')->assertExists($document->file_pdf);
 
-        $transaction = InventoryStockTransaction::with('inventory.jabatan', 'processedBy')->first();
+        $transaction = InventoryStockTransaction::with('inventory.jabatan', 'processedBy', 'penerima.Jabatan')->first();
+        $document->load('knownBy.Jabatan', 'firstParty.Jabatan', 'signedBy.Jabatan');
         $html = view('inventory.bast_pdf', [
             'document' => $document,
             'transaction' => $transaction,
             'inventory' => $transaction->inventory,
         ])->render();
 
-        $this->assertStringContainsString('Ditandatangani elektronik', $html);
+        $this->assertStringContainsString('Terverifikasi elektronik', $html);
         $this->assertStringContainsString($this->employee->name, $html);
+        $this->assertStringContainsString($this->hrd->name, $html);
+        $this->assertStringContainsString($this->firstParty->name, $html);
     }
 
     /** @test */
@@ -459,6 +530,11 @@ class InventoryQrStockTest extends TestCase
         $this->assertStringContainsString('Jabatan</td>', $html);
         $this->assertStringContainsString(': Teknologi Informasi', $html);
         $this->assertStringNotContainsString(': Administrasi &amp; Umum', $html);
+    }
+
+    private function signatureData()
+    {
+        return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
     }
 
     private function inventoryPayload(array $override = [])

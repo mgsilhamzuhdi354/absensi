@@ -229,7 +229,25 @@
                         </div>
                         <div class="form-group">
                             <label>Mengetahui (HRD / Manager)</label>
-                            <input type="text" name="nama_mengetahui" class="form-control" value="{{ old('nama_mengetahui') }}" placeholder="Contoh: Rina Amelia" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>
+                            <select name="known_by_user_id" class="form-control selectpicker" data-live-search="true" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>
+                                <option value="">-- Pilih akun HRD / Manager --</option>
+                                @foreach ($users as $user)
+                                    <option value="{{ $user->id }}" {{ old('known_by_user_id') == $user->id ? 'selected' : '' }}>
+                                        {{ $user->name }}{{ $user->Jabatan ? ' - '.$user->Jabatan->nama_jabatan : '' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Pihak Pertama / IT</label>
+                            <select name="first_party_user_id" class="form-control selectpicker" data-live-search="true" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>
+                                <option value="">-- Gunakan admin yang memproses --</option>
+                                @foreach ($users as $user)
+                                    <option value="{{ $user->id }}" {{ old('first_party_user_id', auth()->id()) == $user->id ? 'selected' : '' }}>
+                                        {{ $user->name }}{{ $user->Jabatan ? ' - '.$user->Jabatan->nama_jabatan : '' }}
+                                    </option>
+                                @endforeach
+                            </select>
                         </div>
                         <button type="submit" class="btn btn-danger" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>Simpan Pindah Tangan</button>
                     </form>
@@ -287,19 +305,38 @@
                                                 @if ($transaction->bastDocument)
                                                     <a href="{{ url('/inventory/bast/'.$transaction->bastDocument->id.'/download') }}" class="btn btn-sm btn-info">Download BAST</a>
                                                     <div class="small mt-1">{{ $transaction->bastDocument->nomor_surat }}</div>
-                                                    @if ($transaction->bastDocument->signed_at)
-                                                        <span class="badge bg-success mt-1">
-                                                            TTD: {{ $transaction->bastDocument->receiver_signature_name ?? 'Penerima' }}
-                                                        </span>
-                                                        <div class="small text-muted">{{ $transaction->bastDocument->signed_at->format('d/m/Y H:i') }}</div>
-                                                    @elseif ($transaction->penerima_user_id)
-                                                        <span class="badge bg-warning text-dark mt-1">Menunggu TTD penerima</span>
-                                                    @endif
+                                                    @php
+                                                        $bast = $transaction->bastDocument;
+                                                        $signatureRows = [
+                                                            ['label' => 'Penerima', 'assigned' => (bool) $transaction->penerima_user_id, 'signed_at' => $bast->signed_at, 'name' => $bast->receiver_signature_name],
+                                                            ['label' => 'HRD', 'assigned' => (bool) $bast->known_by_user_id, 'signed_at' => $bast->known_signed_at, 'name' => $bast->known_signature_name],
+                                                            ['label' => 'IT', 'assigned' => (bool) $bast->first_party_user_id, 'signed_at' => $bast->first_party_signed_at, 'name' => $bast->first_party_signature_name],
+                                                        ];
+                                                    @endphp
+                                                    @foreach ($signatureRows as $signatureRow)
+                                                        @if ($signatureRow['signed_at'])
+                                                            <span class="badge bg-success mt-1">TTD {{ $signatureRow['label'] }}: {{ $signatureRow['name'] ?? '-' }}</span>
+                                                            <div class="small text-muted">{{ $signatureRow['signed_at']->format('d/m/Y H:i') }}</div>
+                                                        @elseif ($signatureRow['assigned'])
+                                                            <span class="badge bg-warning text-dark mt-1">Menunggu TTD {{ $signatureRow['label'] }}</span>
+                                                        @endif
+                                                    @endforeach
                                                 @else
                                                     <form method="post" action="{{ url('/inventory/transactions/'.$transaction->id.'/bast') }}">
                                                         @csrf
                                                         <input type="date" name="tanggal_surat" class="form-control form-control-sm mb-1" value="{{ date('Y-m-d') }}">
-                                                        <input type="text" name="nama_mengetahui" class="form-control form-control-sm mb-1" placeholder="Nama HRD / Manager">
+                                                        <select name="known_by_user_id" class="form-control form-control-sm mb-1">
+                                                            <option value="">-- Pilih HRD / Manager --</option>
+                                                            @foreach ($users as $user)
+                                                                <option value="{{ $user->id }}">{{ $user->name }}{{ $user->Jabatan ? ' - '.$user->Jabatan->nama_jabatan : '' }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        <select name="first_party_user_id" class="form-control form-control-sm mb-1">
+                                                            <option value="">-- Gunakan admin yang memproses --</option>
+                                                            @foreach ($users as $user)
+                                                                <option value="{{ $user->id }}" {{ auth()->id() == $user->id ? 'selected' : '' }}>{{ $user->name }}{{ $user->Jabatan ? ' - '.$user->Jabatan->nama_jabatan : '' }}</option>
+                                                            @endforeach
+                                                        </select>
                                                         <button type="submit" class="btn btn-sm btn-primary">Buat Surat BAST</button>
                                                     </form>
                                                 @endif
@@ -371,14 +408,22 @@
                                             @if ($transaction->bastDocument)
                                                 <a href="{{ url('/inventory/bast/'.$transaction->bastDocument->id.'/download') }}" class="btn btn-sm btn-info">Download BAST</a>
                                                 <div class="small mt-1">{{ $transaction->bastDocument->nomor_surat }}</div>
-                                                @if ($transaction->bastDocument->signed_at)
-                                                    <span class="badge bg-success mt-1">
-                                                        TTD: {{ $transaction->bastDocument->receiver_signature_name ?? 'Penerima' }}
-                                                    </span>
-                                                    <div class="small text-muted">{{ $transaction->bastDocument->signed_at->format('d/m/Y H:i') }}</div>
-                                                @elseif ($transaction->penerima_user_id)
-                                                    <span class="badge bg-warning text-dark mt-1">Menunggu TTD penerima</span>
-                                                @endif
+                                                @php
+                                                    $bast = $transaction->bastDocument;
+                                                    $signatureRows = [
+                                                        ['label' => 'Penerima', 'assigned' => (bool) $transaction->penerima_user_id, 'signed_at' => $bast->signed_at, 'name' => $bast->receiver_signature_name],
+                                                        ['label' => 'HRD', 'assigned' => (bool) $bast->known_by_user_id, 'signed_at' => $bast->known_signed_at, 'name' => $bast->known_signature_name],
+                                                        ['label' => 'IT', 'assigned' => (bool) $bast->first_party_user_id, 'signed_at' => $bast->first_party_signed_at, 'name' => $bast->first_party_signature_name],
+                                                    ];
+                                                @endphp
+                                                @foreach ($signatureRows as $signatureRow)
+                                                    @if ($signatureRow['signed_at'])
+                                                        <span class="badge bg-success mt-1">TTD {{ $signatureRow['label'] }}: {{ $signatureRow['name'] ?? '-' }}</span>
+                                                        <div class="small text-muted">{{ $signatureRow['signed_at']->format('d/m/Y H:i') }}</div>
+                                                    @elseif ($signatureRow['assigned'])
+                                                        <span class="badge bg-warning text-dark mt-1">Menunggu TTD {{ $signatureRow['label'] }}</span>
+                                                    @endif
+                                                @endforeach
                                             @else
                                                 -
                                             @endif

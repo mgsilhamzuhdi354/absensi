@@ -4,15 +4,48 @@
     $bulan = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'];
     $tanggalTeks = $tanggal->format('d') . ' ' . $bulan[(int) $tanggal->format('n')] . ' ' . $tanggal->format('Y');
     $hariTeks = $hari[$tanggal->format('l')] ?? $tanggal->format('l');
+    $divisiInventory = $inventory->jabatan->nama_jabatan ?? null;
     $pihakKedua = $document->nama_penerima ?: ($transaction->penerima_barang ?: '-');
     $jabatanPihakKedua = $document->jabatan_penerima ?: ($transaction->jabatan_penerima ?: '-');
-    $deptPihakKedua = $transaction->departemen_penerima ?: '-';
-    $pihakPertama = $document->nama_penyerah ?: ($transaction->processedBy->name ?? '-');
-    $divisiInventory = $inventory->jabatan->nama_jabatan ?? null;
-    $jabatanPihakPertama = $divisiInventory ?: ($document->jabatan_penyerah ?: 'IT Engineer');
-    $deptPihakPertama = $divisiInventory ?: $jabatanPihakPertama;
-    $signedAt = $document->signed_at ? \Carbon\Carbon::parse($document->signed_at) : null;
-    $signedAtText = $signedAt ? $signedAt->format('d/m/Y H:i') : null;
+    $deptPihakKedua = $transaction->departemen_penerima ?: $jabatanPihakKedua;
+    $pihakPertama = optional($document->firstParty)->name ?: ($document->nama_penyerah ?: ($transaction->processedBy->name ?? '-'));
+    $jabatanPihakPertama = optional(optional($document->firstParty)->Jabatan)->nama_jabatan ?: ($document->jabatan_penyerah ?: ($divisiInventory ?: 'IT Engineer'));
+    $deptPihakPertama = $jabatanPihakPertama ?: ($divisiInventory ?: '-');
+    $namaMengetahui = optional($document->knownBy)->name ?: ($document->nama_mengetahui ?: '(____________________)');
+    $jabatanMengetahui = optional(optional($document->knownBy)->Jabatan)->nama_jabatan ?: 'HRD / Manager';
+    $signatureSrc = function ($path) {
+        if (!$path || !\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+            return null;
+        }
+
+        return 'data:image/png;base64,' . base64_encode(\Illuminate\Support\Facades\Storage::disk('public')->get($path));
+    };
+    $signatureRows = [
+        'receiver' => [
+            'heading' => 'PIHAK KEDUA',
+            'subtitle' => 'Yang Menerima',
+            'name' => $document->receiver_signature_name ?: $pihakKedua,
+            'position' => $jabatanPihakKedua,
+            'signed_at' => $document->signed_at,
+            'image' => $signatureSrc($document->receiver_signature_image),
+        ],
+        'known' => [
+            'heading' => 'MENGETAHUI',
+            'subtitle' => 'Perwakilan Perusahaan',
+            'name' => $document->known_signature_name ?: $namaMengetahui,
+            'position' => $jabatanMengetahui,
+            'signed_at' => $document->known_signed_at,
+            'image' => $signatureSrc($document->known_signature_image),
+        ],
+        'first_party' => [
+            'heading' => 'PIHAK PERTAMA',
+            'subtitle' => 'Yang Menyerahkan',
+            'name' => $document->first_party_signature_name ?: $pihakPertama,
+            'position' => $jabatanPihakPertama,
+            'signed_at' => $document->first_party_signed_at,
+            'image' => $signatureSrc($document->first_party_signature_image),
+        ],
+    ];
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -110,20 +143,50 @@
             font-size: 10px;
             text-align: center;
         }
+        .signatures {
+            margin-top: 14px;
+        }
         .signatures td {
             width: 33.33%;
             text-align: center;
             vertical-align: top;
-            padding-top: 14px;
+            padding: 0 6px;
         }
-        .signature-space {
-            height: 62px;
+        .signature-box {
+            height: 86px;
+            border: 1px solid #d8e1ef;
+            margin: 8px 0 7px;
+            padding: 5px;
+            background: #fbfdff;
+        }
+        .signature-image {
+            max-width: 135px;
+            max-height: 47px;
+            margin-top: 2px;
+        }
+        .signature-placeholder {
+            color: #6b7280;
+            font-size: 9px;
+            margin-top: 26px;
         }
         .signature-digital {
-            height: 62px;
             font-size: 9px;
             color: #1f4b86;
-            padding-top: 10px;
+            margin-top: 14px;
+        }
+        .verified-stamp {
+            color: #1f4b86;
+            font-size: 8.5px;
+            font-weight: 700;
+            border: 1px solid #9db7da;
+            display: inline-block;
+            padding: 1px 5px;
+            margin-top: 4px;
+        }
+        .signature-time {
+            color: #315f9d;
+            font-size: 8.5px;
+            margin-top: 2px;
         }
         ol {
             padding-left: 18px;
@@ -235,35 +298,30 @@
 
     <table class="signatures">
         <tr>
-            <td>
-                <strong>PIHAK KEDUA</strong><br>
-                Yang Menerima
-                @if ($document->signed_at)
-                    <div class="signature-digital">
-                        Ditandatangani elektronik<br>
-                        oleh {{ $document->receiver_signature_name ?: $pihakKedua }}<br>
-                        {{ $signedAtText }}
+            @foreach ($signatureRows as $signature)
+                <td>
+                    <strong>{{ $signature['heading'] }}</strong><br>
+                    {{ $signature['subtitle'] }}
+                    <div class="signature-box">
+                        @if ($signature['signed_at'] && $signature['image'])
+                            <img class="signature-image" src="{{ $signature['image'] }}" alt="Tanda tangan">
+                            <div class="verified-stamp">Terverifikasi elektronik</div>
+                            <div class="signature-time">{{ \Carbon\Carbon::parse($signature['signed_at'])->format('d/m/Y H:i') }}</div>
+                        @elseif ($signature['signed_at'])
+                            <div class="signature-digital">
+                                Ditandatangani elektronik<br>
+                                oleh {{ $signature['name'] }}<br>
+                                {{ \Carbon\Carbon::parse($signature['signed_at'])->format('d/m/Y H:i') }}
+                            </div>
+                            <div class="verified-stamp">Terverifikasi elektronik</div>
+                        @else
+                            <div class="signature-placeholder">Menunggu tanda tangan</div>
+                        @endif
                     </div>
-                @else
-                    <div class="signature-space"></div>
-                @endif
-                <strong>{{ $pihakKedua }}</strong><br>
-                {{ $jabatanPihakKedua }}
-            </td>
-            <td>
-                <strong>MENGETAHUI</strong><br>
-                Perwakilan Perusahaan
-                <div class="signature-space"></div>
-                <strong>{{ $document->nama_mengetahui ?: '(____________________)' }}</strong><br>
-                HRD / Manager
-            </td>
-            <td>
-                <strong>PIHAK PERTAMA</strong><br>
-                Yang Menyerahkan
-                <div class="signature-space"></div>
-                <strong>{{ $pihakPertama }}</strong><br>
-                {{ $jabatanPihakPertama }}
-            </td>
+                    <strong>{{ $signature['name'] }}</strong><br>
+                    {{ $signature['position'] }}
+                </td>
+            @endforeach
         </tr>
     </table>
 </body>

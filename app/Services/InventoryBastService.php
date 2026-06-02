@@ -31,6 +31,16 @@ class InventoryBastService
             $admin->loadMissing('Jabatan');
             $transaction->loadMissing('inventory.jabatan');
             $inventoryDivision = $transaction->inventory->jabatan->nama_jabatan ?? null;
+            $knownBy = !empty($data['known_by_user_id'])
+                ? User::with('Jabatan')->find($data['known_by_user_id'])
+                : null;
+            $firstParty = !empty($data['first_party_user_id'])
+                ? User::with('Jabatan')->find($data['first_party_user_id'])
+                : null;
+            $sender = $firstParty ?: $admin;
+            $senderDivision = $firstParty
+                ? ($firstParty->Jabatan->nama_jabatan ?? null)
+                : ($inventoryDivision ?: ($admin->Jabatan->nama_jabatan ?? null));
 
             $document = InventoryBastDocument::create([
                 'inventory_stock_transaction_id' => $transaction->id,
@@ -38,12 +48,15 @@ class InventoryBastService
                 'tanggal_surat' => $date->toDateString(),
                 'nama_penerima' => $transaction->penerima_barang,
                 'jabatan_penerima' => $transaction->jabatan_penerima,
-                'nama_penyerah' => $admin->name,
-                'jabatan_penyerah' => $inventoryDivision ?: ($admin->Jabatan->nama_jabatan ?? 'IT Engineer'),
-                'nama_mengetahui' => $data['nama_mengetahui'] ?? null,
+                'nama_penyerah' => $sender->name,
+                'jabatan_penyerah' => $senderDivision ?: 'IT Engineer',
+                'nama_mengetahui' => $knownBy ? $knownBy->name : ($data['nama_mengetahui'] ?? null),
+                'known_by_user_id' => $knownBy->id ?? null,
+                'first_party_user_id' => $firstParty->id ?? null,
             ]);
 
-            $transaction->loadMissing('inventory.jabatan', 'processedBy');
+            $document->loadMissing('signedBy.Jabatan', 'knownBy.Jabatan', 'firstParty.Jabatan');
+            $transaction->loadMissing('inventory.jabatan', 'processedBy', 'penerima.Jabatan');
             $pdf = Pdf::loadView('inventory.bast_pdf', [
                 'document' => $document,
                 'transaction' => $transaction,
@@ -72,15 +85,11 @@ class InventoryBastService
         InventoryBastDocument::whereIn('inventory_stock_transaction_id', $transactionIds)
             ->get()
             ->each(function (InventoryBastDocument $document) {
-                $document->loadMissing('transaction.inventory.jabatan');
-                $division = $document->transaction && $document->transaction->inventory
-                    ? ($document->transaction->inventory->jabatan->nama_jabatan ?? null)
-                    : null;
+                $document->loadMissing('transaction.inventory.jabatan', 'firstParty.Jabatan');
+                $senderDivision = $this->resolveSenderDivision($document);
 
-                if ($division) {
-                    $document->forceFill([
-                        'jabatan_penyerah' => $division,
-                    ])->save();
+                if ($senderDivision && $document->jabatan_penyerah !== $senderDivision) {
+                    $document->forceFill(['jabatan_penyerah' => $senderDivision])->save();
                 }
 
                 $this->storePdf($document);
@@ -89,19 +98,36 @@ class InventoryBastService
 
     public function storePdf(InventoryBastDocument $document)
     {
-        $document->loadMissing('transaction.inventory.jabatan', 'transaction.processedBy');
+        $document->loadMissing(
+            'transaction.inventory.jabatan',
+            'transaction.processedBy',
+            'transaction.penerima.Jabatan',
+            'signedBy.Jabatan',
+            'knownBy.Jabatan',
+            'firstParty.Jabatan'
+        );
 
         if (!$document->transaction || !$document->transaction->inventory) {
             return $document;
         }
 
-        $division = $document->transaction->inventory->jabatan->nama_jabatan ?? null;
-        if ($division && $document->jabatan_penyerah !== $division) {
-            $document->forceFill([
-                'jabatan_penyerah' => $division,
-            ])->save();
+        $senderDivision = $this->resolveSenderDivision($document);
+        if ($senderDivision && $document->jabatan_penyerah !== $senderDivision) {
+            $updates = ['jabatan_penyerah' => $senderDivision];
+            if ($document->firstParty && $document->nama_penyerah !== $document->firstParty->name) {
+                $updates['nama_penyerah'] = $document->firstParty->name;
+            }
+
+            $document->forceFill($updates)->save();
             $document->refresh();
-            $document->loadMissing('transaction.inventory.jabatan', 'transaction.processedBy');
+            $document->loadMissing(
+                'transaction.inventory.jabatan',
+                'transaction.processedBy',
+                'transaction.penerima.Jabatan',
+                'signedBy.Jabatan',
+                'knownBy.Jabatan',
+                'firstParty.Jabatan'
+            );
         }
 
         $pdf = Pdf::loadView('inventory.bast_pdf', [
@@ -115,6 +141,17 @@ class InventoryBastService
         $document->update(['file_pdf' => $path]);
 
         return $document->fresh();
+    }
+
+    private function resolveSenderDivision(InventoryBastDocument $document)
+    {
+        if ($document->firstParty) {
+            return $document->firstParty->Jabatan->nama_jabatan ?? $document->jabatan_penyerah;
+        }
+
+        return $document->transaction && $document->transaction->inventory
+            ? ($document->transaction->inventory->jabatan->nama_jabatan ?? null)
+            : null;
     }
 
     private function generateNumber(Carbon $date)
