@@ -117,6 +117,56 @@ class SmartAbsenParserTest extends TestCase
         $this->assertSame('event_log', $eventResult[0]['source_format']);
     }
 
+    /** @test */
+    public function it_builds_raw_preview_with_all_excel_columns(): void
+    {
+        $parser = new SmartAbsenParser();
+        $rows = [
+            ['Analisa Kehadiran'],
+            ['Tanggal Statistik:2026-06-01~2026-06-02'],
+            ['User ID.', 'Nama', 'Departemen', 'Jam Kerja', 'Jam Kerja', 'Tidak hadir (hari)'],
+            ['', '', '', 'Standar', 'Aktual', ''],
+            ['1', 'mgs ilham zuhdi', 'it', '18,0', '0,0', '2'],
+        ];
+
+        $headerRow = $parser->findHeaderRow($rows);
+        $rawPreview = $parser->buildRawPreview($rows, $headerRow);
+
+        $this->assertSame(6, $rawPreview['total_columns']);
+        $this->assertSame(1, $rawPreview['total_rows']);
+        $this->assertSame('Jam Kerja - Standar', $rawPreview['headers'][3]);
+        $this->assertSame('Jam Kerja - Aktual', $rawPreview['headers'][4]);
+        $this->assertSame('mgs ilham zuhdi', $rawPreview['rows'][0]['columns']['Nama']);
+        $this->assertSame('2', $rawPreview['rows'][0]['columns']['Tidak hadir (hari)']);
+    }
+
+    /** @test */
+    public function it_expands_attendance_analysis_absent_range_into_system_rows(): void
+    {
+        $parser = new SmartAbsenParser();
+        $users = $this->users([
+            ['id' => 5, 'name' => 'MGS ILHAM ZUHDI', 'username' => 'mgs'],
+        ]);
+        $rows = [
+            ['Analisa Kehadiran'],
+            ['Tanggal Statistik:2026-06-01~2026-06-02'],
+            ['User ID.', 'Nama', 'Departemen', 'Hari Kehadiran (Standar/Aktual)', 'Tidak hadir (hari)', 'Cuti (hari)'],
+            ['1', 'mgs ilham zuhdi', 'it', '2/0', '2', '0'],
+        ];
+
+        $headerRow = $parser->findHeaderRow($rows);
+        $columnMap = $parser->detectColumns($rows[$headerRow]);
+        $result = $parser->processRows($rows, $headerRow, $columnMap, $users, 1, '08:00:00', '17:00:00');
+
+        $this->assertCount(2, $result);
+        $this->assertSame('attendance_analysis', $result[0]['source_format']);
+        $this->assertSame('2026-06-01', $result[0]['tanggal']);
+        $this->assertSame('2026-06-02', $result[1]['tanggal']);
+        $this->assertSame('Tidak Masuk', $result[0]['status_absen']);
+        $this->assertSame(5, $result[0]['user_id']);
+        $this->assertTrue($result[0]['valid']);
+    }
+
     private function users(array $attributes): Collection
     {
         return new Collection(array_map(function (array $userAttributes): User {

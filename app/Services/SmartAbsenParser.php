@@ -12,8 +12,10 @@ use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 class SmartAbsenParser
 {
     private array $normalizedKeys = [
+        'preview_key',
         'row_index',
         'source_format',
+        'raw_columns',
         'raw_nama',
         'raw_employee_id',
         'raw_tanggal',
@@ -47,6 +49,9 @@ class SmartAbsenParser
         'jam_pulang'  => ['jam pulang', 'check out', 'checkout', 'clock out', 'time out', 'jam keluar', 'jam pergi'],
         'jam'         => ['jam', 'time', 'waktu', 'scan', 'punch'],
         'status'      => ['status', 'keterangan', 'ket', 'info', 'hadir', 'kehadiran', 'state', 'verify state'],
+        'hari_kehadiran' => ['hari kehadiran', 'standar/aktual', 'kehadiran standar', 'kehadiran aktual'],
+        'tidak_hadir' => ['tidak hadir', 'absen hari', 'alpha hari'],
+        'cuti'        => ['cuti', 'leave'],
     ];
 
     /**
@@ -111,6 +116,9 @@ class SmartAbsenParser
             'jam_pulang'  => null,
             'jam'         => null,
             'status'      => null,
+            'hari_kehadiran' => null,
+            'tidak_hadir' => null,
+            'cuti'        => null,
         ];
 
         foreach ($headerRow as $colIndex => $header) {
@@ -118,6 +126,13 @@ class SmartAbsenParser
             foreach ($this->columnKeywords as $key => $keywords) {
                 if ($detected[$key] === null) {
                     foreach ($keywords as $keyword) {
+                        if ($key === 'tanggal' && (
+                            str_contains($headerLower, 'kehadiran')
+                            || str_contains($headerLower, 'hadir')
+                            || str_contains($headerLower, 'cuti')
+                        )) {
+                            continue;
+                        }
                         if (str_contains($headerLower, $keyword)) {
                             $detected[$key] = $colIndex;
                             break;
@@ -128,6 +143,44 @@ class SmartAbsenParser
         }
 
         return $detected;
+    }
+
+    public function buildRawPreview(array $rows, int $headerRowIndex): array
+    {
+        $headers = $this->buildHeaderLabels($rows, $headerRowIndex);
+        $dataStartIndex = $this->dataStartIndex($rows, $headerRowIndex);
+        $rawRows = [];
+
+        for ($i = $dataStartIndex; $i < count($rows); $i++) {
+            $row = $rows[$i];
+            if (!array_filter($row, fn($value) => trim((string) $value) !== '')) {
+                continue;
+            }
+
+            $values = [];
+            $columns = [];
+            for ($col = 0; $col < count($headers); $col++) {
+                $value = array_key_exists($col, $row) ? trim((string) $row[$col]) : '';
+                $values[] = $value;
+                $columns[$headers[$col]] = $value;
+            }
+
+            $rawRows[] = [
+                'row_index' => $i,
+                'row_number' => $i + 1,
+                'values' => $values,
+                'columns' => $columns,
+            ];
+        }
+
+        return [
+            'header_row_index' => $headerRowIndex,
+            'data_start_index' => $dataStartIndex,
+            'headers' => $headers,
+            'rows' => $rawRows,
+            'total_rows' => count($rawRows),
+            'total_columns' => count($headers),
+        ];
     }
 
     /**
@@ -418,6 +471,11 @@ class SmartAbsenParser
         string $shiftJamMasuk,
         string $shiftJamKeluar
     ): array {
+        $reportDateRange = $this->detectReportDateRange($rows);
+        if ($this->looksLikeAttendanceAnalysis($columnMap, $reportDateRange)) {
+            return $this->processAttendanceAnalysisRows($rows, $headerRowIndex, $columnMap, $users, $shiftId, $reportDateRange);
+        }
+
         if ($this->looksLikeEventLog($columnMap)) {
             return $this->processEventLogRows($rows, $headerRowIndex, $columnMap, $users, $shiftId, $shiftJamMasuk, $shiftJamKeluar);
         }
@@ -458,6 +516,7 @@ class SmartAbsenParser
             }
 
             $results[] = $this->normalizeResultRow([
+                'preview_key'   => (string) $i,
                 'row_index'    => $i,
                 'source_format' => 'daily',
                 'raw_nama'     => $rawNama,
@@ -571,6 +630,7 @@ class SmartAbsenParser
             $pulangCepat = ($tanggal && $jamPulang) ? $this->hitungPulangCepat($tanggal, $shiftJamKeluar, $jamPulang) : 0;
 
             $results[] = $this->normalizeResultRow([
+                'preview_key'   => (string) $group['row_index'],
                 'row_index'    => $group['row_index'],
                 'source_format' => 'event_log',
                 'raw_nama'     => $group['raw_nama'],
@@ -602,6 +662,80 @@ class SmartAbsenParser
         return array_values($results);
     }
 
+    private function processAttendanceAnalysisRows(
+        array $rows,
+        int $headerRowIndex,
+        array $columnMap,
+        Collection $users,
+        int $shiftId,
+        array $reportDateRange
+    ): array {
+        $dates = $this->dateRange($reportDateRange['start'], $reportDateRange['end']);
+        $dateCount = count($dates);
+        $results = [];
+        $dataStartIndex = $this->dataStartIndex($rows, $headerRowIndex);
+        $rawPreview = $this->buildRawPreview($rows, $headerRowIndex);
+        $rawRowsByIndex = collect($rawPreview['rows'])->keyBy('row_index');
+
+        for ($i = $dataStartIndex; $i < count($rows); $i++) {
+            $row = $rows[$i];
+            $rawNama = $this->valueAt($row, $columnMap['nama'] ?? null);
+            $rawEmployeeId = $this->valueAt($row, $columnMap['employee_id'] ?? null);
+
+            if ($rawNama === '' && $rawEmployeeId === '') {
+                continue;
+            }
+
+            $rawAttendance = $this->valueAt($row, $columnMap['hari_kehadiran'] ?? null);
+            $rawAbsent = $this->valueAt($row, $columnMap['tidak_hadir'] ?? null);
+            $rawCuti = $this->valueAt($row, $columnMap['cuti'] ?? null);
+            $attendance = $this->parseAttendancePair($rawAttendance);
+            $actualDays = $attendance['actual'];
+            $absentDays = $this->parseNumber($rawAbsent);
+            $cutiDays = $this->parseNumber($rawCuti);
+            $matchResult = $this->matchEmployee($rawNama, $users, $rawEmployeeId);
+            $rawColumns = $rawRowsByIndex->get($i)['columns'] ?? [];
+
+            $canExpandAsAbsent = $absentDays >= $dateCount && $actualDays == 0.0;
+            $canExpandAsCuti = $cutiDays >= $dateCount && $actualDays == 0.0 && !$canExpandAsAbsent;
+            $baseErrors = array_filter([
+                in_array($matchResult['match_type'], ['not_found', 'empty'], true) ? 'Karyawan tidak ditemukan: "' . trim($rawEmployeeId . ' ' . $rawNama) . '"' : null,
+                !$canExpandAsAbsent && !$canExpandAsCuti ? 'File ini berupa rekap rentang tanggal. Baris ini hanya bisa diimport otomatis jika seluruh rentang berstatus Tidak Masuk atau Cuti.' : null,
+            ]);
+
+            $status = $canExpandAsCuti ? 'Cuti' : 'Tidak Masuk';
+            foreach ($dates as $date) {
+                $results[] = $this->normalizeResultRow([
+                    'preview_key'   => $i . ':' . $date,
+                    'row_index'     => $i,
+                    'source_format' => 'attendance_analysis',
+                    'raw_columns'   => $rawColumns,
+                    'raw_nama'      => $rawNama,
+                    'raw_employee_id' => $rawEmployeeId,
+                    'raw_tanggal'   => $reportDateRange['start'] . ' - ' . $reportDateRange['end'],
+                    'raw_masuk'     => '',
+                    'raw_pulang'    => '',
+                    'raw_status'    => trim('Hari Kehadiran: ' . $rawAttendance . '; Tidak hadir: ' . $rawAbsent . '; Cuti: ' . $rawCuti),
+                    'tanggal'       => $date,
+                    'jam_absen'     => null,
+                    'jam_pulang'    => null,
+                    'status_absen'  => $status,
+                    'telat'         => 0,
+                    'pulang_cepat'  => 0,
+                    'shift_id'      => $shiftId,
+                    'user_id'       => $matchResult['user'] ? $matchResult['user']->id : null,
+                    'user_name'     => $matchResult['user'] ? $matchResult['user']->name : null,
+                    'confidence'    => $matchResult['confidence'],
+                    'match_type'    => $matchResult['match_type'],
+                    'valid'         => !in_array($matchResult['match_type'], ['not_found', 'empty'], true) && empty($baseErrors),
+                    'errors'        => $baseErrors,
+                ]);
+            }
+        }
+
+        return $results;
+    }
+
     private function looksLikeEventLog(array $columnMap): bool
     {
         $hasSingleTime = ($columnMap['datetime'] ?? null) !== null || (
@@ -614,9 +748,146 @@ class SmartAbsenParser
         return $hasSingleTime && (($columnMap['nama'] ?? null) !== null || ($columnMap['employee_id'] ?? null) !== null);
     }
 
+    private function looksLikeAttendanceAnalysis(array $columnMap, array $reportDateRange): bool
+    {
+        return !empty($reportDateRange)
+            && (($columnMap['nama'] ?? null) !== null || ($columnMap['employee_id'] ?? null) !== null)
+            && (($columnMap['hari_kehadiran'] ?? null) !== null || ($columnMap['tidak_hadir'] ?? null) !== null || ($columnMap['cuti'] ?? null) !== null)
+            && ($columnMap['tanggal'] ?? null) === null
+            && ($columnMap['datetime'] ?? null) === null;
+    }
+
     private function valueAt(array $row, ?int $index): string
     {
         return $index !== null && array_key_exists($index, $row) ? trim((string) $row[$index]) : '';
+    }
+
+    private function detectReportDateRange(array $rows): array
+    {
+        foreach ($rows as $row) {
+            foreach ($row as $cell) {
+                $value = trim((string) $cell);
+                if ($value === '') {
+                    continue;
+                }
+
+                if (preg_match('/(\d{4}-\d{1,2}-\d{1,2})\s*[~\-]\s*(\d{4}-\d{1,2}-\d{1,2})/', $value, $matches)) {
+                    $start = $this->parseDate($matches[1]);
+                    $end = $this->parseDate($matches[2]);
+
+                    if ($start && $end) {
+                        return ['start' => $start, 'end' => $end];
+                    }
+                }
+            }
+        }
+
+        return [];
+    }
+
+    private function dateRange(string $start, string $end): array
+    {
+        $startDate = new \DateTimeImmutable($start);
+        $endDate = new \DateTimeImmutable($end);
+        if ($endDate < $startDate) {
+            return [];
+        }
+
+        $dates = [];
+        for ($date = $startDate; $date <= $endDate; $date = $date->modify('+1 day')) {
+            $dates[] = $date->format('Y-m-d');
+        }
+
+        return $dates;
+    }
+
+    private function parseAttendancePair(string $raw): array
+    {
+        if (preg_match('/(\d+(?:[,.]\d+)?)\s*\/\s*(\d+(?:[,.]\d+)?)/', $raw, $matches)) {
+            return [
+                'standard' => (float) str_replace(',', '.', $matches[1]),
+                'actual' => (float) str_replace(',', '.', $matches[2]),
+            ];
+        }
+
+        return ['standard' => 0.0, 'actual' => 0.0];
+    }
+
+    private function parseNumber(string $raw): float
+    {
+        if (preg_match('/-?\d+(?:[,.]\d+)?/', $raw, $matches)) {
+            return (float) str_replace(',', '.', $matches[0]);
+        }
+
+        return 0.0;
+    }
+
+    private function buildHeaderLabels(array $rows, int $headerRowIndex): array
+    {
+        $headerRow = $rows[$headerRowIndex] ?? [];
+        $subHeaderRow = $this->looksLikeSubHeaderRow($rows, $headerRowIndex) ? ($rows[$headerRowIndex + 1] ?? []) : [];
+        $columnCount = max(count($headerRow), count($subHeaderRow));
+        $headers = [];
+        $used = [];
+
+        for ($i = 0; $i < $columnCount; $i++) {
+            $parts = array_values(array_filter([
+                trim((string) ($headerRow[$i] ?? '')),
+                trim((string) ($subHeaderRow[$i] ?? '')),
+            ], fn($value) => $value !== ''));
+
+            $label = implode(' - ', array_unique($parts));
+            if ($label === '') {
+                $label = 'Kolom ' . $this->excelColumnName($i);
+            }
+
+            $baseLabel = $label;
+            $suffix = 2;
+            while (isset($used[$label])) {
+                $label = $baseLabel . ' (' . $suffix . ')';
+                $suffix++;
+            }
+            $used[$label] = true;
+            $headers[] = $label;
+        }
+
+        return $headers;
+    }
+
+    private function dataStartIndex(array $rows, int $headerRowIndex): int
+    {
+        return $headerRowIndex + ($this->looksLikeSubHeaderRow($rows, $headerRowIndex) ? 2 : 1);
+    }
+
+    private function looksLikeSubHeaderRow(array $rows, int $headerRowIndex): bool
+    {
+        $nextRow = $rows[$headerRowIndex + 1] ?? null;
+        if (!$nextRow) {
+            return false;
+        }
+
+        $text = $this->normalizeText(implode(' ', $nextRow));
+        $score = 0;
+        foreach (['standar', 'aktual', 'kali', 'menit', 'normal', 'khusus', 'catatan', 'kerja lembur', 'tunjangan'] as $keyword) {
+            if (str_contains($text, $keyword)) {
+                $score++;
+            }
+        }
+
+        return $score >= 2;
+    }
+
+    private function excelColumnName(int $index): string
+    {
+        $name = '';
+        $index++;
+        while ($index > 0) {
+            $mod = ($index - 1) % 26;
+            $name = chr(65 + $mod) . $name;
+            $index = intdiv($index - $mod, 26);
+        }
+
+        return $name;
     }
 
     private function normalizeText(string $value): string
@@ -628,8 +899,10 @@ class SmartAbsenParser
     private function normalizeResultRow(array $row): array
     {
         $defaults = [
+            'preview_key' => null,
             'row_index' => null,
             'source_format' => 'unknown',
+            'raw_columns' => [],
             'raw_nama' => '',
             'raw_employee_id' => '',
             'raw_tanggal' => '',
@@ -653,6 +926,10 @@ class SmartAbsenParser
 
         $normalized = array_merge($defaults, array_intersect_key($row, $defaults));
         $normalized['errors'] = array_values(array_filter((array) $normalized['errors']));
+        $normalized['raw_columns'] = (array) $normalized['raw_columns'];
+        if ($normalized['preview_key'] === null && $normalized['row_index'] !== null) {
+            $normalized['preview_key'] = (string) $normalized['row_index'];
+        }
 
         return array_replace(array_flip($this->normalizedKeys), $normalized);
     }

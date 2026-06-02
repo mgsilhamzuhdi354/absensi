@@ -1,14 +1,12 @@
 @extends('templates.dashboard')
 @section('isi')
 <style>
-    .smart-import-container { max-width: 1200px; margin: 0 auto; }
+    .smart-import-container { max-width: 1280px; margin: 0 auto; }
     .step-wizard { display: flex; justify-content: center; margin-bottom: 30px; gap: 0; }
     .step-item { display: flex; align-items: center; gap: 10px; padding: 12px 24px; background: #f1f5f9; border-radius: 12px; transition: all 0.4s ease; opacity: 0.5; }
     .step-item.active { background: linear-gradient(135deg, var(--primary-color), #7c3aed); color: white; opacity: 1; transform: scale(1.05); box-shadow: 0 8px 25px rgba(67,97,238,0.3); }
     .step-item.done { background: #10b981; color: white; opacity: 1; }
     .step-number { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
-    .step-item.active .step-number { background: rgba(255,255,255,0.3); }
-    .step-item.done .step-number { background: rgba(255,255,255,0.3); }
     .step-connector { width: 60px; height: 3px; background: #e2e8f0; align-self: center; margin: 0 8px; border-radius: 2px; transition: background 0.4s; }
     .step-connector.done { background: #10b981; }
 
@@ -30,15 +28,15 @@
     .stat-update { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
 
     .preview-table { width: 100%; border-collapse: separate; border-spacing: 0; }
-    .preview-table thead th { background: linear-gradient(135deg, #1e293b, #334155); color: white; padding: 12px 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 10; }
+    .preview-table thead th { background: linear-gradient(135deg, #1e293b, #334155); color: white; padding: 12px 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
     .preview-table thead th:first-child { border-radius: 10px 0 0 0; }
     .preview-table thead th:last-child { border-radius: 0 10px 0 0; }
-    .preview-table tbody td { padding: 10px; font-size: 13px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
-    .preview-table tbody tr { transition: background 0.2s; }
+    .preview-table tbody td { padding: 10px; font-size: 13px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; white-space: nowrap; }
     .preview-table tbody tr:hover { background: #f8fafc; }
     .preview-table tbody tr.row-exact { border-left: 4px solid #10b981; }
     .preview-table tbody tr.row-fuzzy { border-left: 4px solid #f59e0b; }
     .preview-table tbody tr.row-error { border-left: 4px solid #ef4444; background: #fef2f2; }
+    .raw-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
 
     .match-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
     .match-exact { background: #d1fae5; color: #065f46; }
@@ -48,27 +46,24 @@
     .action-create { background: #cffafe; color: #155e75; }
     .action-update { background: #ede9fe; color: #5b21b6; }
 
-    .import-result { text-align: center; padding: 40px; }
-    .import-result .success-icon { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; animation: bounceIn 0.6s; }
-    .import-result .success-icon i { font-size: 40px; color: white; }
-    @keyframes bounceIn { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+    .preview-tabs { display: inline-flex; gap: 8px; background: #f1f5f9; padding: 5px; border-radius: 12px; }
+    .preview-tab { border: 0; border-radius: 9px; padding: 8px 14px; font-weight: 700; color: #475569; background: transparent; }
+    .preview-tab.active { color: white; background: linear-gradient(135deg, var(--primary-color), #7c3aed); }
+    .raw-meta { font-size: 12px; color: #64748b; font-weight: 600; }
 
-    .progress-bar-import { height: 8px; border-radius: 4px; background: #e2e8f0; overflow: hidden; margin: 20px 0; }
-    .progress-bar-import .fill { height: 100%; background: linear-gradient(90deg, #4361ee, #7c3aed); border-radius: 4px; transition: width 0.3s; }
-
-    .table-scroll { max-height: 500px; overflow-y: auto; border-radius: 12px; border: 1px solid #e2e8f0; }
+    .table-scroll { max-height: 520px; overflow: auto; border-radius: 12px; border: 1px solid #e2e8f0; }
     #step1, #step2, #step3 { display: none; }
-    #step1.active-step { display: block; }
-    #step2.active-step { display: block; }
-    #step3.active-step { display: block; }
+    #step1.active-step, #step2.active-step, #step3.active-step { display: block; }
 
     .form-section { background: white; border-radius: 16px; padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
     .form-section h5 { font-weight: 700; color: #1e293b; margin-bottom: 15px; }
     .form-section h5 i { margin-right: 8px; color: var(--primary-color); }
+    .import-result { text-align: center; padding: 40px; }
+    .success-icon { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+    .success-icon i { font-size: 40px; color: white; }
 </style>
 
 <div class="smart-import-container">
-    {{-- Header --}}
     <div class="row mb-4">
         <div class="col-12">
             <div class="card" style="background: linear-gradient(135deg, var(--primary-color), #7c3aed); border: none; border-radius: 16px;">
@@ -76,18 +71,15 @@
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
                             <h3 class="mb-1" style="font-weight: 800;"><i class="fas fa-robot me-2"></i>Smart Import Absensi</h3>
-                            <p class="mb-0 opacity-75">Upload file Excel dari mesin sidik jari — sistem otomatis deteksi & isi rekap data</p>
+                            <p class="mb-0 opacity-75">Upload file Excel dari mesin sidik jari, review semua kolom, lalu import data yang valid.</p>
                         </div>
-                        <div>
-                            <a href="{{ url('/data-absen') }}" class="btn btn-light"><i class="fas fa-arrow-left me-1"></i> Kembali</a>
-                        </div>
+                        <a href="{{ url('/data-absen') }}" class="btn btn-light"><i class="fas fa-arrow-left me-1"></i> Kembali</a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- Step Wizard --}}
     <div class="step-wizard" id="stepWizard">
         <div class="step-item active" id="stepItem1">
             <div class="step-number">1</div>
@@ -105,7 +97,6 @@
         </div>
     </div>
 
-    {{-- STEP 1: Upload --}}
     <div id="step1" class="active-step">
         <div class="row">
             <div class="col-md-8">
@@ -129,22 +120,18 @@
                             <option value="">-- Pilih Shift --</option>
                             @foreach($shifts as $s)
                                 @if($s->id != 1)
-                                <option value="{{ $s->id }}">{{ $s->nama_shift }} ({{ $s->jam_masuk }} - {{ $s->jam_keluar }})</option>
+                                    <option value="{{ $s->id }}">{{ $s->nama_shift }} ({{ $s->jam_masuk }} - {{ $s->jam_keluar }})</option>
                                 @endif
                             @endforeach
                         </select>
-                        <small class="text-muted">Shift ini akan dipakai untuk semua data yang di-import</small>
+                        <small class="text-muted">Shift ini dipakai saat data valid masuk ke sistem.</small>
                     </div>
                     <hr>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold"><i class="fas fa-info-circle text-info"></i> Format yang Didukung:</label>
-                        <ul class="list-unstyled" style="font-size: 13px; color: #64748b;">
-                            <li class="mb-1">✅ Kolom: Nama, Tanggal, Jam Masuk, Jam Pulang</li>
-                            <li class="mb-1">✅ Tanggal: 01/05/2025, 2025-05-01</li>
-                            <li class="mb-1">✅ Jam: 07:30, 07.30, 0730</li>
-                            <li class="mb-1">✅ Data existing akan di-update</li>
-                        </ul>
-                    </div>
+                    <ul class="list-unstyled mb-0" style="font-size: 13px; color: #64748b;">
+                        <li class="mb-1">Kolom Excel asli akan tampil lengkap.</li>
+                        <li class="mb-1">Data valid bisa dicentang satu per satu.</li>
+                        <li class="mb-1">Data existing akan di-update.</li>
+                    </ul>
                 </div>
                 <button class="btn btn-primary w-100 py-3" id="btnPreview" disabled style="font-size: 16px; font-weight: 700; border-radius: 12px;">
                     <i class="fas fa-search me-2"></i>Scan & Preview
@@ -153,11 +140,10 @@
         </div>
     </div>
 
-    {{-- STEP 2: Preview --}}
     <div id="step2">
         <div class="stats-grid" id="statsGrid"></div>
         <div class="form-section">
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                 <h5 class="mb-0"><i class="fas fa-table"></i>Hasil Scan File</h5>
                 <div>
                     <button class="btn btn-outline-secondary btn-sm me-2" id="btnBackStep1"><i class="fas fa-arrow-left me-1"></i>Kembali</button>
@@ -166,25 +152,39 @@
                     </button>
                 </div>
             </div>
-            <div class="mb-3">
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="checkbox" id="filterValid" checked>
-                    <label class="form-check-label" for="filterValid"><span class="match-badge match-exact">✅ Valid</span></label>
+
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <div class="preview-tabs">
+                    <button type="button" class="preview-tab active" id="tabSystem">Data Sistem</button>
+                    <button type="button" class="preview-tab" id="tabRaw">Semua Kolom Excel</button>
                 </div>
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="checkbox" id="filterFuzzy" checked>
-                    <label class="form-check-label" for="filterFuzzy"><span class="match-badge match-fuzzy">⚠️ Fuzzy</span></label>
-                </div>
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="checkbox" id="filterError">
-                    <label class="form-check-label" for="filterError"><span class="match-badge match-error">❌ Error</span></label>
-                </div>
+                <div class="raw-meta" id="rawMeta"></div>
             </div>
-            <div class="table-scroll" id="previewTableContainer"></div>
+
+            <div id="systemPreviewPanel">
+                <div class="mb-3">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="filterValid" checked>
+                        <label class="form-check-label" for="filterValid"><span class="match-badge match-exact">Valid</span></label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="filterFuzzy" checked>
+                        <label class="form-check-label" for="filterFuzzy"><span class="match-badge match-fuzzy">Fuzzy</span></label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="filterError" checked>
+                        <label class="form-check-label" for="filterError"><span class="match-badge match-error">Error</span></label>
+                    </div>
+                </div>
+                <div class="table-scroll" id="previewTableContainer"></div>
+            </div>
+
+            <div id="rawPreviewPanel" style="display:none;">
+                <div class="table-scroll" id="rawTableContainer"></div>
+            </div>
         </div>
     </div>
 
-    {{-- STEP 3: Result --}}
     <div id="step3">
         <div class="form-section">
             <div class="import-result" id="importResult"></div>
@@ -196,50 +196,70 @@
 <script>
 $(document).ready(function() {
     let previewData = [];
-    let currentStep = 1;
-
-    // Drag & Drop
+    let rawPreview = { headers: [], rows: [], total_rows: 0, total_columns: 0 };
     const zone = document.getElementById('uploadZone');
     const fileInput = document.getElementById('fileInput');
 
-    ['dragenter','dragover'].forEach(e => {
-        zone.addEventListener(e, function(ev) { ev.preventDefault(); zone.classList.add('dragover'); });
-    });
-    ['dragleave','drop'].forEach(e => {
-        zone.addEventListener(e, function(ev) { ev.preventDefault(); zone.classList.remove('dragover'); });
-    });
-    zone.addEventListener('drop', function(ev) {
-        ev.preventDefault();
-        if (ev.dataTransfer.files.length) {
-            fileInput.files = ev.dataTransfer.files;
-            showFileName(ev.dataTransfer.files[0]);
-        }
-    });
-    fileInput.addEventListener('change', function() {
-        if (this.files.length) showFileName(this.files[0]);
-    });
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, function (char) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+        });
+    }
 
     function showFileName(file) {
-        $('#fileName').show().html('<i class="fas fa-file-excel me-2"></i>' + file.name + ' (' + (file.size/1024).toFixed(1) + ' KB)');
+        $('#fileName').show().html('<i class="fas fa-file-excel me-2"></i>' + escapeHtml(file.name) + ' (' + (file.size / 1024).toFixed(1) + ' KB)');
         checkReady();
     }
-    $('#shiftSelect').on('change', checkReady);
+
     function checkReady() {
         $('#btnPreview').prop('disabled', !(fileInput.files.length && $('#shiftSelect').val()));
     }
 
-    // Step navigation
-    function goToStep(n) {
-        currentStep = n;
+    ['dragenter', 'dragover'].forEach(function(eventName) {
+        zone.addEventListener(eventName, function(event) {
+            event.preventDefault();
+            zone.classList.add('dragover');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(function(eventName) {
+        zone.addEventListener(eventName, function(event) {
+            event.preventDefault();
+            zone.classList.remove('dragover');
+        });
+    });
+
+    zone.addEventListener('drop', function(event) {
+        if (event.dataTransfer.files.length) {
+            fileInput.files = event.dataTransfer.files;
+            showFileName(event.dataTransfer.files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', function() {
+        if (this.files.length) {
+            showFileName(this.files[0]);
+        }
+    });
+
+    $('#shiftSelect').on('change', checkReady);
+
+    function goToStep(step) {
         $('#step1, #step2, #step3').removeClass('active-step');
-        $('#step' + n).addClass('active-step');
+        $('#step' + step).addClass('active-step');
         $('#stepItem1, #stepItem2, #stepItem3').removeClass('active done');
-        for (let i = 1; i < n; i++) { $('#stepItem' + i).addClass('done'); $('#conn' + (i)).addClass('done'); }
-        $('#stepItem' + n).addClass('active');
-        for (let i = n; i <= 2; i++) { $('#conn' + i).removeClass('done'); }
+
+        for (let i = 1; i < step; i++) {
+            $('#stepItem' + i).addClass('done');
+            $('#conn' + i).addClass('done');
+        }
+
+        $('#stepItem' + step).addClass('active');
+        for (let i = step; i <= 2; i++) {
+            $('#conn' + i).removeClass('done');
+        }
     }
 
-    // Preview
     $('#btnPreview').on('click', function() {
         let formData = new FormData();
         formData.append('file_absen', fileInput.files[0]);
@@ -254,16 +274,24 @@ $(document).ready(function() {
             data: formData,
             processData: false,
             contentType: false,
-            success: function(res) {
-                previewData = res.preview;
-                renderStats(res.stats);
-                renderTable(res.preview);
+            success: function(response) {
+                previewData = (response.preview || []).map(function(row, index) {
+                    row._preview_key = row.preview_key || (String(row.row_index) + '-' + index);
+                    return row;
+                });
+                rawPreview = response.raw_preview || { headers: response.headers || [], rows: [], total_rows: 0, total_columns: 0 };
+
+                renderStats(response.stats || {});
+                renderSystemTable();
+                renderRawTable();
+                $('#rawMeta').text((rawPreview.total_rows || 0) + ' baris Excel - ' + (rawPreview.total_columns || 0) + ' kolom');
+                $('#tabSystem').trigger('click');
                 goToStep(2);
                 $('#btnPreview').prop('disabled', false).html('<i class="fas fa-search me-2"></i>Scan & Preview');
             },
             error: function(xhr) {
-                let msg = xhr.responseJSON ? xhr.responseJSON.message : 'Terjadi kesalahan';
-                Swal.fire('Error', msg, 'error');
+                let message = xhr.responseJSON ? xhr.responseJSON.message : 'Terjadi kesalahan';
+                Swal.fire('Error', message, 'error');
                 $('#btnPreview').prop('disabled', false).html('<i class="fas fa-search me-2"></i>Scan & Preview');
             }
         });
@@ -271,69 +299,110 @@ $(document).ready(function() {
 
     function renderStats(stats) {
         $('#statsGrid').html(`
-            <div class="stat-card stat-total"><div class="stat-number">${stats.total}</div><div class="stat-label">Total Baris</div></div>
-            <div class="stat-card stat-valid"><div class="stat-number">${stats.valid}</div><div class="stat-label">Valid (Cocok)</div></div>
-            <div class="stat-card stat-fuzzy"><div class="stat-number">${stats.fuzzy}</div><div class="stat-label">Fuzzy Match</div></div>
-            <div class="stat-card stat-invalid"><div class="stat-number">${stats.invalid}</div><div class="stat-label">Tidak Dikenali</div></div>
-            <div class="stat-card stat-create"><div class="stat-number">${stats.will_create}</div><div class="stat-label">Data Baru</div></div>
-            <div class="stat-card stat-update"><div class="stat-number">${stats.will_update}</div><div class="stat-label">Update</div></div>
+            <div class="stat-card stat-total"><div class="stat-number">${stats.total || 0}</div><div class="stat-label">Data Sistem</div></div>
+            <div class="stat-card stat-valid"><div class="stat-number">${stats.valid || 0}</div><div class="stat-label">Valid</div></div>
+            <div class="stat-card stat-fuzzy"><div class="stat-number">${stats.fuzzy || 0}</div><div class="stat-label">Fuzzy Match</div></div>
+            <div class="stat-card stat-invalid"><div class="stat-number">${stats.invalid || 0}</div><div class="stat-label">Tidak Bisa Import</div></div>
+            <div class="stat-card stat-create"><div class="stat-number">${stats.will_create || 0}</div><div class="stat-label">Data Baru</div></div>
+            <div class="stat-card stat-update"><div class="stat-number">${stats.will_update || 0}</div><div class="stat-label">Update</div></div>
         `);
     }
 
-    function renderTable(data) {
+    function rowCategory(row) {
+        if (!row.valid) {
+            return 'error';
+        }
+        if (row.match_type === 'fuzzy') {
+            return 'fuzzy';
+        }
+        return 'exact';
+    }
+
+    function renderSystemTable() {
         let showValid = $('#filterValid').is(':checked');
         let showFuzzy = $('#filterFuzzy').is(':checked');
         let showError = $('#filterError').is(':checked');
 
-        let filtered = data.filter(r => {
-            if ((r.match_type === 'exact' || r.match_type === 'employee_id') && showValid) return true;
-            if (r.match_type === 'fuzzy' && showFuzzy) return true;
-            if (r.match_type === 'not_found' && showError) return true;
-            if (!r.valid && showError) return true;
-            return false;
+        let filtered = previewData.filter(function(row) {
+            let category = rowCategory(row);
+            return (category === 'exact' && showValid) || (category === 'fuzzy' && showFuzzy) || (category === 'error' && showError);
         });
-
-        let importable = data.filter(r => r.valid);
-        $('#importCount').text(importable.length);
-        $('#btnImport').prop('disabled', importable.length === 0);
 
         let html = '<table class="preview-table"><thead><tr>';
         html += '<th><input type="checkbox" id="checkAll" checked></th>';
-        html += '<th>No</th><th>Nama (File)</th><th>Nama (Sistem)</th><th>Match</th>';
-        html += '<th>Tanggal</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Status</th><th>Aksi</th>';
+        html += '<th>No</th><th>Sumber</th><th>Nama (File)</th><th>Nama (Sistem)</th><th>Match</th>';
+        html += '<th>Tanggal</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Status</th><th>Aksi</th><th>Catatan</th>';
         html += '</tr></thead><tbody>';
 
-        filtered.forEach((r, i) => {
-            let rowClass = (r.match_type === 'exact' || r.match_type === 'employee_id') ? 'row-exact' : (r.match_type === 'fuzzy' ? 'row-fuzzy' : 'row-error');
-            let matchBadge = (r.match_type === 'exact' || r.match_type === 'employee_id') ? '<span class="match-badge match-exact">OK ' + r.confidence + '%</span>' :
-                (r.match_type === 'fuzzy' ? '<span class="match-badge match-fuzzy">⚠️ ' + r.confidence + '%</span>' :
-                '<span class="match-badge match-error">❌</span>');
-            let actionBadge = r.action === 'create' ? '<span class="action-badge action-create">Baru</span>' :
-                (r.action === 'update' ? '<span class="action-badge action-update">Update</span>' : '<span class="badge bg-secondary">Skip</span>');
+        filtered.forEach(function(row, index) {
+            let category = rowCategory(row);
+            let rowClass = category === 'exact' ? 'row-exact' : (category === 'fuzzy' ? 'row-fuzzy' : 'row-error');
+            let matchBadge = category === 'exact'
+                ? '<span class="match-badge match-exact">OK ' + escapeHtml(row.confidence || 0) + '%</span>'
+                : (category === 'fuzzy'
+                    ? '<span class="match-badge match-fuzzy">Fuzzy ' + escapeHtml(row.confidence || 0) + '%</span>'
+                    : '<span class="match-badge match-error">Error</span>');
+            let actionBadge = row.action === 'create'
+                ? '<span class="action-badge action-create">Baru</span>'
+                : (row.action === 'update'
+                    ? '<span class="action-badge action-update">Update</span>'
+                    : '<span class="badge bg-secondary">Skip</span>');
+            let errors = Array.isArray(row.errors) && row.errors.length ? row.errors.join('; ') : '-';
 
-            html += `<tr class="${rowClass}" data-index="${r.row_index}">`;
-            html += `<td><input type="checkbox" class="row-check" data-idx="${r.row_index}" ${r.valid ? 'checked' : 'disabled'}></td>`;
-            html += `<td>${i + 1}</td>`;
-            html += `<td><strong>${r.raw_nama || '-'}</strong></td>`;
-            html += `<td>${r.user_name || '<em class="text-danger">-</em>'}</td>`;
+            html += `<tr class="${rowClass}">`;
+            html += `<td><input type="checkbox" class="row-check" data-key="${escapeHtml(row._preview_key)}" ${row.valid ? 'checked' : 'disabled'}></td>`;
+            html += `<td>${index + 1}</td>`;
+            html += `<td>${escapeHtml(row.source_format || '-')}</td>`;
+            html += `<td><strong>${escapeHtml(row.raw_nama || row.raw_employee_id || '-')}</strong></td>`;
+            html += `<td>${row.user_name ? escapeHtml(row.user_name) : '<em class="text-danger">-</em>'}</td>`;
             html += `<td>${matchBadge}</td>`;
-            html += `<td>${r.tanggal || '<em class="text-danger">' + (r.raw_tanggal || '-') + '</em>'}</td>`;
-            html += `<td>${r.jam_absen || '-'}</td>`;
-            html += `<td>${r.jam_pulang || '-'}</td>`;
-            html += `<td><span class="badge ${r.status_absen === 'Masuk' ? 'bg-success' : 'bg-warning'}">${r.status_absen}</span></td>`;
+            html += `<td>${row.tanggal ? escapeHtml(row.tanggal) : '<em class="text-danger">' + escapeHtml(row.raw_tanggal || '-') + '</em>'}</td>`;
+            html += `<td>${escapeHtml(row.jam_absen || '-')}</td>`;
+            html += `<td>${escapeHtml(row.jam_pulang || '-')}</td>`;
+            html += `<td><span class="badge ${row.status_absen === 'Masuk' ? 'bg-success' : 'bg-warning'}">${escapeHtml(row.status_absen || '-')}</span></td>`;
             html += `<td>${actionBadge}</td>`;
+            html += `<td class="raw-cell" title="${escapeHtml(errors)}">${escapeHtml(errors)}</td>`;
             html += '</tr>';
         });
+
+        if (!filtered.length) {
+            html += '<tr><td colspan="12" class="text-center text-muted py-4">Tidak ada data pada filter ini.</td></tr>';
+        }
 
         html += '</tbody></table>';
         $('#previewTableContainer').html(html);
 
-        // Check all handler
         $('#checkAll').on('change', function() {
             $('.row-check:not(:disabled)').prop('checked', $(this).is(':checked'));
             updateImportCount();
         });
         $('.row-check').on('change', updateImportCount);
+        updateImportCount();
+    }
+
+    function renderRawTable() {
+        let headers = rawPreview.headers || [];
+        let rows = rawPreview.rows || [];
+        let html = '<table class="preview-table"><thead><tr><th>No</th><th>Row</th>';
+        headers.forEach(function(header) {
+            html += '<th>' + escapeHtml(header) + '</th>';
+        });
+        html += '</tr></thead><tbody>';
+
+        rows.forEach(function(row, index) {
+            html += '<tr><td>' + (index + 1) + '</td><td>' + escapeHtml(row.row_number || '-') + '</td>';
+            (row.values || []).forEach(function(value) {
+                html += '<td class="raw-cell" title="' + escapeHtml(value) + '">' + (escapeHtml(value) || '-') + '</td>';
+            });
+            html += '</tr>';
+        });
+
+        if (!rows.length) {
+            html += '<tr><td colspan="' + (headers.length + 2) + '" class="text-center text-muted py-4">Tidak ada baris Excel yang terbaca.</td></tr>';
+        }
+
+        html += '</tbody></table>';
+        $('#rawTableContainer').html(html);
     }
 
     function updateImportCount() {
@@ -342,34 +411,50 @@ $(document).ready(function() {
         $('#btnImport').prop('disabled', count === 0);
     }
 
-    // Filters
-    $('#filterValid, #filterFuzzy, #filterError').on('change', function() { renderTable(previewData); });
-
-    // Back button
+    $('#filterValid, #filterFuzzy, #filterError').on('change', renderSystemTable);
     $('#btnBackStep1').on('click', function() { goToStep(1); });
 
-    // Import
+    $('#tabSystem').on('click', function() {
+        $('#tabSystem').addClass('active');
+        $('#tabRaw').removeClass('active');
+        $('#systemPreviewPanel').show();
+        $('#rawPreviewPanel').hide();
+    });
+
+    $('#tabRaw').on('click', function() {
+        $('#tabRaw').addClass('active');
+        $('#tabSystem').removeClass('active');
+        $('#systemPreviewPanel').hide();
+        $('#rawPreviewPanel').show();
+    });
+
     $('#btnImport').on('click', function() {
-        let selectedIndices = [];
-        $('.row-check:checked').each(function() { selectedIndices.push(parseInt($(this).data('idx'))); });
+        let selectedKeys = [];
+        $('.row-check:checked').each(function() {
+            selectedKeys.push(String($(this).data('key')));
+        });
 
-        let importRows = previewData.filter(r => selectedIndices.includes(r.row_index) && r.valid);
+        let importRows = previewData.filter(function(row) {
+            return selectedKeys.includes(String(row._preview_key)) && row.valid;
+        });
 
-        if (importRows.length === 0) {
-            Swal.fire('Peringatan', 'Tidak ada data yang bisa di-import', 'warning');
+        if (!importRows.length) {
+            Swal.fire('Peringatan', 'Tidak ada data valid yang dipilih untuk diimport.', 'warning');
             return;
         }
 
         Swal.fire({
             title: 'Konfirmasi Import',
-            html: `<p>Anda akan mengimport <strong>${importRows.length}</strong> data absensi ke sistem.</p><p class="text-muted">Data yang sudah ada akan di-update.</p>`,
+            html: '<p>Anda akan mengimport <strong>' + importRows.length + '</strong> data absensi ke sistem.</p><p class="text-muted">Data yang sudah ada akan di-update.</p>',
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-download me-1"></i> Ya, Import!',
+            confirmButtonText: 'Ya, Import',
             cancelButtonText: 'Batal',
             confirmButtonColor: '#10b981'
-        }).then((result) => {
-            if (!result.isConfirmed) return;
+        }).then(function(result) {
+            if (!result.isConfirmed) {
+                return;
+            }
 
             $('#btnImport').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Mengimport...');
 
@@ -378,20 +463,23 @@ $(document).ready(function() {
                 type: 'POST',
                 data: JSON.stringify({ import_rows: importRows, _token: '{{ csrf_token() }}' }),
                 contentType: 'application/json',
-                success: function(res) {
+                success: function(response) {
                     goToStep(3);
-                    let s = res.stats;
-                    let errHtml = s.errors.length ? '<div class="mt-3 text-start"><strong>Errors:</strong><ul>' + s.errors.map(e => '<li class="text-danger">' + e + '</li>').join('') + '</ul></div>' : '';
+                    let stats = response.stats || {};
+                    let errors = Array.isArray(stats.errors) && stats.errors.length
+                        ? '<div class="mt-3 text-start"><strong>Errors:</strong><ul>' + stats.errors.map(function(error) { return '<li class="text-danger">' + escapeHtml(error) + '</li>'; }).join('') + '</ul></div>'
+                        : '';
+
                     $('#importResult').html(`
                         <div class="success-icon"><i class="fas fa-check"></i></div>
-                        <h3 style="font-weight:800; color:#1e293b;">Import Berhasil! 🎉</h3>
-                        <p class="text-muted mb-4">Data absensi dari mesin sidik jari telah dimasukkan ke sistem.</p>
+                        <h3 style="font-weight:800; color:#1e293b;">Import Berhasil</h3>
+                        <p class="text-muted mb-4">Data absensi yang sudah direview telah dimasukkan ke sistem.</p>
                         <div class="stats-grid" style="max-width:500px; margin:0 auto;">
-                            <div class="stat-card stat-create"><div class="stat-number">${s.created}</div><div class="stat-label">Data Baru</div></div>
-                            <div class="stat-card stat-update"><div class="stat-number">${s.updated}</div><div class="stat-label">Di-update</div></div>
-                            <div class="stat-card stat-invalid"><div class="stat-number">${s.skipped}</div><div class="stat-label">Dilewati</div></div>
+                            <div class="stat-card stat-create"><div class="stat-number">${stats.created || 0}</div><div class="stat-label">Data Baru</div></div>
+                            <div class="stat-card stat-update"><div class="stat-number">${stats.updated || 0}</div><div class="stat-label">Di-update</div></div>
+                            <div class="stat-card stat-invalid"><div class="stat-number">${stats.skipped || 0}</div><div class="stat-label">Dilewati</div></div>
                         </div>
-                        ${errHtml}
+                        ${errors}
                         <div class="mt-4">
                             <a href="{{ url('/data-absen') }}" class="btn btn-primary px-4 py-2 me-2"><i class="fas fa-table me-1"></i>Lihat Data Absen</a>
                             <a href="{{ url('/rekap-data') }}" class="btn btn-success px-4 py-2 me-2"><i class="fas fa-chart-bar me-1"></i>Rekap Data</a>
@@ -400,8 +488,8 @@ $(document).ready(function() {
                     `);
                 },
                 error: function(xhr) {
-                    let msg = xhr.responseJSON ? xhr.responseJSON.message : 'Gagal mengimport data';
-                    Swal.fire('Error', msg, 'error');
+                    let message = xhr.responseJSON ? xhr.responseJSON.message : 'Gagal mengimport data';
+                    Swal.fire('Error', message, 'error');
                     $('#btnImport').prop('disabled', false).html('<i class="fas fa-download me-2"></i>Import <span id="importCount">' + importRows.length + '</span> Data Sekarang');
                 }
             });

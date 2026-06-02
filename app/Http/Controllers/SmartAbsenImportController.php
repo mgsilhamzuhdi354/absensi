@@ -58,29 +58,28 @@ class SmartAbsenImportController extends Controller
 
             // Deteksi kolom
             $columnMap = $parser->detectColumns($headerRow);
+            $rawPreview = $parser->buildRawPreview($rows, $headerRowIndex);
 
-            // Cek minimal kolom identitas karyawan terdeteksi
-            if ($columnMap['nama'] === null && $columnMap['employee_id'] === null) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Kolom identitas karyawan tidak ditemukan. Pastikan ada kolom Nama/Name/Karyawan atau Employee ID/NIP/PIN.',
-                    'headers' => $headerRow,
-                ], 422);
-            }
-
-            // Ambil semua user
             $users = User::orderBy('name', 'ASC')->get();
 
-            // Proses baris data
-            $results = $parser->processRows(
-                $rows,
-                $headerRowIndex,
-                $columnMap,
-                $users,
-                $shift->id,
-                $shift->jam_masuk,
-                $shift->jam_keluar
-            );
+            if ($columnMap['nama'] === null && $columnMap['employee_id'] === null) {
+                $results = $this->buildInvalidPreviewRows(
+                    $rawPreview,
+                    $shift->id,
+                    'Kolom identitas karyawan tidak ditemukan. Pastikan ada kolom Nama/Name/Karyawan atau Employee ID/NIP/PIN.'
+                );
+            } else {
+                $results = $parser->processRows(
+                    $rows,
+                    $headerRowIndex,
+                    $columnMap,
+                    $users,
+                    $shift->id,
+                    $shift->jam_masuk,
+                    $shift->jam_keluar
+                );
+                $results = $this->attachRawColumnsToResults($results, $rawPreview);
+            }
 
             // Cek data existing untuk tandai update/baru
             foreach ($results as &$row) {
@@ -104,6 +103,8 @@ class SmartAbsenImportController extends Controller
                 'invalid'    => count(array_filter($results, fn($r) => !$r['valid'])),
                 'will_create'=> count(array_filter($results, fn($r) => $r['action'] === 'create')),
                 'will_update'=> count(array_filter($results, fn($r) => $r['action'] === 'update')),
+                'raw_rows'   => $rawPreview['total_rows'],
+                'raw_columns'=> $rawPreview['total_columns'],
             ];
 
             // Simpan path di session untuk import nanti
@@ -113,6 +114,7 @@ class SmartAbsenImportController extends Controller
                 'success'     => true,
                 'headers'     => $headerRow,
                 'column_map'  => $columnMap,
+                'raw_preview' => $rawPreview,
                 'preview'     => $results,
                 'stats'       => $stats,
                 'shift_name'  => $shift->nama_shift . ' (' . $shift->jam_masuk . ' - ' . $shift->jam_keluar . ')',
@@ -209,6 +211,51 @@ class SmartAbsenImportController extends Controller
                 'message' => 'Gagal mengimport data: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function attachRawColumnsToResults(array $results, array $rawPreview): array
+    {
+        $rawRows = collect($rawPreview['rows'])->keyBy('row_index');
+
+        return array_map(function (array $row) use ($rawRows) {
+            $rawRow = $rawRows->get($row['row_index']);
+            $row['raw_columns'] = $rawRow['columns'] ?? ($row['raw_columns'] ?? []);
+
+            return $row;
+        }, $results);
+    }
+
+    private function buildInvalidPreviewRows(array $rawPreview, int $shiftId, string $message): array
+    {
+        return array_map(function (array $rawRow) use ($shiftId, $message) {
+            return [
+                'preview_key' => (string) $rawRow['row_index'],
+                'row_index' => $rawRow['row_index'],
+                'source_format' => 'unsupported',
+                'raw_columns' => $rawRow['columns'],
+                'raw_nama' => '',
+                'raw_employee_id' => '',
+                'raw_tanggal' => '',
+                'raw_masuk' => '',
+                'raw_pulang' => '',
+                'raw_status' => '',
+                'tanggal' => null,
+                'jam_absen' => null,
+                'jam_pulang' => null,
+                'status_absen' => 'Tidak Masuk',
+                'telat' => 0,
+                'pulang_cepat' => 0,
+                'shift_id' => $shiftId,
+                'user_id' => null,
+                'user_name' => null,
+                'confidence' => 0,
+                'match_type' => 'not_found',
+                'valid' => false,
+                'errors' => [$message],
+                'existing_id' => null,
+                'action' => 'skip',
+            ];
+        }, $rawPreview['rows']);
     }
 
     private function buildMappingShiftData(array $row): array
