@@ -5,6 +5,8 @@ namespace Tests\Unit;
 use App\Models\User;
 use App\Services\SmartAbsenParser;
 use Illuminate\Support\Collection;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
 
 class SmartAbsenParserTest extends TestCase
@@ -165,6 +167,92 @@ class SmartAbsenParserTest extends TestCase
         $this->assertSame('Tidak Masuk', $result[0]['status_absen']);
         $this->assertSame(5, $result[0]['user_id']);
         $this->assertTrue($result[0]['valid']);
+    }
+
+    /** @test */
+    public function it_parses_wide_personal_attendance_blocks_with_daily_scan_times(): void
+    {
+        $parser = new SmartAbsenParser();
+        $users = $this->users([
+            ['id' => 6, 'name' => 'MGS ILHAM ZUHDI', 'username' => 'mgs'],
+            ['id' => 7, 'name' => 'DANIEL', 'username' => 'daniel'],
+        ]);
+        $rows = array_fill(0, 13, array_fill(0, 24, ''));
+        $rows[0][10] = 'Catatan Kehadiran Karyawan';
+        $rows[1][20] = 'Tanggal Kehadiran:2026-06-01~2026-06-02';
+
+        $this->fillAttendanceBlock($rows, 0, 'it', 'mgs ilham zuhdi', '1', [
+            '02 Sel' => ['08:05', '', '', '', '', ''],
+        ]);
+        $this->fillAttendanceBlock($rows, 11, 'ops', 'daniel', '2', [
+            '02 Sel' => ['08:10', '17:00', '', '', '', ''],
+        ]);
+
+        $headerRow = $parser->findHeaderRow($rows);
+        $columnMap = $parser->detectColumns($rows[$headerRow]);
+        $result = $parser->processRows($rows, $headerRow, $columnMap, $users, 1, '08:00:00', '17:00:00');
+
+        $this->assertCount(4, $result);
+        $mgsSecondDay = collect($result)->first(fn($row) => $row['user_id'] === 6 && $row['tanggal'] === '2026-06-02');
+        $danielSecondDay = collect($result)->first(fn($row) => $row['user_id'] === 7 && $row['tanggal'] === '2026-06-02');
+
+        $this->assertSame('personal_attendance_blocks', $mgsSecondDay['source_format']);
+        $this->assertSame('08:05', $mgsSecondDay['jam_absen']);
+        $this->assertSame('Masuk', $mgsSecondDay['status_absen']);
+        $this->assertTrue($mgsSecondDay['valid']);
+        $this->assertSame('08:10', $danielSecondDay['jam_absen']);
+        $this->assertSame('17:00', $danielSecondDay['jam_pulang']);
+    }
+
+    /** @test */
+    public function it_reads_excel_columns_after_z(): void
+    {
+        $parser = new SmartAbsenParser();
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue('A1', 'Awal');
+        $sheet->setCellValue('AT1', 'Kolom Jauh');
+
+        $path = tempnam(sys_get_temp_dir(), 'smart_parser_') . '.xlsx';
+        (new Xlsx($spreadsheet))->save($path);
+
+        $rows = $parser->parseExcel($path);
+        @unlink($path);
+
+        $this->assertSame('Awal', $rows[0][0]);
+        $this->assertSame('Kolom Jauh', $rows[0][45]);
+    }
+
+    private function fillAttendanceBlock(array &$rows, int $startCol, string $dept, string $name, string $userId, array $days): void
+    {
+        $rows[2][$startCol] = 'Dept';
+        $rows[2][$startCol + 1] = $dept;
+        $rows[2][$startCol + 3] = 'Nama';
+        $rows[2][$startCol + 4] = $name;
+        $rows[3][$startCol] = 'Tanggal';
+        $rows[3][$startCol + 1] = '2026-06-01~2026-06-02';
+        $rows[3][$startCol + 3] = 'User ID';
+        $rows[3][$startCol + 4] = $userId;
+        $rows[7][$startCol] = 'Catatan Kehadiran';
+        $rows[8][$startCol] = 'Tanggal/Minggu';
+        $rows[8][$startCol + 1] = 'Pagi';
+        $rows[8][$startCol + 3] = 'Siang';
+        $rows[8][$startCol + 5] = 'Lembur';
+        $rows[9][$startCol + 1] = 'Jam Masuk';
+        $rows[9][$startCol + 2] = 'Jam Keluar';
+        $rows[9][$startCol + 3] = 'Jam Masuk';
+        $rows[9][$startCol + 4] = 'Jam Keluar';
+        $rows[9][$startCol + 5] = 'Jam Masuk';
+        $rows[9][$startCol + 6] = 'Jam Keluar';
+        $rows[10][$startCol] = '01 Sen';
+        $rows[11][$startCol] = '02 Sel';
+
+        foreach ($days as $label => $times) {
+            $rowIndex = str_starts_with($label, '01') ? 10 : 11;
+            foreach (array_values($times) as $index => $time) {
+                $rows[$rowIndex][$startCol + 1 + $index] = $time;
+            }
+        }
     }
 
     private function users(array $attributes): Collection

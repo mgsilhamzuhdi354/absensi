@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Support\Collection;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
@@ -75,11 +76,12 @@ class SmartAbsenParser
         $rows = [];
         $highestRow = $sheet->getHighestRow();
         $highestCol = $sheet->getHighestColumn();
+        $highestColIndex = Coordinate::columnIndexFromString($highestCol);
 
         for ($row = 1; $row <= $highestRow; $row++) {
             $rowData = [];
-            for ($col = 'A'; $col <= $highestCol; $col++) {
-                $cell = $sheet->getCell($col . $row);
+            for ($colIndex = 1; $colIndex <= $highestColIndex; $colIndex++) {
+                $cell = $sheet->getCell(Coordinate::stringFromColumnIndex($colIndex) . $row);
                 // Format tanggal/waktu yang mungkin tersimpan sebagai angka Excel
                 if ($cell->getDataType() === DataType::TYPE_NUMERIC && ExcelDate::isDateTime($cell)) {
                     $rowData[] = ExcelDate::excelToDateTimeObject($cell->getValue())->format('Y-m-d H:i:s');
@@ -472,6 +474,10 @@ class SmartAbsenParser
         string $shiftJamKeluar
     ): array {
         $reportDateRange = $this->detectReportDateRange($rows);
+        if ($this->looksLikePersonalAttendanceBlocks($rows, $reportDateRange)) {
+            return $this->processPersonalAttendanceBlocks($rows, $users, $shiftId, $shiftJamMasuk, $shiftJamKeluar, $reportDateRange);
+        }
+
         if ($this->looksLikeAttendanceAnalysis($columnMap, $reportDateRange)) {
             return $this->processAttendanceAnalysisRows($rows, $headerRowIndex, $columnMap, $users, $shiftId, $reportDateRange);
         }
@@ -662,6 +668,81 @@ class SmartAbsenParser
         return array_values($results);
     }
 
+    private function processPersonalAttendanceBlocks(
+        array $rows,
+        Collection $users,
+        int $shiftId,
+        string $shiftJamMasuk,
+        string $shiftJamKeluar,
+        array $reportDateRange
+    ): array {
+        $blocks = $this->detectPersonalAttendanceBlocks($rows);
+        $dates = $this->dateRange($reportDateRange['start'], $reportDateRange['end']);
+        $results = [];
+
+        foreach ($blocks as $index => $block) {
+            $nextStart = $blocks[$index + 1]['start_col'] ?? $this->maxColumnCount($rows);
+            $endCol = max($block['start_col'], $nextStart - 1);
+            $name = $this->valueNearLabel($rows[$block['meta_row']], $block['start_col'], $endCol, 'nama');
+            $employeeId = $this->valueNearLabel($rows[$block['meta_row'] + 1] ?? [], $block['start_col'], $endCol, 'user id');
+            $matchResult = $this->matchEmployee($name, $users, $employeeId);
+            $detailStart = $this->findDetailStartRow($rows, $block['meta_row'], $block['start_col'], $endCol);
+            $timeColumns = $detailStart !== null
+                ? $this->detectBlockTimeColumns($rows, $detailStart, $block['start_col'], $endCol)
+                : ['in' => [], 'out' => []];
+            $dayRows = $detailStart !== null
+                ? $this->collectBlockDayRows($rows, $detailStart, $block['start_col'], $endCol)
+                : [];
+
+            foreach ($dates as $date) {
+                $day = (int) substr($date, 8, 2);
+                $rowIndex = $dayRows[$day] ?? null;
+                $row = $rowIndex !== null ? ($rows[$rowIndex] ?? []) : [];
+                $jamMasuk = $this->firstParsedTime($row, $timeColumns['in']);
+                $jamPulang = $this->lastParsedTime($row, $timeColumns['out']);
+                if ($jamPulang === $jamMasuk) {
+                    $jamPulang = null;
+                }
+
+                $telat = ($jamMasuk !== null) ? $this->hitungTelat($date, $shiftJamMasuk, $jamMasuk) : 0;
+                $pulangCepat = ($jamPulang !== null) ? $this->hitungPulangCepat($date, $shiftJamKeluar, $jamPulang) : 0;
+                $rawColumns = $this->blockRawColumns($rows, $block, $endCol, $rowIndex, $timeColumns);
+
+                $results[] = $this->normalizeResultRow([
+                    'preview_key' => $block['start_col'] . ':' . $date,
+                    'row_index' => $rowIndex ?? $block['meta_row'],
+                    'source_format' => 'personal_attendance_blocks',
+                    'raw_columns' => $rawColumns,
+                    'raw_nama' => $name,
+                    'raw_employee_id' => $employeeId,
+                    'raw_tanggal' => $date,
+                    'raw_masuk' => $jamMasuk ?: '',
+                    'raw_pulang' => $jamPulang ?: '',
+                    'raw_status' => $jamMasuk ? 'Ada scan masuk' : 'Tidak ada scan',
+                    'tanggal' => $date,
+                    'jam_absen' => $jamMasuk,
+                    'jam_pulang' => $jamPulang,
+                    'status_absen' => $jamMasuk ? 'Masuk' : 'Tidak Masuk',
+                    'telat' => $telat,
+                    'pulang_cepat' => $pulangCepat,
+                    'shift_id' => $shiftId,
+                    'user_id' => $matchResult['user'] ? $matchResult['user']->id : null,
+                    'user_name' => $matchResult['user'] ? $matchResult['user']->name : null,
+                    'confidence' => $matchResult['confidence'],
+                    'match_type' => $matchResult['match_type'],
+                    'valid' => !in_array($matchResult['match_type'], ['not_found', 'empty'], true),
+                    'errors' => array_filter([
+                        in_array($matchResult['match_type'], ['not_found', 'empty'], true)
+                            ? 'Karyawan tidak ditemukan: "' . trim($employeeId . ' ' . $name) . '"'
+                            : null,
+                    ]),
+                ]);
+            }
+        }
+
+        return $results;
+    }
+
     private function processAttendanceAnalysisRows(
         array $rows,
         int $headerRowIndex,
@@ -746,6 +827,202 @@ class SmartAbsenParser
         );
 
         return $hasSingleTime && (($columnMap['nama'] ?? null) !== null || ($columnMap['employee_id'] ?? null) !== null);
+    }
+
+    private function looksLikePersonalAttendanceBlocks(array $rows, array $reportDateRange): bool
+    {
+        if (empty($reportDateRange)) {
+            return false;
+        }
+
+        $text = $this->normalizeText(implode(' ', array_map(fn($row) => implode(' ', $row), array_slice($rows, 0, 12))));
+
+        return str_contains($text, 'catatan kehadiran karyawan')
+            || (str_contains($text, 'catatan kehadiran') && count($this->detectPersonalAttendanceBlocks($rows)) > 0);
+    }
+
+    private function detectPersonalAttendanceBlocks(array $rows): array
+    {
+        $blocks = [];
+
+        foreach ($rows as $rowIndex => $row) {
+            foreach ($row as $colIndex => $value) {
+                if ($this->normalizeText((string) $value) !== 'dept') {
+                    continue;
+                }
+
+                if ($this->findLabelColumn($row, $colIndex, min($colIndex + 10, count($row) - 1), 'nama') === null) {
+                    continue;
+                }
+
+                $nextRow = $rows[$rowIndex + 1] ?? [];
+                if ($this->findLabelColumn($nextRow, $colIndex, min($colIndex + 10, count($nextRow) - 1), 'tanggal') === null) {
+                    continue;
+                }
+
+                $blocks[] = [
+                    'meta_row' => $rowIndex,
+                    'start_col' => $colIndex,
+                ];
+            }
+
+            if (!empty($blocks)) {
+                break;
+            }
+        }
+
+        return array_values($blocks);
+    }
+
+    private function valueNearLabel(array $row, int $startCol, int $endCol, string $label): string
+    {
+        $labelCol = $this->findLabelColumn($row, $startCol, $endCol, $label);
+        if ($labelCol === null) {
+            return '';
+        }
+
+        for ($col = $labelCol + 1; $col <= $endCol; $col++) {
+            $value = trim((string) ($row[$col] ?? ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return '';
+    }
+
+    private function findLabelColumn(array $row, int $startCol, int $endCol, string $label): ?int
+    {
+        $label = $this->normalizeText($label);
+        for ($col = $startCol; $col <= $endCol; $col++) {
+            if ($this->normalizeText((string) ($row[$col] ?? '')) === $label) {
+                return $col;
+            }
+        }
+
+        return null;
+    }
+
+    private function findDetailStartRow(array $rows, int $metaRow, int $startCol, int $endCol): ?int
+    {
+        for ($rowIndex = $metaRow + 1; $rowIndex < count($rows); $rowIndex++) {
+            for ($col = $startCol; $col <= $endCol; $col++) {
+                if ($this->normalizeText((string) ($rows[$rowIndex][$col] ?? '')) === 'catatan kehadiran') {
+                    return $rowIndex;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function detectBlockTimeColumns(array $rows, int $detailStart, int $startCol, int $endCol): array
+    {
+        $in = [];
+        $out = [];
+
+        for ($rowIndex = $detailStart + 1; $rowIndex <= min($detailStart + 4, count($rows) - 1); $rowIndex++) {
+            $row = $rows[$rowIndex] ?? [];
+            for ($col = $startCol; $col <= $endCol; $col++) {
+                $value = $this->normalizeText((string) ($row[$col] ?? ''));
+                if ($value === 'jam masuk') {
+                    $in[] = $col;
+                } elseif ($value === 'jam keluar') {
+                    $out[] = $col;
+                }
+            }
+        }
+
+        return [
+            'in' => array_values(array_unique($in)),
+            'out' => array_values(array_unique($out)),
+        ];
+    }
+
+    private function collectBlockDayRows(array $rows, int $detailStart, int $startCol, int $endCol): array
+    {
+        $dayRows = [];
+
+        for ($rowIndex = $detailStart + 1; $rowIndex < count($rows); $rowIndex++) {
+            $dateLabel = trim((string) ($rows[$rowIndex][$startCol] ?? ''));
+
+            if (preg_match('/^(\d{1,2})\b/', $dateLabel, $matches)) {
+                $dayRows[(int) $matches[1]] = $rowIndex;
+                continue;
+            }
+
+            if (!empty($dayRows) && !$this->rowHasValueInRange($rows[$rowIndex] ?? [], $startCol, $endCol)) {
+                break;
+            }
+        }
+
+        return $dayRows;
+    }
+
+    private function firstParsedTime(array $row, array $columns): ?string
+    {
+        foreach ($columns as $col) {
+            $time = $this->parseTime((string) ($row[$col] ?? ''));
+            if ($time !== null) {
+                return $time;
+            }
+        }
+
+        return null;
+    }
+
+    private function lastParsedTime(array $row, array $columns): ?string
+    {
+        $times = [];
+        foreach ($columns as $col) {
+            $time = $this->parseTime((string) ($row[$col] ?? ''));
+            if ($time !== null) {
+                $times[] = $time;
+            }
+        }
+
+        sort($times);
+
+        return $times ? end($times) : null;
+    }
+
+    private function blockRawColumns(array $rows, array $block, int $endCol, ?int $dayRowIndex, array $timeColumns): array
+    {
+        $metaRow = $rows[$block['meta_row']] ?? [];
+        $dateRow = $rows[$block['meta_row'] + 1] ?? [];
+        $dayRow = $dayRowIndex !== null ? ($rows[$dayRowIndex] ?? []) : [];
+        $raw = [
+            'Dept' => $this->valueNearLabel($metaRow, $block['start_col'], $endCol, 'dept'),
+            'Nama' => $this->valueNearLabel($metaRow, $block['start_col'], $endCol, 'nama'),
+            'Tanggal' => $this->valueNearLabel($dateRow, $block['start_col'], $endCol, 'tanggal'),
+            'User ID' => $this->valueNearLabel($dateRow, $block['start_col'], $endCol, 'user id'),
+            'Tanggal/Minggu' => trim((string) ($dayRow[$block['start_col']] ?? '')),
+        ];
+
+        foreach ($timeColumns['in'] as $index => $col) {
+            $raw['Jam Masuk ' . ($index + 1)] = trim((string) ($dayRow[$col] ?? ''));
+        }
+        foreach ($timeColumns['out'] as $index => $col) {
+            $raw['Jam Keluar ' . ($index + 1)] = trim((string) ($dayRow[$col] ?? ''));
+        }
+
+        return $raw;
+    }
+
+    private function maxColumnCount(array $rows): int
+    {
+        return max(array_map('count', $rows)) ?: 0;
+    }
+
+    private function rowHasValueInRange(array $row, int $startCol, int $endCol): bool
+    {
+        for ($col = $startCol; $col <= $endCol; $col++) {
+            if (trim((string) ($row[$col] ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function looksLikeAttendanceAnalysis(array $columnMap, array $reportDateRange): bool
