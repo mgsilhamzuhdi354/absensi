@@ -11,6 +11,7 @@ use App\Models\settings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class InventoryQrStockTest extends TestCase
@@ -92,6 +93,42 @@ class InventoryQrStockTest extends TestCase
         $this->assertNotNull($inventory->qr_token);
         $this->assertStringContainsString('/inventory/scan/lookup?code=', $inventory->qr_code_value);
         Storage::disk('public')->assertExists($inventory->qr_code_image);
+    }
+
+    /** @test */
+    public function admin_can_store_inventory_photo_and_detail_displays_it()
+    {
+        Storage::fake('public');
+
+        $response = $this->actingAs($this->admin)->post('/inventory/store', $this->inventoryPayload([
+            'foto_barang' => UploadedFile::fake()->image('laptop.jpg', 600, 400),
+        ]));
+
+        $inventory = Inventory::first();
+
+        $response->assertRedirect('/inventory/' . $inventory->id . '/detail');
+        $this->assertNotNull($inventory->foto_barang);
+        $this->assertDatabaseHas('inventories', [
+            'id' => $inventory->id,
+            'foto_barang' => $inventory->foto_barang,
+        ]);
+        Storage::disk('public')->assertExists($inventory->foto_barang);
+
+        $this->actingAs($this->admin)
+            ->get('/inventory/' . $inventory->id . '/detail')
+            ->assertOk()
+            ->assertSee('storage/' . $inventory->foto_barang, false);
+    }
+
+    /** @test */
+    public function numeric_uom_is_rejected_so_stock_and_unit_do_not_get_mixed()
+    {
+        $response = $this->actingAs($this->admin)->post('/inventory/store', $this->inventoryPayload([
+            'uom' => '11',
+        ]));
+
+        $response->assertSessionHasErrors('uom');
+        $this->assertSame(0, Inventory::count());
     }
 
     /** @test */
@@ -206,6 +243,45 @@ class InventoryQrStockTest extends TestCase
             'penerima_barang' => $this->employee->name,
             'diproses_oleh' => $this->admin->id,
         ]);
+    }
+
+    /** @test */
+    public function stock_out_rejects_fractional_handover_quantity()
+    {
+        $inventory = Inventory::create($this->inventoryPayload(['stok' => 1]));
+
+        $response = $this->actingAs($this->admin)->post('/inventory/' . $inventory->id . '/stock-out', [
+            'tanggal_transaksi' => '2026-05-29',
+            'jumlah' => 0.05,
+            'penerima_user_id' => $this->employee->id,
+            'buat_bast_otomatis' => 0,
+        ]);
+
+        $response->assertSessionHasErrors('jumlah');
+        $this->assertSame(1.0, (float) $inventory->fresh()->stok);
+        $this->assertSame(0, InventoryStockTransaction::count());
+    }
+
+    /** @test */
+    public function detail_shows_current_inventory_holder_after_handover()
+    {
+        $inventory = Inventory::create($this->inventoryPayload(['stok' => 1]));
+
+        $this->actingAs($this->admin)->post('/inventory/' . $inventory->id . '/stock-out', [
+            'tanggal_transaksi' => '2026-05-29',
+            'jumlah' => 1,
+            'penerima_user_id' => $this->employee->id,
+            'keperluan' => 'Fasilitas kerja',
+            'kondisi_barang' => 'Baik',
+            'buat_bast_otomatis' => 0,
+        ])->assertRedirect('/inventory/' . $inventory->id . '/detail');
+
+        $this->actingAs($this->admin)
+            ->get('/inventory/' . $inventory->id . '/detail')
+            ->assertOk()
+            ->assertSee('Pemegang Saat Ini')
+            ->assertSee($this->employee->name)
+            ->assertSee('Sejak 29/05/2026');
     }
 
     /** @test */

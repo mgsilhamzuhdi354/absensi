@@ -47,6 +47,12 @@ class InventoryStockService
             $jumlah = $this->normalizeQuantity($data['jumlah']);
             $stokSebelum = (float) ($locked->stok ?? 0);
 
+            if (!$this->isWholeQuantity($jumlah)) {
+                throw ValidationException::withMessages([
+                    'jumlah' => 'Jumlah pindah tangan harus angka bulat. Barang seperti laptop tidak boleh dikurangi sebagian.',
+                ]);
+            }
+
             if ($stokSebelum <= 0) {
                 throw ValidationException::withMessages([
                     'jumlah' => 'Stok barang kosong, stok keluar tidak dapat diproses.',
@@ -83,7 +89,7 @@ class InventoryStockService
 
     private function normalizeQuantity($value)
     {
-        $quantity = (float) $value;
+        $quantity = round((float) $value, 2);
 
         if ($quantity <= 0) {
             throw ValidationException::withMessages([
@@ -92,5 +98,10 @@ class InventoryStockService
         }
 
         return $quantity;
+    }
+
+    private function isWholeQuantity(float $quantity): bool
+    {
+        return abs($quantity - round($quantity)) < 0.000001;
     }
 }

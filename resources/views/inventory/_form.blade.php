@@ -69,7 +69,18 @@
     <div class="col-md-3">
         <div class="form-group">
             <label for="uom" class="float-left">UoM</label>
-            <input type="text" class="form-control @error('uom') is-invalid @enderror" id="uom" name="uom" value="{{ old('uom', $inventory->uom ?? '') }}">
+            <input type="text" class="form-control @error('uom') is-invalid @enderror" id="uom" name="uom" list="uom_options" value="{{ old('uom', $inventory->uom ?? 'Unit') }}">
+            <datalist id="uom_options">
+                <option value="Unit">
+                <option value="Pcs">
+                <option value="Set">
+                <option value="Box">
+                <option value="Pack">
+                <option value="Kg">
+                <option value="Liter">
+                <option value="Meter">
+                <option value="Roll">
+            </datalist>
             @error('uom')
                 <div class="invalid-feedback">{{ $message }}</div>
             @enderror
@@ -168,6 +179,9 @@
         <div class="invalid-feedback">{{ $message }}</div>
     @enderror
     @if ($inventory && $inventory->foto_barang)
+        <div class="mt-2">
+            <img src="{{ asset('storage/' . $inventory->foto_barang) }}" alt="{{ $inventory->nama_barang }}" class="img-fluid rounded border" style="max-height: 180px; object-fit: cover;">
+        </div>
         <a href="{{ asset('storage/' . $inventory->foto_barang) }}" target="_blank" class="d-inline-block mt-2">Lihat foto saat ini</a>
     @endif
 </div>

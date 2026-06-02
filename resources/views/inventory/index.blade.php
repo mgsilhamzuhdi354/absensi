@@ -54,8 +54,8 @@
                                             <td>{{ ($inventories->currentpage() - 1) * $inventories->perpage() + $key + 1 }}.</td>
                                             <td class="text-center">{{ $inventory->kode_barang ?? '-' }}</td>
                                             <td class="text-center">{{ $inventory->nama_barang ?? '-' }}</td>
-                                            <td class="text-center">{{ $inventory->stok ?? '-' }}</td>
-                                            <td class="text-center">{{ $inventory->uom ?? '-' }}</td>
+                                            <td class="text-center">{{ $inventory->formatted_stock }}</td>
+                                            <td class="text-center">{{ $inventory->display_uom }}</td>
                                             <td>{!! $inventory->desc ? nl2br(e($inventory->desc)) : '-' !!}</td>
                                             <td class="text-center">{{ $inventory->lokasi->nama_lokasi ?? '-' }}</td>
                                             <td class="text-center">{{ $inventory->jabatan->nama_jabatan ?? '-' }}</td>

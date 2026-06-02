@@ -1,5 +1,9 @@
 @extends('templates.dashboard')
 @section('isi')
+    @php
+        $stockSaatIni = (float) ($inventory->stok ?? 0);
+        $canStockOut = floor($stockSaatIni) >= 1;
+    @endphp
     <div class="row">
         <div class="col-md-12 project-list">
             <div class="card">
@@ -59,7 +63,27 @@
                                         </tr>
                                         <tr>
                                             <th>Stok Saat Ini</th>
-                                            <td><strong>{{ number_format($inventory->stok ?? 0, 2) }}</strong> {{ $inventory->uom ?? '' }}</td>
+                                            <td>
+                                                <strong>{{ $inventory->formatted_stock }}</strong>
+                                                <span class="badge bg-light text-dark border">{{ $inventory->display_uom }}</span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Pemegang Saat Ini</th>
+                                            <td>
+                                                @if ($currentHolderTransaction)
+                                                    <strong>{{ $currentHolderTransaction->penerima_barang ?? $currentHolderTransaction->penerima->name ?? '-' }}</strong>
+                                                    <div class="small text-muted">
+                                                        {{ $currentHolderTransaction->jabatan_penerima ?: ($currentHolderTransaction->penerima->Jabatan->nama_jabatan ?? '-') }}
+                                                        @if ($currentHolderTransaction->tanggal_transaksi)
+                                                            <span class="mx-1">|</span> Sejak {{ $currentHolderTransaction->tanggal_transaksi->format('d/m/Y') }}
+                                                        @endif
+                                                        <span class="mx-1">|</span> Jumlah {{ number_format($currentHolderTransaction->jumlah, 0) }} {{ $inventory->display_uom }}
+                                                    </div>
+                                                @else
+                                                    <span class="badge bg-secondary">Belum pindah tangan</span>
+                                                @endif
+                                            </td>
                                         </tr>
                                         <tr>
                                             <th>Kondisi</th>
@@ -169,8 +193,8 @@
                     <h5 class="mb-0">Stok Keluar / Pindah Tangan</h5>
                 </div>
                 <div class="card-body">
-                    @if (($inventory->stok ?? 0) <= 0)
-                        <div class="alert alert-warning">Stok kosong. Stok keluar belum bisa diproses.</div>
+                    @if (!$canStockOut)
+                        <div class="alert alert-warning">Stok tersedia kurang dari 1 {{ $inventory->display_uom }}. Stok keluar / pindah tangan belum bisa diproses.</div>
                     @endif
                     <form method="post" action="{{ url('/inventory/'.$inventory->id.'/stock-out') }}" class="inventory-stock-form">
                         @csrf
@@ -181,12 +205,12 @@
                             </div>
                             <div class="col-md-6 form-group">
                                 <label>Jumlah Keluar</label>
-                                <input type="number" step="0.01" min="0.01" name="jumlah" class="form-control" value="{{ old('jumlah') }}" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }} required>
+                                <input type="number" step="1" min="1" max="{{ floor($stockSaatIni) }}" name="jumlah" class="form-control" value="{{ old('jumlah', $canStockOut ? 1 : '') }}" {{ !$canStockOut ? 'disabled' : '' }} required>
                             </div>
                         </div>
                         <div class="form-group">
                             <label>Pilih Karyawan</label>
-                            <select name="penerima_user_id" id="penerima_user_id" class="form-control selectpicker" data-live-search="true" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>
+                            <select name="penerima_user_id" id="penerima_user_id" class="form-control selectpicker" data-live-search="true" {{ !$canStockOut ? 'disabled' : '' }}>
                                 <option value="">-- Isi manual --</option>
                                 @foreach ($users as $user)
                                     <option value="{{ $user->id }}" data-name="{{ $user->name }}" data-divisi="{{ $user->Jabatan->nama_jabatan ?? '' }}" {{ old('penerima_user_id') == $user->id ? 'selected' : '' }}>{{ $user->name }}</option>
@@ -196,32 +220,32 @@
                         <div class="row">
                             <div class="col-md-4 form-group">
                                 <label>Nama Penerima</label>
-                                <input type="text" name="penerima_barang" id="penerima_barang" class="form-control" value="{{ old('penerima_barang') }}" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>
+                                <input type="text" name="penerima_barang" id="penerima_barang" class="form-control" value="{{ old('penerima_barang') }}" {{ !$canStockOut ? 'disabled' : '' }}>
                             </div>
                             <div class="col-md-4 form-group">
                                 <label>Jabatan</label>
-                                <input type="text" name="jabatan_penerima" id="jabatan_penerima" class="form-control" value="{{ old('jabatan_penerima') }}" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>
+                                <input type="text" name="jabatan_penerima" id="jabatan_penerima" class="form-control" value="{{ old('jabatan_penerima') }}" {{ !$canStockOut ? 'disabled' : '' }}>
                             </div>
                             <div class="col-md-4 form-group">
                                 <label>Divisi</label>
-                                <input type="text" name="departemen_penerima" id="departemen_penerima" class="form-control" value="{{ old('departemen_penerima') }}" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>
+                                <input type="text" name="departemen_penerima" id="departemen_penerima" class="form-control" value="{{ old('departemen_penerima') }}" {{ !$canStockOut ? 'disabled' : '' }}>
                             </div>
                         </div>
                         <div class="form-group">
                             <label>Keperluan Penggunaan</label>
-                            <input type="text" name="keperluan" class="form-control" value="{{ old('keperluan') }}" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>
+                            <input type="text" name="keperluan" class="form-control" value="{{ old('keperluan') }}" {{ !$canStockOut ? 'disabled' : '' }}>
                         </div>
                         <div class="form-group">
                             <label>Kondisi Saat Diserahkan</label>
-                            <input type="text" name="kondisi_barang" class="form-control" value="{{ old('kondisi_barang', $inventory->kondisi) }}" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>
+                            <input type="text" name="kondisi_barang" class="form-control" value="{{ old('kondisi_barang', $inventory->kondisi) }}" {{ !$canStockOut ? 'disabled' : '' }}>
                         </div>
                         <div class="form-group">
                             <label>Catatan</label>
-                            <textarea name="catatan" class="form-control" rows="3" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>{{ old('catatan') }}</textarea>
+                            <textarea name="catatan" class="form-control" rows="3" {{ !$canStockOut ? 'disabled' : '' }}>{{ old('catatan') }}</textarea>
                         </div>
                         <div class="form-group">
                             <div class="form-check">
-                                <input type="checkbox" class="form-check-input" id="buat_bast_otomatis" name="buat_bast_otomatis" value="1" {{ old('buat_bast_otomatis', '1') ? 'checked' : '' }} {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>
+                                <input type="checkbox" class="form-check-input" id="buat_bast_otomatis" name="buat_bast_otomatis" value="1" {{ old('buat_bast_otomatis', '1') ? 'checked' : '' }} {{ !$canStockOut ? 'disabled' : '' }}>
                                 <label for="buat_bast_otomatis" class="form-check-label">
                                     Buat surat BAST otomatis saat pindah tangan
                                 </label>
@@ -229,7 +253,7 @@
                         </div>
                         <div class="form-group">
                             <label>Mengetahui (HRD / Manager)</label>
-                            <select name="known_by_user_id" class="form-control selectpicker" data-live-search="true" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>
+                            <select name="known_by_user_id" class="form-control selectpicker" data-live-search="true" {{ !$canStockOut ? 'disabled' : '' }}>
                                 <option value="">-- Pilih akun HRD / Manager --</option>
                                 @foreach ($users as $user)
                                     <option value="{{ $user->id }}" {{ old('known_by_user_id') == $user->id ? 'selected' : '' }}>
@@ -240,7 +264,7 @@
                         </div>
                         <div class="form-group">
                             <label>Pihak Pertama / IT</label>
-                            <select name="first_party_user_id" class="form-control selectpicker" data-live-search="true" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>
+                            <select name="first_party_user_id" class="form-control selectpicker" data-live-search="true" {{ !$canStockOut ? 'disabled' : '' }}>
                                 <option value="">-- Gunakan admin yang memproses --</option>
                                 @foreach ($users as $user)
                                     <option value="{{ $user->id }}" {{ old('first_party_user_id', auth()->id()) == $user->id ? 'selected' : '' }}>
@@ -249,7 +273,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <button type="submit" class="btn btn-danger" {{ ($inventory->stok ?? 0) <= 0 ? 'disabled' : '' }}>Simpan Pindah Tangan</button>
+                        <button type="submit" class="btn btn-danger" {{ !$canStockOut ? 'disabled' : '' }}>Simpan Pindah Tangan</button>
                     </form>
                 </div>
             </div>

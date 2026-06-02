@@ -41,8 +41,8 @@
                             <td>{{ $loop->iteration }}</td>
                             <td>{{ $inventory->kode_barang ?? '-' }}</td>
                             <td>{{ $inventory->nama_barang ?? '-' }}</td>
-                            <td>{{ $inventory->stok ?? '-' }}</td>
-                            <td>{{ $inventory->uom ?? '-' }}</td>
+                            <td>{{ $inventory->formatted_stock }}</td>
+                            <td>{{ $inventory->display_uom }}</td>
                             <td>{!! $inventory->desc ? nl2br(e($inventory->desc)) : '-' !!}</td>
                             <td>{{ $inventory->lokasi->nama_lokasi ?? '-' }}</td>
                             <td>{{ $inventory->jabatan->nama_jabatan ?? '-' }}</td>

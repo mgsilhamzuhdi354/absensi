@@ -152,10 +152,19 @@ class InventoryController extends Controller
             ->latest('deleted_at')
             ->latest('id')
             ->get();
+        $latestActiveStockTransaction = InventoryStockTransaction::with(['penerima.Jabatan', 'processedBy'])
+            ->where('inventory_id', $inventory->id)
+            ->latest('tanggal_transaksi')
+            ->latest('id')
+            ->first();
+        $isCurrentlyHeld = $latestActiveStockTransaction
+            && $latestActiveStockTransaction->jenis_transaksi === 'keluar'
+            && ($latestActiveStockTransaction->penerima_barang || $latestActiveStockTransaction->penerima_user_id);
+        $currentHolderTransaction = $isCurrentlyHeld ? $latestActiveStockTransaction : null;
         $lokasi = Lokasi::orderBy('nama_lokasi')->get();
         $users = User::with('Jabatan')->orderBy('name')->get();
 
-        return view('inventory.detail', compact('title', 'inventory', 'lokasi', 'users', 'deletedStockTransactions'));
+        return view('inventory.detail', compact('title', 'inventory', 'lokasi', 'users', 'deletedStockTransactions', 'currentHolderTransaction'));
     }
 
     public function scan()
@@ -219,7 +228,7 @@ class InventoryController extends Controller
         $inventory = Inventory::findOrFail($id);
         $validated = $request->validate([
             'tanggal_transaksi' => 'required|date',
-            'jumlah' => 'required|numeric|min:0.01',
+            'jumlah' => 'required|numeric|min:1',
             'penerima_user_id' => 'nullable|exists:users,id',
             'penerima_barang' => 'required_without:penerima_user_id|nullable|string|max:255',
             'jabatan_penerima' => 'nullable|string|max:255',
@@ -450,11 +459,13 @@ class InventoryController extends Controller
             'status_barang' => 'nullable|string|max:255',
             'tanggal_masuk' => 'nullable|date',
             'stok' => 'required|numeric|min:0',
-            'uom' => 'required|string|max:255',
+            'uom' => ['required', 'string', 'max:255', 'not_regex:/^\s*\d+([,.]\d+)?\s*$/'],
             'desc' => 'nullable|string',
             'lokasi_id' => 'required|exists:lokasis,id',
             'jabatan_id' => 'required|exists:jabatans,id',
             'foto_barang' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+        ], [
+            'uom.not_regex' => 'UoM harus berupa nama satuan, contoh Unit, Pcs, Set, Box, bukan angka stok.',
         ]);
 
         unset($validated['foto_barang']);
