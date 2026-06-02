@@ -151,6 +151,39 @@
     .admin-dashboard .footer {
         margin-left: 0 !important;
     }
+
+    /* Keep mobile sidebar as a predictable drawer. */
+    .admin-dashboard .page-wrapper.compact-wrapper .page-body-wrapper div.sidebar-wrapper {
+        height: 100dvh;
+        left: 0;
+        max-width: 320px;
+        top: 0;
+        width: min(84vw, 320px) !important;
+        z-index: 1030;
+    }
+
+    .admin-dashboard .page-wrapper.compact-wrapper .page-body-wrapper div.sidebar-wrapper:not(.close_icon) {
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+    }
+
+    .admin-dashboard .page-wrapper.compact-wrapper .page-body-wrapper div.sidebar-wrapper.close_icon {
+        transform: translateX(-100%) !important;
+    }
+
+    .admin-dashboard .page-wrapper.compact-wrapper .page-body-wrapper div.sidebar-wrapper.close_icon:hover {
+        transform: translateX(-100%) !important;
+    }
+
+    .admin-dashboard .bg-overlay.active {
+        background: rgba(15, 23, 42, 0.42);
+        left: 0;
+        top: 0;
+        z-index: 1020;
+    }
+
+    .admin-dashboard.sidebar-mobile-open {
+        overflow: hidden;
+    }
 }
 
 @media (max-width: 767.98px) {
@@ -360,5 +393,160 @@
     .admin-dashboard .card:hover {
         box-shadow: none !important;
         transform: none !important;
+    }
+}
+
+/* Inventory QR and stock module */
+.admin-dashboard .inventory-page-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.admin-dashboard .inventory-info-responsive {
+    overflow-x: visible;
+}
+
+.admin-dashboard .inventory-info-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.admin-dashboard .inventory-info-table th,
+.admin-dashboard .inventory-info-table td {
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+.admin-dashboard .inventory-qr-image {
+    height: auto;
+    max-width: 260px;
+    width: min(100%, 260px);
+}
+
+.admin-dashboard .inventory-reader {
+    box-sizing: border-box;
+    max-width: 520px;
+    min-height: 320px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.admin-dashboard .inventory-reader video,
+.admin-dashboard .inventory-reader canvas,
+.admin-dashboard .inventory-reader img,
+.admin-dashboard .inventory-reader > div {
+    max-width: 100% !important;
+}
+
+.admin-dashboard .inventory-reader__scan_region,
+.admin-dashboard #reader__scan_region {
+    max-width: 100%;
+}
+
+.admin-dashboard .inventory-reader button,
+.admin-dashboard #reader button {
+    white-space: normal;
+}
+
+.admin-dashboard .inventory-history-table td,
+.admin-dashboard .inventory-history-table th {
+    vertical-align: top;
+}
+
+.admin-dashboard .inventory-history-table form {
+    min-width: 220px;
+}
+
+@media (max-width: 767.98px) {
+    .admin-dashboard .inventory-page-actions {
+        align-items: stretch;
+        flex-direction: column;
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .admin-dashboard .inventory-page-actions .btn {
+        margin-left: 0 !important;
+        width: 100%;
+    }
+
+    .admin-dashboard .inventory-info-responsive > .inventory-info-table {
+        min-width: 0;
+    }
+
+    .admin-dashboard .inventory-info-table th,
+    .admin-dashboard .inventory-info-table td {
+        display: block;
+        padding: 0.55rem 0.65rem;
+        width: 100% !important;
+    }
+
+    .admin-dashboard .inventory-info-table th {
+        background: #f8fafc;
+        border-bottom: 0;
+        font-size: 0.78rem;
+    }
+
+    .admin-dashboard .inventory-qr-image {
+        max-width: 220px;
+    }
+
+    .admin-dashboard .inventory-stock-form .btn {
+        width: 100%;
+    }
+
+    .admin-dashboard .inventory-scan-card .card-header {
+        align-items: stretch !important;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .admin-dashboard .inventory-scan-card .card-header .btn {
+        width: 100%;
+    }
+
+    .admin-dashboard .inventory-reader {
+        min-height: 260px;
+    }
+
+    .admin-dashboard #reader {
+        border-width: 1px !important;
+    }
+
+    .admin-dashboard #reader__dashboard_section,
+    .admin-dashboard #reader__dashboard_section_csr,
+    .admin-dashboard #reader__camera_selection,
+    .admin-dashboard #reader__dashboard_section_swaplink {
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
+
+    .admin-dashboard #manual-scan-form .input-group {
+        align-items: stretch;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .admin-dashboard #manual-scan-form .input-group > .form-control,
+    .admin-dashboard #manual-scan-form .input-group-append,
+    .admin-dashboard #manual-scan-form .btn {
+        border-radius: 6px !important;
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .admin-dashboard .inventory-history-responsive > .inventory-history-table {
+        min-width: 920px;
+    }
+
+    .admin-dashboard .inventory-history-table form .btn,
+    .admin-dashboard .inventory-history-table form .form-control {
+        min-height: 36px;
+        width: 100%;
     }
 }

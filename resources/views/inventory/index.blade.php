@@ -61,6 +61,12 @@
                                             <td class="text-center">{{ $inventory->jabatan->nama_jabatan ?? '-' }}</td>
                                             <td>
                                                 <ul class="action">
+                                                    <li>
+                                                        <a href="{{ url('/inventory/'.$inventory->id.'/detail') }}" title="Detail"><i class="fa fa-solid fa-eye"></i></a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="{{ url('/inventory/'.$inventory->id.'/qr/print') }}" target="_blank" title="Cetak QR"><i class="fa fa-solid fa-qrcode"></i></a>
+                                                    </li>
                                                     <li class="edit">
                                                         <a href="{{ url('/inventory/edit/'.$inventory->id) }}"><i class="fa fa-solid fa-edit"></i></a>
                                                     </li>

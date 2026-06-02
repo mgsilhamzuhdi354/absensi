@@ -488,6 +488,16 @@ Route::post('/rapat-kerja/notulen/{id}', [RapatController::class, 'rapatKerjaNot
 Route::get('/inventory', [InventoryController::class, 'index'])->middleware('admin');
 Route::get('/inventory/tambah', [InventoryController::class, 'tambah'])->middleware('admin');
 Route::post('/inventory/store', [InventoryController::class, 'store'])->middleware('admin');
+Route::get('/inventory/scan', [InventoryController::class, 'scan'])->middleware('admin');
+Route::get('/inventory/scan/lookup', [InventoryController::class, 'scanLookup'])->middleware('admin');
+Route::post('/inventory/transactions/{id}/bast', [InventoryController::class, 'createBast'])->middleware('admin');
+Route::delete('/inventory/transactions/{id}', [InventoryController::class, 'deleteStockTransaction'])->middleware('admin');
+Route::get('/inventory/bast/{id}/download', [InventoryController::class, 'downloadBast'])->middleware('admin');
+Route::get('/inventory/{id}/detail', [InventoryController::class, 'detail'])->middleware('admin');
+Route::post('/inventory/{id}/stock-in', [InventoryController::class, 'stockIn'])->middleware('admin');
+Route::post('/inventory/{id}/stock-out', [InventoryController::class, 'stockOut'])->middleware('admin');
+Route::get('/inventory/{id}/qr/print', [InventoryController::class, 'printQr'])->middleware('admin');
+Route::get('/inventory/{id}/qr/download', [InventoryController::class, 'downloadQr'])->middleware('admin');
 Route::get('/inventory/edit/{id}', [InventoryController::class, 'edit'])->middleware('admin');
 Route::put('/inventory/update/{id}', [InventoryController::class, 'update'])->middleware('admin');
 Route::delete('/inventory/delete/{id}', [InventoryController::class, 'delete'])->middleware('admin');

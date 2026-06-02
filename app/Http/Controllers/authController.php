@@ -210,7 +210,8 @@ class authController extends Controller
 
         date_default_timezone_set('Asia/Jakarta');
         $currentDate = date('Y-m-d');
-        $user = User::where('username', $request['username'])->first();
+        $username = $this->normalizeScannedUsername($request->input('username'));
+        $user = $username ? User::where('username', $username)->first() : null;
         if ($user) {
             $ms = MappingShift::where('user_id', $user->id)->where('tanggal', $currentDate)->first();
             if ($ms) {
@@ -330,7 +331,8 @@ class authController extends Controller
 
         date_default_timezone_set('Asia/Jakarta');
         $currentDate = date('Y-m-d');
-        $user = User::where('username', $request['username'])->first();
+        $username = $this->normalizeScannedUsername($request->input('username'));
+        $user = $username ? User::where('username', $username)->first() : null;
         if ($user) {
             $ms = MappingShift::where('user_id', $user->id)->where('tanggal', $currentDate)->first();
             if ($ms) {
@@ -493,7 +495,8 @@ class authController extends Controller
 
         date_default_timezone_set('Asia/Jakarta');
         $currentDate = date('Y-m-d');
-        $user = User::where('username', $request['username'])->first();
+        $username = $this->normalizeScannedUsername($request->input('username'));
+        $user = $username ? User::where('username', $username)->first() : null;
         if ($user) {
             $ms = MappingShift::where('user_id', $user->id)->where('tanggal', $currentDate)->first();
             if ($ms) {
@@ -684,7 +687,8 @@ class authController extends Controller
 
         date_default_timezone_set('Asia/Jakarta');
         $currentDate = date('Y-m-d');
-        $user = User::where('username', $request['username'])->first();
+        $username = $this->normalizeScannedUsername($request->input('username'));
+        $user = $username ? User::where('username', $username)->first() : null;
         if ($user) {
             $ms = MappingShift::where('user_id', $user->id)->where('tanggal', $currentDate)->first();
             if ($ms) {
@@ -836,6 +840,36 @@ class authController extends Controller
         } else {
             return $miles;
         }
+    }
+
+    private function normalizeScannedUsername($value)
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return '';
+        }
+
+        if (filter_var($value, FILTER_VALIDATE_URL)) {
+            $query = parse_url($value, PHP_URL_QUERY);
+            if ($query) {
+                parse_str($query, $params);
+                foreach (['username', 'user', 'code'] as $key) {
+                    if (!empty($params[$key])) {
+                        return trim((string) $params[$key]);
+                    }
+                }
+            }
+
+            $path = parse_url($value, PHP_URL_PATH);
+            if ($path) {
+                $segments = array_values(array_filter(explode('/', trim($path, '/'))));
+                if (!empty($segments)) {
+                    return trim((string) end($segments));
+                }
+            }
+        }
+
+        return $value;
     }
 
     public function switch(Request $request, $id)

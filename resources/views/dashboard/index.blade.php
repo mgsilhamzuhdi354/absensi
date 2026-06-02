@@ -298,7 +298,9 @@
                   <h6 class="mb-0 text-white"><i class="fa fa-trophy me-2"></i>Top 10 Pegawai dengan Kinerja Terbaik</h6>
                 </div>
                 <div class="card-body">
-                  <div id="topPerformersChart" style="min-height: 400px;"></div>
+                  <div class="top-performers-chart-wrap">
+                    <div id="topPerformersChart" style="min-height: 400px;"></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -585,18 +587,45 @@
         kpiTrendChart.render();
         
         // 3. Top 10 Performers Horizontal Bar Chart
+        var topPerformerNames = [
+          @foreach($top_performers as $performer)
+            @json($performer->name ?? '-'),
+          @endforeach
+        ];
+
+        var topPerformerScores = [
+          @foreach($top_performers as $performer)
+            {{ $performer->kpi_score ?? 0 }},
+          @endforeach
+        ].map(function(score) {
+          return Number(score) || 0;
+        });
+
+        var hasPositiveTopPerformerScore = topPerformerScores.some(function(score) {
+          return score > 0;
+        });
+
+        var maxTopPerformerScore = topPerformerScores.length
+          ? Math.max.apply(null, topPerformerScores)
+          : 0;
+
+        var topPerformerChartHeight = Math.max(400, topPerformerNames.length * 44);
+
+        function truncatePerformerName(name) {
+          var safeName = String(name || '-').trim();
+          return safeName.length > 26 ? safeName.substring(0, 23) + '...' : safeName;
+        }
+
+        var topPerformerCategoryLabels = topPerformerNames.map(truncatePerformerName);
+
         var topPerformersOptions = {
           series: [{
             name: 'Skor KPI',
-            data: [
-              @foreach($top_performers as $performer)
-                {{ $performer->kpi_score ?? 0 }},
-              @endforeach
-            ]
+            data: topPerformerScores
           }],
           chart: {
             type: 'bar',
-            height: 400,
+            height: topPerformerChartHeight,
             toolbar: {
               show: false
             },
@@ -609,11 +638,11 @@
           plotOptions: {
             bar: {
               horizontal: true,
-              barHeight: '70%',
+              barHeight: '58%',
               borderRadius: 6,
               distributed: true,
               dataLabels: {
-                position: 'right'
+                position: 'top'
               }
             }
           },
@@ -621,6 +650,9 @@
           dataLabels: {
             enabled: true,
             formatter: function(val, opts) {
+              if (Number(val) <= 0) {
+                return '';
+              }
               return val + ' poin';
             },
             style: {
@@ -628,33 +660,46 @@
               fontWeight: 700,
               colors: ['#1e293b']
             },
-            offsetX: 10
+            textAnchor: 'start',
+            offsetX: 8
           },
           legend: {
             show: false
           },
           xaxis: {
-            categories: [
-              @foreach($top_performers as $performer)
-                '{{ $performer->name }}',
-              @endforeach
-            ],
+            categories: topPerformerCategoryLabels,
+            min: 0,
+            max: hasPositiveTopPerformerScore ? Math.ceil(maxTopPerformerScore * 1.15) : 1,
             labels: {
               formatter: function(val) {
                 return val.toFixed(0);
+              },
+              style: {
+                colors: '#64748b'
               }
             }
           },
           yaxis: {
             labels: {
+              formatter: function(val, opts) {
+                if (!opts || typeof opts.dataPointIndex === 'undefined') {
+                  return val;
+                }
+                return topPerformerCategoryLabels[opts.dataPointIndex] || val;
+              },
               style: {
                 fontSize: '12px',
                 fontWeight: 500
               },
-              maxWidth: 200
+              maxWidth: 280
             }
           },
           tooltip: {
+            x: {
+              formatter: function(_, opts) {
+                return topPerformerNames[opts.dataPointIndex] || '-';
+              }
+            },
             y: {
               formatter: function(val) {
                 return val + ' poin';
@@ -662,7 +707,61 @@
             }
           },
           grid: {
-            borderColor: '#e9ecef'
+            borderColor: '#e9ecef',
+            padding: {
+              left: 8,
+              right: 24
+            }
+          },
+          responsive: [{
+            breakpoint: 992,
+            options: {
+              chart: {
+                height: Math.max(420, topPerformerNames.length * 46)
+              },
+              plotOptions: {
+                bar: {
+                  barHeight: '52%'
+                }
+              },
+              yaxis: {
+                labels: {
+                  maxWidth: 190,
+                  style: {
+                    fontSize: '11px'
+                  }
+                }
+              },
+              dataLabels: {
+                offsetX: 6,
+                style: {
+                  fontSize: '11px'
+                }
+              }
+            }
+          }, {
+            breakpoint: 576,
+            options: {
+              chart: {
+                height: Math.max(380, topPerformerNames.length * 42)
+              },
+              yaxis: {
+                labels: {
+                  maxWidth: 140
+                }
+              },
+              dataLabels: {
+                offsetX: 4,
+                style: {
+                  fontSize: '10px'
+                }
+              },
+              xaxis: {
+                labels: {
+                  show: false
+                }
+              }
+            }
           }
         };
         
@@ -1121,6 +1220,10 @@
         background: rgba(255, 255, 255, 0.2) !important;
         backdrop-filter: blur(10px);
       }
+
+      .top-performers-chart-wrap {
+        width: 100%;
+      }
       
       /* Responsive adjustments */
       @media (max-width: 767.98px) {
@@ -1141,6 +1244,10 @@
         
         .stat-number {
           font-size: 1.5rem;
+        }
+
+        .top-performers-chart-wrap {
+          overflow-x: auto;
         }
       }
     </style>

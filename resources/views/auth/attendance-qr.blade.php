@@ -250,6 +250,29 @@
             display: none;
         }
 
+        .scanner-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .scanner-controls .btn {
+            flex: 1;
+        }
+
+        .manual-form {
+            display: none;
+            margin-bottom: 15px;
+        }
+
+        .manual-form .form-control {
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 10px 12px;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
         @media (max-width: 450px) {
             .attendance-card {
                 padding: 20px 18px;
@@ -284,6 +307,22 @@
                 <div class="scan-line"></div>
             </div>
 
+            <div class="scanner-controls">
+                <button class="btn btn-masuk" type="button" id="startScannerBtn">
+                    <i class="fas fa-camera"></i> Mulai Kamera
+                </button>
+                <button class="btn btn-pulang" type="button" id="toggleManualBtn">
+                    <i class="fas fa-keyboard"></i> Input Manual
+                </button>
+            </div>
+
+            <form id="manualScanForm" class="manual-form">
+                <input type="text" id="manualUsername" class="form-control" placeholder="Masukkan username / isi QR">
+                <button class="btn btn-masuk" type="submit">
+                    <i class="fas fa-check"></i> Gunakan Data Ini
+                </button>
+            </form>
+
             <div id="scannedUserInfo" class="scanned-user hidden">
                 <div class="name" id="scannedName">-</div>
                 <div class="username" id="scannedUsername">-</div>
@@ -310,6 +349,7 @@
     <script>
         let scannedUsername = '';
         let html5QrcodeScanner = null;
+        let scannerStarted = false;
 
         // Get GPS Location
         function getLocation() {
@@ -334,21 +374,59 @@
             statusMsg.className = 'status-message status-' + type;
         }
 
+        function normalizeUsername(value) {
+            const raw = String(value || '').trim();
+            if (!raw) {
+                return '';
+            }
+
+            try {
+                const asUrl = new URL(raw);
+                const usernameParam = asUrl.searchParams.get('username') || asUrl.searchParams.get('user') || asUrl.searchParams.get('code');
+                if (usernameParam) {
+                    return String(usernameParam).trim();
+                }
+
+                const segments = asUrl.pathname.split('/').filter(Boolean);
+                if (segments.length) {
+                    return String(segments[segments.length - 1]).trim();
+                }
+            } catch (e) {}
+
+            return raw;
+        }
+
+        function showScannedUser(username, fromManual) {
+            scannedUsername = normalizeUsername(username);
+            if (!scannedUsername) {
+                showStatus('Isi QR tidak valid. Coba scan ulang atau input manual.', 'error');
+                return false;
+            }
+
+            document.getElementById('scannedName').textContent = 'Username: ' + scannedUsername;
+            document.getElementById('scannedUsername').textContent = fromManual
+                ? 'Data dimasukkan manual'
+                : 'QR Code berhasil di-scan';
+            document.getElementById('scannedUserInfo').classList.remove('hidden');
+            document.getElementById('actionButtons').classList.remove('hidden');
+
+            showStatus('Data terdeteksi. Pilih jenis absen.', 'info');
+
+            return true;
+        }
+
         function onScanSuccess(decodedText, decodedResult) {
             // Stop scanner temporarily
             if (html5QrcodeScanner) {
                 html5QrcodeScanner.pause();
             }
 
-            scannedUsername = decodedText;
-
-            // Show user info
-            document.getElementById('scannedName').textContent = 'Username: ' + decodedText;
-            document.getElementById('scannedUsername').textContent = 'QR Code berhasil di-scan';
-            document.getElementById('scannedUserInfo').classList.remove('hidden');
-            document.getElementById('actionButtons').classList.remove('hidden');
-
-            showStatus('QR Code terdeteksi! Pilih jenis absen.', 'info');
+            if (!showScannedUser(decodedText, false)) {
+                if (html5QrcodeScanner) {
+                    html5QrcodeScanner.resume();
+                }
+                return;
+            }
 
             // Play beep sound
             const beep = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleIb2a36b+olybWmJ85l8e5OOkHtreHR0gY6VjZWKi2tubXh2eH+ViIR/c3Jxf4+JhI5/dW5ycHqAdJVvcnRudn5ydo51d3BzaGhlbXN5gXx5dW5mb3N2fnt7dG9qam1zdXt8d3RubGxucXd3fnp2cW5rb3JzdXZ2c3BtbG5wcnd3d3Rwbm1tb3Fzc3NycG5tbm9wcnNzcHBub25vcHFycnFwb25ub29wcXFxcHBvb29vcHBwcHBwb29vb29wcHBwcG9vb29vb3BwcHBwb29vb29vb3BwcHBvb29vb29vcHBwcHBvb29vb29vcHBwcHBvb29vb29vb3BwcHBwb29vb29vb29wcHBw');
@@ -445,26 +523,87 @@
             }
         }
 
-        // Initialize scanner
-        document.addEventListener('DOMContentLoaded', function () {
-            html5QrcodeScanner = new Html5Qrcode("reader");
+        async function startScanner() {
+            if (!window.isSecureContext) {
+                showStatus('Kamera hanya bisa dipakai pada koneksi HTTPS.', 'error');
+                return;
+            }
 
-            html5QrcodeScanner.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 200, height: 200 } },
-                onScanSuccess,
-                onScanFailure
-            ).catch(err => {
-                // Try front camera if back camera fails
-                html5QrcodeScanner.start(
-                    { facingMode: "user" },
-                    { fps: 10, qrbox: { width: 200, height: 200 } },
-                    onScanSuccess,
-                    onScanFailure
-                ).catch(err2 => {
-                    showStatus('Tidak dapat mengakses kamera: ' + err2.message, 'error');
-                });
+            if (typeof Html5Qrcode === 'undefined') {
+                showStatus('Library scanner gagal dimuat. Refresh halaman lalu coba lagi.', 'error');
+                return;
+            }
+
+            try {
+                if (!html5QrcodeScanner) {
+                    html5QrcodeScanner = new Html5Qrcode("reader");
+                }
+
+                showStatus('Menyalakan kamera...', 'loading');
+                const cameras = await Html5Qrcode.getCameras();
+                const preferredCamera = Array.isArray(cameras)
+                    ? (cameras.find(camera => /back|rear|environment/i.test(camera.label || '')) || cameras[0])
+                    : null;
+
+                const config = { fps: 10, qrbox: { width: 200, height: 200 } };
+
+                if (preferredCamera && preferredCamera.id) {
+                    await html5QrcodeScanner.start({ deviceId: { exact: preferredCamera.id } }, config, onScanSuccess, onScanFailure);
+                } else {
+                    await html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure);
+                }
+
+                scannerStarted = true;
+                showStatus('Kamera aktif. Arahkan ke QR Code pegawai.', 'info');
+            } catch (primaryError) {
+                try {
+                    if (html5QrcodeScanner) {
+                        await html5QrcodeScanner.start(
+                            { facingMode: "user" },
+                            { fps: 10, qrbox: { width: 200, height: 200 } },
+                            onScanSuccess,
+                            onScanFailure
+                        );
+                        scannerStarted = true;
+                        showStatus('Kamera depan aktif. Silakan scan QR.', 'info');
+                        return;
+                    }
+                } catch (fallbackError) {}
+
+                scannerStarted = false;
+                showStatus('Tidak dapat mengakses kamera. Gunakan input manual.', 'error');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const startButton = document.getElementById('startScannerBtn');
+            const toggleManualButton = document.getElementById('toggleManualBtn');
+            const manualForm = document.getElementById('manualScanForm');
+            const manualUsernameInput = document.getElementById('manualUsername');
+
+            startButton.addEventListener('click', async function () {
+                if (html5QrcodeScanner && scannerStarted) {
+                    await html5QrcodeScanner.stop().catch(() => {});
+                    scannerStarted = false;
+                }
+                startScanner();
             });
+
+            toggleManualButton.addEventListener('click', function () {
+                const isHidden = manualForm.style.display === '' || manualForm.style.display === 'none';
+                manualForm.style.display = isHidden ? 'block' : 'none';
+                if (isHidden) {
+                    manualUsernameInput.focus();
+                }
+            });
+
+            manualForm.addEventListener('submit', function (event) {
+                event.preventDefault();
+                const manualValue = manualUsernameInput.value;
+                showScannedUser(manualValue, true);
+            });
+
+            startScanner();
         });
     </script>
 @endsection

@@ -10,6 +10,11 @@ class Inventory extends Model
     use HasFactory;
     protected $guarded = ["id"];
 
+    protected $casts = [
+        'stok' => 'float',
+        'tanggal_masuk' => 'date',
+    ];
+
     public function lokasi()
     {
         return $this->belongsTo(Lokasi::class, 'lokasi_id');
@@ -18,5 +23,10 @@ class Inventory extends Model
     public function jabatan()
     {
         return $this->belongsTo(Jabatan::class, 'jabatan_id');
+    }
+
+    public function stockTransactions()
+    {
+        return $this->hasMany(InventoryStockTransaction::class)->latest('tanggal_transaksi')->latest('id');
     }
 }

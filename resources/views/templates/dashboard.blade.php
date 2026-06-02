@@ -412,9 +412,12 @@
                     @endif
 
                     @if(auth()->user()->hasRole('admin'))
-                      <li class="sidebar-list">
-                        <a class="sidebar-link sidebar-title link-nav" href="{{ url('/inventory') }}"><i
-                            data-feather="git-merge"> </i><span>Inventory</span></a>
+                      <li class="sidebar-list"><a class="sidebar-link sidebar-title {{ Request::is('inventory*') ? 'active' : '' }}"
+                          href="javascript:void(0)"><i data-feather="git-merge"> </i><span>Inventory</span></a>
+                        <ul class="sidebar-submenu">
+                          <li><a href="{{ url('/inventory') }}">Data Barang</a></li>
+                          <li><a href="{{ url('/inventory/scan') }}">Scan Barang</a></li>
+                        </ul>
                       </li>
                     @endif
 
@@ -817,27 +820,65 @@
   @stack('script')
   @include('sweetalert::alert')
   <script>
-    // Custom Sidebar Toggle Handler - Ensures gear icon works and saves preference
+    // Mobile sidebar guard: keep drawer state consistent and prevent content overlap on small screens.
     $(document).ready(function () {
-      // Load saved preference first
-      var savedState = localStorage.getItem('sidebar-collapsed');
-      if (savedState === 'true') {
-        $('.sidebar-wrapper').addClass('close_icon');
-        $('.page-header').addClass('close_icon');
-      } else if (savedState === 'false') {
-        $('.sidebar-wrapper').removeClass('close_icon');
-        $('.page-header').removeClass('close_icon');
+      var $body = $('body');
+      var $sidebar = $('.sidebar-wrapper');
+      var $header = $('.page-header');
+
+      function isMobileViewport() {
+        return window.matchMedia('(max-width: 991.98px)').matches;
       }
 
-      // Handle toggle click
-      $('.toggle-sidebar').off('click').on('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        $('.sidebar-wrapper').toggleClass('close_icon');
-        $('.page-header').toggleClass('close_icon');
-        // Save state
-        var isCollapsed = $('.sidebar-wrapper').hasClass('close_icon');
-        localStorage.setItem('sidebar-collapsed', isCollapsed.toString());
+      function syncMobileSidebarState() {
+        if (!isMobileViewport()) {
+          $body.removeClass('sidebar-mobile-open');
+          return;
+        }
+
+        var isOpen = !$sidebar.hasClass('close_icon');
+        $body.toggleClass('sidebar-mobile-open', isOpen);
+      }
+
+      function closeSidebarForMobile() {
+        if (!isMobileViewport()) {
+          return;
+        }
+
+        $sidebar.addClass('close_icon');
+        $header.addClass('close_icon');
+        localStorage.setItem('sidebar-collapsed', 'true');
+        $('.bg-overlay').remove();
+        syncMobileSidebarState();
+      }
+
+      // Mobile first-load: always begin in closed state for readability.
+      closeSidebarForMobile();
+
+      // Keep drawer state valid on rotate/resize.
+      $(window).on('resize.adminMobileSidebar', function () {
+        if (isMobileViewport()) {
+          closeSidebarForMobile();
+        } else {
+          $body.removeClass('sidebar-mobile-open');
+        }
+      });
+
+      // Sync body class after user toggles drawer.
+      $(document).on('click', '.toggle-sidebar, .sidebar-wrapper .back-btn', function () {
+        setTimeout(syncMobileSidebarState, 40);
+      });
+
+      // Ensure overlay click fully closes the drawer.
+      $(document).on('click', '.bg-overlay', function () {
+        setTimeout(closeSidebarForMobile, 0);
+      });
+
+      // After choosing menu destination on mobile, close drawer automatically.
+      $('.sidebar-wrapper').on('click', 'a.sidebar-link.link-nav, .sidebar-submenu a', function () {
+        if (isMobileViewport()) {
+          setTimeout(closeSidebarForMobile, 60);
+        }
       });
     });
   </script>
