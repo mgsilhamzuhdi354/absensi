@@ -170,6 +170,68 @@ class SmartAbsenParserTest extends TestCase
     }
 
     /** @test */
+    public function it_does_not_treat_attendance_analysis_summary_columns_as_event_log(): void
+    {
+        $parser = new SmartAbsenParser();
+        $users = $this->users([
+            ['id' => 5, 'name' => 'MGS ILHAM ZUHDI', 'username' => 'mgs'],
+        ]);
+        $rows = [
+            ['Analisa Kehadiran'],
+            ['Tanggal Statistik:2026-06-01~2026-06-02'],
+            [
+                'User ID.',
+                'Nama',
+                'Departemen',
+                'Jam Kerja',
+                'Jam Kerja',
+                'Terlambat Masuk',
+                'Terlambat Masuk',
+                'Keluar Lebih Awal',
+                'Keluar Lebih Awal',
+                'Jam Kerja Lembur',
+                'Jam Kerja Lembur',
+                'Hari Kehadiran (Standar/Aktual)',
+                'Perjalanan Bisnis (hari)',
+                'Tidak hadir (hari)',
+                'Cuti (hari)',
+                'Presentase Kehadiran',
+            ],
+            [
+                '',
+                '',
+                '',
+                'Standar',
+                'Aktual',
+                'Kali',
+                'Menit',
+                'Kali',
+                'Menit',
+                'Normal',
+                'Khusus',
+                '',
+                '',
+                '',
+                '',
+                '',
+            ],
+            ['1', 'mgs ilham zuhdi', 'it', '18,0', '0,0', '0', '0', '0', '0', '0,0', '0,0', '2/0', '0', '2', '0', '-'],
+        ];
+
+        $headerRow = $parser->findHeaderRow($rows);
+        $columnMap = $parser->detectColumns($rows[$headerRow]);
+        $result = $parser->processRows($rows, $headerRow, $columnMap, $users, 1, '08:00:00', '17:00:00');
+
+        $this->assertNull($columnMap['jam']);
+        $this->assertCount(2, $result);
+        $this->assertSame('attendance_analysis', $result[0]['source_format']);
+        $this->assertSame('2026-06-01', $result[0]['tanggal']);
+        $this->assertSame('2026-06-02', $result[1]['tanggal']);
+        $this->assertSame('Tidak Masuk', $result[0]['status_absen']);
+        $this->assertTrue($result[0]['valid']);
+    }
+
+    /** @test */
     public function it_parses_wide_personal_attendance_blocks_with_daily_scan_times(): void
     {
         $parser = new SmartAbsenParser();

@@ -135,6 +135,20 @@ class SmartAbsenParser
                         )) {
                             continue;
                         }
+                        if ($key === 'jam_masuk' && str_contains($headerLower, 'terlambat')) {
+                            continue;
+                        }
+                        if ($key === 'jam_pulang' && str_contains($headerLower, 'lebih awal')) {
+                            continue;
+                        }
+                        if ($key === 'jam' && (
+                            str_contains($headerLower, 'jam kerja')
+                            || str_contains($headerLower, 'lembur')
+                            || str_contains($headerLower, 'terlambat')
+                            || str_contains($headerLower, 'pulang lebih awal')
+                        )) {
+                            continue;
+                        }
                         if (str_contains($headerLower, $keyword)) {
                             $detected[$key] = $colIndex;
                             break;
@@ -819,6 +833,10 @@ class SmartAbsenParser
 
     private function looksLikeEventLog(array $columnMap): bool
     {
+        if ($this->hasAttendanceAnalysisColumns($columnMap)) {
+            return false;
+        }
+
         $hasSingleTime = ($columnMap['datetime'] ?? null) !== null || (
             ($columnMap['tanggal'] ?? null) !== null
             && ($columnMap['jam'] ?? null) !== null
@@ -1029,9 +1047,14 @@ class SmartAbsenParser
     {
         return !empty($reportDateRange)
             && (($columnMap['nama'] ?? null) !== null || ($columnMap['employee_id'] ?? null) !== null)
-            && (($columnMap['hari_kehadiran'] ?? null) !== null || ($columnMap['tidak_hadir'] ?? null) !== null || ($columnMap['cuti'] ?? null) !== null)
-            && ($columnMap['tanggal'] ?? null) === null
-            && ($columnMap['datetime'] ?? null) === null;
+            && $this->hasAttendanceAnalysisColumns($columnMap);
+    }
+
+    private function hasAttendanceAnalysisColumns(array $columnMap): bool
+    {
+        return ($columnMap['hari_kehadiran'] ?? null) !== null
+            || ($columnMap['tidak_hadir'] ?? null) !== null
+            || ($columnMap['cuti'] ?? null) !== null;
     }
 
     private function valueAt(array $row, ?int $index): string
