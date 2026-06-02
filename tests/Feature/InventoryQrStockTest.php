@@ -197,7 +197,7 @@ class InventoryQrStockTest extends TestCase
     /** @test */
     public function stock_in_increases_stock_and_records_history()
     {
-        $inventory = Inventory::create($this->inventoryPayload(['stok' => 10]));
+        $inventory = Inventory::create($this->inventoryPayload(['stok' => 10, 'uom' => 'Kg']));
 
         $response = $this->actingAs($this->admin)->post('/inventory/' . $inventory->id . '/stock-in', [
             'tanggal_transaksi' => '2026-05-29',
@@ -217,6 +217,35 @@ class InventoryQrStockTest extends TestCase
             'stok_sesudah' => 12.5,
             'diproses_oleh' => $this->admin->id,
         ]);
+    }
+
+    /** @test */
+    public function stock_in_rejects_fractional_quantity_for_unit_items()
+    {
+        $inventory = Inventory::create($this->inventoryPayload(['stok' => 1, 'uom' => 'Unit']));
+
+        $response = $this->actingAs($this->admin)->post('/inventory/' . $inventory->id . '/stock-in', [
+            'tanggal_transaksi' => '2026-05-29',
+            'jumlah' => 0.95,
+            'sumber_barang' => 'Supplier A',
+            'kondisi_barang' => 'Baik',
+        ]);
+
+        $response->assertSessionHasErrors('jumlah');
+        $this->assertSame(1.0, (float) $inventory->fresh()->stok);
+        $this->assertSame(0, InventoryStockTransaction::count());
+    }
+
+    /** @test */
+    public function initial_stock_must_be_whole_number_for_unit_items()
+    {
+        $response = $this->actingAs($this->admin)->post('/inventory/store', $this->inventoryPayload([
+            'stok' => 1.95,
+            'uom' => 'Unit',
+        ]));
+
+        $response->assertSessionHasErrors('stok');
+        $this->assertSame(0, Inventory::count());
     }
 
     /** @test */

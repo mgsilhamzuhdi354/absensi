@@ -16,6 +16,9 @@ class InventoryStockService
             $locked = Inventory::whereKey($inventory->id)->lockForUpdate()->firstOrFail();
             $jumlah = $this->normalizeQuantity($data['jumlah']);
             $stokSebelum = (float) ($locked->stok ?? 0);
+
+            $this->ensureWholeQuantityForCountableStock($locked, $jumlah);
+
             $stokSesudah = $stokSebelum + $jumlah;
 
             $locked->update([
@@ -47,11 +50,7 @@ class InventoryStockService
             $jumlah = $this->normalizeQuantity($data['jumlah']);
             $stokSebelum = (float) ($locked->stok ?? 0);
 
-            if (!$this->isWholeQuantity($jumlah)) {
-                throw ValidationException::withMessages([
-                    'jumlah' => 'Jumlah pindah tangan harus angka bulat. Barang seperti laptop tidak boleh dikurangi sebagian.',
-                ]);
-            }
+            $this->ensureWholeQuantityForCountableStock($locked, $jumlah);
 
             if ($stokSebelum <= 0) {
                 throw ValidationException::withMessages([
@@ -103,5 +102,14 @@ class InventoryStockService
     private function isWholeQuantity(float $quantity): bool
     {
         return abs($quantity - round($quantity)) < 0.000001;
+    }
+
+    private function ensureWholeQuantityForCountableStock(Inventory $inventory, float $quantity): void
+    {
+        if ($inventory->usesWholeStock() && !$this->isWholeQuantity($quantity)) {
+            throw ValidationException::withMessages([
+                'jumlah' => 'Jumlah untuk satuan ' . $inventory->display_uom . ' harus angka bulat. Barang satuan tidak boleh memakai desimal.',
+            ]);
+        }
     }
 }

@@ -3,6 +3,8 @@
     @php
         $stockSaatIni = (float) ($inventory->stok ?? 0);
         $canStockOut = floor($stockSaatIni) >= 1;
+        $wholeStockStep = $inventory->usesWholeStock() ? '1' : '0.01';
+        $minimumStockQuantity = $inventory->usesWholeStock() ? '1' : '0.01';
     @endphp
     <div class="row">
         <div class="col-md-12 project-list">
@@ -155,7 +157,7 @@
                             </div>
                             <div class="col-md-6 form-group">
                                 <label>Jumlah Masuk</label>
-                                <input type="number" step="0.01" min="0.01" name="jumlah" class="form-control" value="{{ old('jumlah') }}" required>
+                                <input type="number" step="{{ $wholeStockStep }}" min="{{ $minimumStockQuantity }}" name="jumlah" class="form-control" value="{{ old('jumlah') }}" required>
                             </div>
                         </div>
                         <div class="form-group">

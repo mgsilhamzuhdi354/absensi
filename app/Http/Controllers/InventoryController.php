@@ -468,6 +468,12 @@ class InventoryController extends Controller
             'uom.not_regex' => 'UoM harus berupa nama satuan, contoh Unit, Pcs, Set, Box, bukan angka stok.',
         ]);
 
+        if (Inventory::isWholeStockUom($validated['uom']) && !$this->isWholeNumber($validated['stok'])) {
+            throw ValidationException::withMessages([
+                'stok' => 'Stok untuk satuan ' . $validated['uom'] . ' harus angka bulat. Gunakan satuan seperti Kg/Liter/Meter jika memang perlu stok desimal.',
+            ]);
+        }
+
         unset($validated['foto_barang']);
 
         if ($request->hasFile('foto_barang')) {
@@ -478,6 +484,13 @@ class InventoryController extends Controller
         }
 
         return $validated;
+    }
+
+    private function isWholeNumber($value): bool
+    {
+        $number = (float) $value;
+
+        return abs($number - round($number)) < 0.000001;
     }
 
     private function syncInventoryChangesToStockHistory(Inventory $inventory, $oldCondition)

@@ -44,4 +44,27 @@ class Inventory extends Model
 
         return $uom !== '' ? $uom : 'Unit';
     }
+
+    public function usesWholeStock(): bool
+    {
+        return self::isWholeStockUom($this->uom);
+    }
+
+    public static function isWholeStockUom($uom): bool
+    {
+        $normalized = strtolower(trim((string) $uom));
+        $normalized = preg_replace('/[^a-z0-9]+/', '', $normalized) ?? '';
+
+        return in_array($normalized, [
+            'unit',
+            'pcs',
+            'pc',
+            'piece',
+            'pieces',
+            'set',
+            'box',
+            'pack',
+            'buah',
+        ], true);
+    }
 }
