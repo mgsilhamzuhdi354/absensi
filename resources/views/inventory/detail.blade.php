@@ -1,10 +1,13 @@
 @extends('templates.dashboard')
 @section('isi')
     @php
-        $stockSaatIni = (float) ($inventory->stok ?? 0);
-        $canStockOut = floor($stockSaatIni) >= 1;
+        $stockSaatIni = (float) $inventory->stock_quantity;
         $wholeStockStep = $inventory->usesWholeStock() ? '1' : '0.01';
         $minimumStockQuantity = $inventory->usesWholeStock() ? '1' : '0.01';
+        $canStockOut = $stockSaatIni >= (float) $minimumStockQuantity;
+        $maxStockQuantity = $inventory->usesWholeStock()
+            ? (string) (int) $stockSaatIni
+            : $inventory->formatStockValue($stockSaatIni);
     @endphp
     <div class="row">
         <div class="col-md-12 project-list">
@@ -80,7 +83,7 @@
                                                         @if ($currentHolderTransaction->tanggal_transaksi)
                                                             <span class="mx-1">|</span> Sejak {{ $currentHolderTransaction->tanggal_transaksi->format('d/m/Y') }}
                                                         @endif
-                                                        <span class="mx-1">|</span> Jumlah {{ number_format($currentHolderTransaction->jumlah, 0) }} {{ $inventory->display_uom }}
+                                                        <span class="mx-1">|</span> Jumlah {{ $inventory->formatStockValue($currentHolderTransaction->jumlah) }} {{ $inventory->display_uom }}
                                                     </div>
                                                 @else
                                                     <span class="badge bg-secondary">Belum pindah tangan</span>
@@ -207,7 +210,7 @@
                             </div>
                             <div class="col-md-6 form-group">
                                 <label>Jumlah Keluar</label>
-                                <input type="number" step="1" min="1" max="{{ floor($stockSaatIni) }}" name="jumlah" class="form-control" value="{{ old('jumlah', $canStockOut ? 1 : '') }}" {{ !$canStockOut ? 'disabled' : '' }} required>
+                                <input type="number" step="{{ $wholeStockStep }}" min="{{ $minimumStockQuantity }}" max="{{ $maxStockQuantity }}" name="jumlah" class="form-control" value="{{ old('jumlah', $canStockOut ? $minimumStockQuantity : '') }}" {{ !$canStockOut ? 'disabled' : '' }} required>
                             </div>
                         </div>
                         <div class="form-group">
@@ -314,9 +317,9 @@
                                                 {{ ucfirst($transaction->jenis_transaksi) }}
                                             @endif
                                         </td>
-                                        <td>{{ number_format($transaction->jumlah, 2) }}</td>
-                                        <td>{{ number_format($transaction->stok_sebelum, 2) }}</td>
-                                        <td>{{ number_format($transaction->stok_sesudah, 2) }}</td>
+                                        <td>{{ $inventory->formatStockValue($transaction->jumlah) }}</td>
+                                        <td>{{ $inventory->formatStockValue($transaction->stok_sebelum) }}</td>
+                                        <td>{{ $inventory->formatStockValue($transaction->stok_sesudah) }}</td>
                                         <td>{{ $transaction->processedBy->name ?? '-' }}</td>
                                         <td>
                                             @if ($transaction->jenis_transaksi === 'keluar')
@@ -421,7 +424,7 @@
                                                 {{ ucfirst($transaction->jenis_transaksi) }}
                                             @endif
                                         </td>
-                                        <td>{{ number_format($transaction->jumlah, 2) }}</td>
+                                        <td>{{ $inventory->formatStockValue($transaction->jumlah) }}</td>
                                         <td>{{ $transaction->processedBy->name ?? '-' }}</td>
                                         <td>
                                             @if ($transaction->jenis_transaksi === 'keluar')

@@ -269,6 +269,7 @@
                 <th style="width: 45px;">NO</th>
                 <th>JENIS BARANG</th>
                 <th>SPESIFIKASI & SERIAL NUMBER (SN)</th>
+                <th style="width: 85px;">JUMLAH</th>
                 <th style="width: 120px;">KONDISI</th>
             </tr>
         </thead>
@@ -281,6 +282,7 @@
                     SN: {{ $inventory->serial_number ?: '-' }}<br>
                     Spesifikasi: {{ $inventory->spesifikasi ?: $inventory->desc ?: '-' }}
                 </td>
+                <td class="center">{{ $inventory->formatStockValue($transaction->jumlah) }} {{ $inventory->display_uom }}</td>
                 <td>{{ $transaction->kondisi_barang ?: $inventory->kondisi ?: '-' }}</td>
             </tr>
         </tbody>

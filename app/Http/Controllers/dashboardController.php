@@ -28,13 +28,23 @@ class dashboardController extends Controller
         $tgl_akhir = date('Y-m-'.$jmlh_bulan);
 
         if(auth()->user()->is_admin == "admin" && session('dashboard_view') !== 'user'){
+            $has_current_month_kpi = LaporanKinerja::whereBetween('tanggal', [$tgl_mulai, $tgl_akhir])->exists();
+            $latest_kpi_date = LaporanKinerja::max('tanggal');
+            $kpi_reference_time = (!$has_current_month_kpi && $latest_kpi_date)
+                ? strtotime($latest_kpi_date)
+                : strtotime($tgl_mulai);
+            $kpi_tgl_mulai = date('Y-m-01', $kpi_reference_time);
+            $kpi_tgl_akhir = date('Y-m-t', $kpi_reference_time);
+            $kpi_period_label = date('F Y', $kpi_reference_time);
+            $has_kpi_period_data = LaporanKinerja::whereBetween('tanggal', [$kpi_tgl_mulai, $kpi_tgl_akhir])->exists();
+
             // KPI Data - Top 10 Performers (berdasarkan total nilai kinerja bulan ini)
             $top_performers = User::with(['jabatan'])
                 ->get()
-                ->map(function($user) use ($tgl_mulai, $tgl_akhir) {
+                ->map(function($user) use ($kpi_tgl_mulai, $kpi_tgl_akhir) {
                     // Hitung total nilai kinerja bulan ini
                     $kpi_score = LaporanKinerja::where('user_id', $user->id)
-                        ->whereBetween('tanggal', [$tgl_mulai, $tgl_akhir])
+                        ->whereBetween('tanggal', [$kpi_tgl_mulai, $kpi_tgl_akhir])
                         ->sum('nilai');
                     $user->kpi_score = $kpi_score ?? 0;
                     return $user;
@@ -55,7 +65,7 @@ class dashboardController extends Controller
             foreach($all_users as $user) {
                 // Cek apakah user memiliki data kinerja bulan ini
                 $has_kinerja = LaporanKinerja::where('user_id', $user->id)
-                    ->whereBetween('tanggal', [$tgl_mulai, $tgl_akhir])
+                    ->whereBetween('tanggal', [$kpi_tgl_mulai, $kpi_tgl_akhir])
                     ->exists();
                 
                 if(!$has_kinerja) {
@@ -65,7 +75,7 @@ class dashboardController extends Controller
                 
                 // Hitung total nilai kinerja bulan ini untuk setiap user
                 $score = LaporanKinerja::where('user_id', $user->id)
-                    ->whereBetween('tanggal', [$tgl_mulai, $tgl_akhir])
+                    ->whereBetween('tanggal', [$kpi_tgl_mulai, $kpi_tgl_akhir])
                     ->sum('nilai') ?? 0;
                 
                 if($score <= 0) {
@@ -80,11 +90,15 @@ class dashboardController extends Controller
             }
             
             // Monthly KPI Trend - Last 6 months (rata-rata total nilai per user per bulan)
+            $trend_start = date('Y-m-01', strtotime('-5 months', $kpi_reference_time));
+            $trend_end = date('Y-m-t', $kpi_reference_time);
+            $has_kpi_trend_data = LaporanKinerja::whereBetween('tanggal', [$trend_start, $trend_end])->exists();
             $kpi_trend = [];
             for($i = 5; $i >= 0; $i--) {
-                $month_start = date('Y-m-01', strtotime("-$i months"));
-                $month_end = date('Y-m-t', strtotime("-$i months"));
-                $month_name = date('M Y', strtotime("-$i months"));
+                $month_time = strtotime("-$i months", $kpi_reference_time);
+                $month_start = date('Y-m-01', $month_time);
+                $month_end = date('Y-m-t', $month_time);
+                $month_name = date('M Y', $month_time);
                 
                 // Hitung rata-rata total nilai per user untuk bulan ini
                 $total_score = LaporanKinerja::whereBetween('tanggal', [$month_start, $month_end])
@@ -102,9 +116,9 @@ class dashboardController extends Controller
             }
             
             // KPI by Jenis Kinerja (semua jenis, termasuk yang belum ada datanya)
-            $kpi_by_jenis = JenisKinerja::leftJoin('laporan_kinerjas', function($join) use ($tgl_mulai, $tgl_akhir) {
+            $kpi_by_jenis = JenisKinerja::leftJoin('laporan_kinerjas', function($join) use ($kpi_tgl_mulai, $kpi_tgl_akhir) {
                     $join->on('jenis_kinerjas.id', '=', 'laporan_kinerjas.jenis_kinerja_id')
-                        ->whereBetween('laporan_kinerjas.tanggal', [$tgl_mulai, $tgl_akhir]);
+                        ->whereBetween('laporan_kinerjas.tanggal', [$kpi_tgl_mulai, $kpi_tgl_akhir]);
                 })
                 ->selectRaw('jenis_kinerjas.nama AS nama, COALESCE(SUM(laporan_kinerjas.nilai), 0) AS total')
                 ->groupBy('jenis_kinerjas.id', 'jenis_kinerjas.nama')
@@ -133,6 +147,11 @@ class dashboardController extends Controller
                 'kpi_belum_ada_data' => $kpi_belum_ada_data,
                 'kpi_trend' => $kpi_trend,
                 'kpi_by_jenis' => $kpi_by_jenis,
+                'has_kpi_period_data' => $has_kpi_period_data,
+                'has_kpi_trend_data' => $has_kpi_trend_data,
+                'kpi_period_label' => $kpi_period_label,
+                'kpi_tgl_mulai' => $kpi_tgl_mulai,
+                'kpi_tgl_akhir' => $kpi_tgl_akhir,
             ]);
         } else {
             $user_login = auth()->user()->id;
@@ -214,13 +233,17 @@ class dashboardController extends Controller
     public function kpiDetailAdmin(Request $request)
     {
         date_default_timezone_set('Asia/Jakarta');
-        $tahun_skrg = date('Y');
-        $bulan_skrg = date('m');
-        $jmlh_bulan = cal_days_in_month(CAL_GREGORIAN, $bulan_skrg, $tahun_skrg);
-        $tgl_mulai = date('Y-m-01');
-        $tgl_akhir = date('Y-m-' . $jmlh_bulan);
-        
         $kategori = $request->input('kategori');
+        $tgl_mulai = $request->input('tgl_mulai');
+        $tgl_akhir = $request->input('tgl_akhir');
+
+        if (!$tgl_mulai || !$tgl_akhir) {
+            $tahun_skrg = date('Y');
+            $bulan_skrg = date('m');
+            $jmlh_bulan = cal_days_in_month(CAL_GREGORIAN, $bulan_skrg, $tahun_skrg);
+            $tgl_mulai = date('Y-m-01');
+            $tgl_akhir = date('Y-m-' . $jmlh_bulan);
+        }
         
         // Get jenis_kinerja by name
         $jenisKinerja = JenisKinerja::where('nama', $kategori)->first();

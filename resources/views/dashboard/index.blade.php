@@ -237,7 +237,7 @@
       <div class="card border-0 shadow-lg" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; overflow: hidden;">
         <div class="card-header bg-transparent border-0 py-4">
           <div class="d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 text-white"><i data-feather="trending-up" class="me-2" style="width: 24px; height: 24px;"></i>Skor Kinerja (KPI) - {{ date('F Y') }}</h5>
+            <h5 class="mb-0 text-white"><i data-feather="trending-up" class="me-2" style="width: 24px; height: 24px;"></i>Skor Kinerja (KPI) - {{ $kpi_period_label }}</h5>
             <a href="{{ url('/kinerja-pegawai') }}" class="btn btn-light btn-sm shadow-sm" style="border-radius: 20px;">
               <i class="fa fa-eye me-1"></i> Lihat Detail
             </a>
@@ -255,7 +255,7 @@
                   <div id="kpiDistributionChart"></div>
                   <div class="mt-3">
                     <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded" style="background: linear-gradient(90deg, rgba(239,68,68,0.1) 0%, transparent 100%);">
-                      <span><i class="fa fa-circle me-2" style="color: #ef4444;"></i>Kinerja Buruk (≤0)</span>
+                      <span><i class="fa fa-circle me-2" style="color: #ef4444;"></i>Kinerja Buruk (&lt;=0)</span>
                       <span class="badge" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">{{ $kpi_buruk }} orang</span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded" style="background: linear-gradient(90deg, rgba(245,158,11,0.1) 0%, transparent 100%);">
@@ -286,7 +286,14 @@
                   <h6 class="mb-0 text-white"><i class="fa fa-chart-line me-2"></i>Tren Kinerja 6 Bulan Terakhir</h6>
                 </div>
                 <div class="card-body">
-                  <div id="kpiTrendChart" style="min-height: 300px;"></div>
+                  @if($has_kpi_trend_data)
+                    <div id="kpiTrendChart" style="min-height: 300px;"></div>
+                  @else
+                    <div class="kpi-empty-state">
+                      <i class="fa fa-chart-line"></i>
+                      <div>Belum ada data KPI dalam 6 bulan terakhir.</div>
+                    </div>
+                  @endif
                 </div>
               </div>
             </div>
@@ -298,9 +305,16 @@
                   <h6 class="mb-0 text-white"><i class="fa fa-trophy me-2"></i>Top 10 Pegawai dengan Kinerja Terbaik</h6>
                 </div>
                 <div class="card-body">
-                  <div class="top-performers-chart-wrap">
-                    <div id="topPerformersChart" style="min-height: 400px;"></div>
-                  </div>
+                  @if($has_kpi_period_data)
+                    <div class="top-performers-chart-wrap">
+                      <div id="topPerformersChart" style="min-height: 400px;"></div>
+                    </div>
+                  @else
+                    <div class="kpi-empty-state kpi-empty-state-lg">
+                      <i class="fa fa-trophy"></i>
+                      <div>Belum ada data KPI periode {{ $kpi_period_label }}, jadi ranking pegawai belum bisa ditampilkan.</div>
+                    </div>
+                  @endif
                 </div>
               </div>
             </div>
@@ -310,10 +324,17 @@
             <div class="col-12">
               <div class="card border-0 shadow-lg kpi-card-animate" style="border-radius: 16px; background: linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%); animation-delay: 0.3s;">
                 <div class="card-header border-0" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); border-radius: 16px 16px 0 0;">
-                  <h6 class="mb-0 text-white"><i class="fa fa-tasks me-2"></i>Nilai KPI per Kategori Kinerja (Bulan Ini)</h6>
+                  <h6 class="mb-0 text-white"><i class="fa fa-tasks me-2"></i>Nilai KPI per Kategori Kinerja ({{ $kpi_period_label }})</h6>
                 </div>
                 <div class="card-body">
-                  <div id="kpiByJenisChart" style="min-height: 300px;"></div>
+                  @if($has_kpi_period_data)
+                    <div id="kpiByJenisChart" style="min-height: 300px;"></div>
+                  @else
+                    <div class="kpi-empty-state">
+                      <i class="fa fa-tasks"></i>
+                      <div>Belum ada data KPI periode {{ $kpi_period_label }} untuk kategori kinerja.</div>
+                    </div>
+                  @endif
                 </div>
               </div>
             </div>
@@ -373,6 +394,18 @@
     <script>
       // KPI Charts Initialization
       document.addEventListener('DOMContentLoaded', function() {
+        var hasKpiPeriodData = @json($has_kpi_period_data);
+        var hasKpiTrendData = @json($has_kpi_trend_data);
+
+        function renderApexChart(selector, options) {
+          var element = document.querySelector(selector);
+          if (!element || typeof ApexCharts === 'undefined') {
+            return;
+          }
+
+          new ApexCharts(element, options).render();
+        }
+
         // 1. KPI Distribution Donut Chart
         var kpiDistributionOptions = {
           series: [{{ $kpi_buruk }}, {{ $kpi_cukup }}, {{ $kpi_lumayan }}, {{ $kpi_baik }}, {{ $kpi_belum_ada_data ?? 0 }}],
@@ -400,8 +433,8 @@
               opacity: 0.15
             }
           },
-          labels: ['Buruk (≤0)', 'Cukup (1-50)', 'Lumayan (51-100)', 'Baik (>100)', 'Belum Ada Data'],
           colors: ['#ef4444', '#f59e0b', '#06b6d4', '#10b981', '#6b7280'],
+          labels: ['Buruk (<=0)', 'Cukup (1-50)', 'Lumayan (51-100)', 'Baik (>100)', 'Belum Ada Data'],
           legend: {
             show: false
           },
@@ -447,8 +480,7 @@
           }]
         };
         
-        var kpiDistributionChart = new ApexCharts(document.querySelector("#kpiDistributionChart"), kpiDistributionOptions);
-        kpiDistributionChart.render();
+        renderApexChart("#kpiDistributionChart", kpiDistributionOptions);
         
         // 2. KPI Monthly Trend Line Chart
         var kpiTrendOptions = {
@@ -583,8 +615,9 @@
           }
         };
         
-        var kpiTrendChart = new ApexCharts(document.querySelector("#kpiTrendChart"), kpiTrendOptions);
-        kpiTrendChart.render();
+        if (hasKpiTrendData) {
+          renderApexChart("#kpiTrendChart", kpiTrendOptions);
+        }
         
         // 3. Top 10 Performers Horizontal Bar Chart
         var topPerformerNames = [
@@ -765,11 +798,12 @@
           }
         };
         
-        var topPerformersChart = new ApexCharts(document.querySelector("#topPerformersChart"), topPerformersOptions);
-        topPerformersChart.render();
+        if (hasKpiPeriodData) {
+          renderApexChart("#topPerformersChart", topPerformersOptions);
+        }
         
         // 4. KPI by Jenis Chart
-        @if($kpi_by_jenis->count() > 0)
+        @if($kpi_by_jenis->count() > 0 && $has_kpi_period_data)
         var kpiCategories = [
           @foreach($kpi_by_jenis as $jenis)
             '{{ $jenis->nama }}',
@@ -849,8 +883,7 @@
           }
         };
         
-        var kpiByJenisChart = new ApexCharts(document.querySelector("#kpiByJenisChart"), kpiByJenisOptions);
-        kpiByJenisChart.render();
+        renderApexChart("#kpiByJenisChart", kpiByJenisOptions);
         @endif
       });
     </script>
@@ -867,7 +900,11 @@
         $.ajax({
           url: '{{ url("/kpi-detail-admin") }}',
           type: 'GET',
-          data: { kategori: kategori },
+          data: {
+            kategori: kategori,
+            tgl_mulai: @json($kpi_tgl_mulai),
+            tgl_akhir: @json($kpi_tgl_akhir)
+          },
           success: function(response) {
             var html = '<div class="table-responsive"><table class="table table-striped table-hover">';
             html += '<thead class="table-dark"><tr><th>Pegawai</th><th>Tanggal</th><th>Nilai</th><th>Sumber</th></tr></thead>';
@@ -1223,6 +1260,35 @@
 
       .top-performers-chart-wrap {
         width: 100%;
+      }
+
+      .kpi-empty-state {
+        min-height: 300px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        color: #64748b;
+        text-align: center;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .kpi-empty-state i {
+        width: 52px;
+        height: 52px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: #f1f5f9;
+        color: #94a3b8;
+        font-size: 22px;
+      }
+
+      .kpi-empty-state-lg {
+        min-height: 400px;
       }
       
       /* Responsive adjustments */

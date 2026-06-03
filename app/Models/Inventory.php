@@ -30,10 +30,29 @@ class Inventory extends Model
         return $this->hasMany(InventoryStockTransaction::class)->latest('tanggal_transaksi')->latest('id');
     }
 
-    public function getFormattedStockAttribute(): string
+    public function getStockQuantityAttribute(): float
     {
         $stock = (float) ($this->stok ?? 0);
-        $formatted = number_format($stock, 2, '.', '');
+
+        if ($this->usesWholeStock()) {
+            return (float) max(0, round($stock));
+        }
+
+        return round(max(0, $stock), 2);
+    }
+
+    public function getFormattedStockAttribute(): string
+    {
+        return $this->formatStockValue($this->stock_quantity);
+    }
+
+    public function formatStockValue($value): string
+    {
+        if ($this->usesWholeStock()) {
+            return (string) (int) round((float) $value);
+        }
+
+        $formatted = number_format((float) $value, 2, '.', '');
 
         return rtrim(rtrim($formatted, '0'), '.') ?: '0';
     }

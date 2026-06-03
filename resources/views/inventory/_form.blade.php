@@ -3,6 +3,8 @@
     $submitLabel = $submitLabel ?? 'Submit';
     $kondisiOptions = ['Baru', 'Baik', 'Normal', 'Rusak Ringan', 'Rusak Berat'];
     $statusOptions = ['Aktif', 'Disimpan', 'Dipakai', 'Maintenance', 'Rusak', 'Hilang'];
+    $stockInputValue = old('stok', $inventory ? $inventory->formatted_stock : '');
+    $stockInputStep = (!$inventory || $inventory->usesWholeStock()) ? '1' : '0.01';
 @endphp
 
 <div class="row">
@@ -60,7 +62,7 @@
     <div class="col-md-3">
         <div class="form-group">
             <label for="stok" class="float-left">Stok</label>
-            <input type="number" step="0.01" min="0" class="form-control @error('stok') is-invalid @enderror" id="stok" name="stok" value="{{ old('stok', $inventory->stok ?? '') }}">
+            <input type="number" step="{{ $stockInputStep }}" min="0" class="form-control @error('stok') is-invalid @enderror" id="stok" name="stok" value="{{ $stockInputValue }}">
             @error('stok')
                 <div class="invalid-feedback">{{ $message }}</div>
             @enderror
@@ -187,3 +189,37 @@
 </div>
 
 <button type="submit" class="btn btn-primary float-right">{{ $submitLabel }}</button>
+
+@push('script')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var uomInput = document.getElementById('uom');
+            var stockInput = document.getElementById('stok');
+            var wholeUoms = ['unit', 'pcs', 'pc', 'piece', 'pieces', 'set', 'box', 'pack', 'buah'];
+
+            if (!uomInput || !stockInput) {
+                return;
+            }
+
+            function normalizeUom(value) {
+                return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+            }
+
+            function syncStockStep() {
+                var isWholeStock = wholeUoms.indexOf(normalizeUom(uomInput.value)) !== -1;
+                stockInput.step = isWholeStock ? '1' : '0.01';
+
+                if (isWholeStock && stockInput.value !== '') {
+                    var numericValue = Number(stockInput.value);
+                    if (!Number.isNaN(numericValue)) {
+                        stockInput.value = Math.round(numericValue);
+                    }
+                }
+            }
+
+            uomInput.addEventListener('input', syncStockStep);
+            uomInput.addEventListener('change', syncStockStep);
+            syncStockStep();
+        });
+    </script>
+@endpush

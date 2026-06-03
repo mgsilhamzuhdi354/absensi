@@ -15,10 +15,10 @@ class InventoryStockService
         return DB::transaction(function () use ($inventory, $data, $admin) {
             $locked = Inventory::whereKey($inventory->id)->lockForUpdate()->firstOrFail();
             $jumlah = $this->normalizeQuantity($data['jumlah']);
-            $stokSebelum = (float) ($locked->stok ?? 0);
 
             $this->ensureWholeQuantityForCountableStock($locked, $jumlah);
 
+            $stokSebelum = $this->stockBeforeTransaction($locked);
             $stokSesudah = $stokSebelum + $jumlah;
 
             $locked->update([
@@ -48,10 +48,10 @@ class InventoryStockService
         return DB::transaction(function () use ($inventory, $data, $admin) {
             $locked = Inventory::whereKey($inventory->id)->lockForUpdate()->firstOrFail();
             $jumlah = $this->normalizeQuantity($data['jumlah']);
-            $stokSebelum = (float) ($locked->stok ?? 0);
 
             $this->ensureWholeQuantityForCountableStock($locked, $jumlah);
 
+            $stokSebelum = $this->stockBeforeTransaction($locked);
             if ($stokSebelum <= 0) {
                 throw ValidationException::withMessages([
                     'jumlah' => 'Stok barang kosong, stok keluar tidak dapat diproses.',
@@ -111,5 +111,14 @@ class InventoryStockService
                 'jumlah' => 'Jumlah untuk satuan ' . $inventory->display_uom . ' harus angka bulat. Barang satuan tidak boleh memakai desimal.',
             ]);
         }
+    }
+
+    private function stockBeforeTransaction(Inventory $inventory): float
+    {
+        if ($inventory->usesWholeStock()) {
+            return (float) max(0, round((float) ($inventory->stok ?? 0)));
+        }
+
+        return round(max(0, (float) ($inventory->stok ?? 0)), 2);
     }
 }

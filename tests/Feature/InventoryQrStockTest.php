@@ -275,6 +275,37 @@ class InventoryQrStockTest extends TestCase
     }
 
     /** @test */
+    public function legacy_fractional_unit_stock_is_treated_as_whole_stock_for_handover()
+    {
+        $inventory = Inventory::create($this->inventoryPayload(['stok' => 1.95, 'uom' => 'Unit']));
+
+        $this->actingAs($this->admin)
+            ->get('/inventory/' . $inventory->id . '/detail')
+            ->assertOk()
+            ->assertSee('<strong>2</strong>', false)
+            ->assertSee('max="2"', false);
+
+        $response = $this->actingAs($this->admin)->post('/inventory/' . $inventory->id . '/stock-out', [
+            'tanggal_transaksi' => '2026-05-29',
+            'jumlah' => 2,
+            'penerima_user_id' => $this->employee->id,
+            'keperluan' => 'Fasilitas kerja',
+            'kondisi_barang' => 'Baik',
+            'buat_bast_otomatis' => 0,
+        ]);
+
+        $response->assertRedirect('/inventory/' . $inventory->id . '/detail');
+        $this->assertSame(0.0, (float) $inventory->fresh()->stok);
+        $this->assertDatabaseHas('inventory_stock_transactions', [
+            'inventory_id' => $inventory->id,
+            'jenis_transaksi' => 'keluar',
+            'jumlah' => 2,
+            'stok_sebelum' => 2,
+            'stok_sesudah' => 0,
+        ]);
+    }
+
+    /** @test */
     public function stock_out_rejects_fractional_handover_quantity()
     {
         $inventory = Inventory::create($this->inventoryPayload(['stok' => 1]));

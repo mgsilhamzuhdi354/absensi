@@ -226,9 +226,10 @@ class InventoryController extends Controller
     public function stockOut(Request $request, $id)
     {
         $inventory = Inventory::findOrFail($id);
+        $minimumQuantity = $inventory->usesWholeStock() ? 1 : 0.01;
         $validated = $request->validate([
             'tanggal_transaksi' => 'required|date',
-            'jumlah' => 'required|numeric|min:1',
+            'jumlah' => 'required|numeric|min:' . $minimumQuantity,
             'penerima_user_id' => 'nullable|exists:users,id',
             'penerima_barang' => 'required_without:penerima_user_id|nullable|string|max:255',
             'jabatan_penerima' => 'nullable|string|max:255',
@@ -282,7 +283,9 @@ class InventoryController extends Controller
 
         DB::transaction(function () use ($transaction) {
             $lockedInventory = Inventory::whereKey($transaction->inventory_id)->lockForUpdate()->firstOrFail();
-            $currentStock = (float) ($lockedInventory->stok ?? 0);
+            $currentStock = $lockedInventory->usesWholeStock()
+                ? (float) max(0, round((float) ($lockedInventory->stok ?? 0)))
+                : round(max(0, (float) ($lockedInventory->stok ?? 0)), 2);
             $quantity = (float) ($transaction->jumlah ?? 0);
 
             if ($transaction->jenis_transaksi === 'keluar') {
@@ -473,6 +476,10 @@ class InventoryController extends Controller
                 'stok' => 'Stok untuk satuan ' . $validated['uom'] . ' harus angka bulat. Gunakan satuan seperti Kg/Liter/Meter jika memang perlu stok desimal.',
             ]);
         }
+
+        $validated['stok'] = Inventory::isWholeStockUom($validated['uom'])
+            ? (int) round((float) $validated['stok'])
+            : round((float) $validated['stok'], 2);
 
         unset($validated['foto_barang']);
 
