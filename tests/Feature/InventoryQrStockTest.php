@@ -415,6 +415,34 @@ class InventoryQrStockTest extends TestCase
     }
 
     /** @test */
+    public function deleting_inventory_is_safe_for_stale_or_repeated_requests()
+    {
+        Storage::fake('public');
+
+        $inventory = Inventory::create($this->inventoryPayload());
+
+        $this->actingAs($this->admin)
+            ->get('/inventory/delete/' . $inventory->id)
+            ->assertRedirect('/inventory');
+
+        $this->actingAs($this->admin)
+            ->delete('/inventory/delete/' . $inventory->id)
+            ->assertRedirect('/inventory');
+
+        $this->assertDatabaseMissing('inventories', [
+            'id' => $inventory->id,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->delete('/inventory/delete/' . $inventory->id)
+            ->assertRedirect('/inventory');
+
+        $this->actingAs($this->admin)
+            ->get('/inventory/' . $inventory->id . '/detail')
+            ->assertRedirect('/inventory');
+    }
+
+    /** @test */
     public function bast_can_be_created_for_stock_out_transaction()
     {
         Storage::fake('public');

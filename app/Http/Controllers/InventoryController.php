@@ -107,7 +107,10 @@ class InventoryController extends Controller
         $title = 'Inventory';
         $lokasi = Lokasi::orderBy('nama_lokasi')->get();
         $jabatan = Jabatan::orderBy('nama_jabatan')->get();
-        $inventory = Inventory::findOrFail($id);
+        $inventory = Inventory::find($id);
+        if (!$inventory) {
+            return redirect('/inventory')->with('error', 'Data inventory sudah tidak tersedia.');
+        }
 
         return view(auth()->user()->is_admin == 'admin' ? 'inventory.edit' : 'inventory.editUser', compact(
             'title',
@@ -134,7 +137,11 @@ class InventoryController extends Controller
 
     public function delete($id)
     {
-        $inventory = Inventory::findOrFail($id);
+        $inventory = Inventory::find($id);
+        if (!$inventory) {
+            return redirect('/inventory')->with('success', 'Data inventory sudah terhapus.');
+        }
+
         if ($inventory->foto_barang) {
             Storage::disk('public')->delete($inventory->foto_barang);
         }
@@ -148,7 +155,11 @@ class InventoryController extends Controller
     public function detail($id)
     {
         $title = 'Detail Inventory';
-        $inventory = Inventory::with(['lokasi', 'jabatan'])->findOrFail($id);
+        $inventory = Inventory::with(['lokasi', 'jabatan'])->find($id);
+        if (!$inventory) {
+            return redirect('/inventory')->with('error', 'Data inventory sudah tidak tersedia.');
+        }
+
         $inventory = $this->qrService->ensure($inventory);
         $inventory->load([
             'lokasi',
@@ -329,7 +340,11 @@ class InventoryController extends Controller
 
     public function printQr($id)
     {
-        $inventory = Inventory::with(['lokasi', 'jabatan'])->findOrFail($id);
+        $inventory = Inventory::with(['lokasi', 'jabatan'])->find($id);
+        if (!$inventory) {
+            return redirect('/inventory')->with('error', 'Data inventory sudah tidak tersedia.');
+        }
+
         $inventory = $this->qrService->ensure($inventory);
 
         return view('inventory.qr_print', compact('inventory'));
@@ -337,7 +352,11 @@ class InventoryController extends Controller
 
     public function downloadQr($id)
     {
-        $inventory = Inventory::findOrFail($id);
+        $inventory = Inventory::find($id);
+        if (!$inventory) {
+            return redirect('/inventory')->with('error', 'Data inventory sudah tidak tersedia.');
+        }
+
         $inventory = $this->qrService->ensure($inventory);
 
         if (!$inventory->qr_code_image || !Storage::disk('public')->exists($inventory->qr_code_image)) {

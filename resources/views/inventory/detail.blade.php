@@ -374,10 +374,10 @@
                                             @endif
                                         </td>
                                         <td style="min-width: 110px;">
-                                            <form method="post" action="{{ url('/inventory/transactions/'.$transaction->id) }}" class="d-inline">
+                                            <form method="post" action="{{ url('/inventory/transactions/'.$transaction->id) }}" class="d-inline inventory-delete-form" data-confirm="Hapus riwayat stok ini? Stok barang akan disesuaikan dan nama penghapus akan dicatat.">
                                                 @method('delete')
                                                 @csrf
-                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Hapus riwayat stok ini? Stok barang akan disesuaikan dan nama penghapus akan dicatat.')">Hapus</button>
+                                                <button type="submit" class="btn btn-sm btn-danger">Hapus</button>
                                             </form>
                                         </td>
                                     </tr>
@@ -511,6 +511,26 @@
             }
 
             fillReceiverFields();
+
+            document.querySelectorAll('.inventory-delete-form').forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (form.dataset.submitting === '1') {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    if (!confirm(form.dataset.confirm || 'Hapus data ini?')) {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    form.dataset.submitting = '1';
+                    form.querySelectorAll('button[type="submit"]').forEach(function (button) {
+                        button.disabled = true;
+                        button.textContent = 'Menghapus...';
+                    });
+                });
+            });
         });
     </script>
 @endpush

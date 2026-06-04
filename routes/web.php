@@ -505,6 +505,9 @@ Route::get('/inventory/{id}/qr/print', [InventoryController::class, 'printQr'])-
 Route::get('/inventory/{id}/qr/download', [InventoryController::class, 'downloadQr'])->middleware('admin');
 Route::get('/inventory/edit/{id}', [InventoryController::class, 'edit'])->middleware('admin');
 Route::put('/inventory/update/{id}', [InventoryController::class, 'update'])->middleware('admin');
+Route::get('/inventory/delete/{id}', function () {
+    return redirect('/inventory')->with('error', 'Gunakan tombol hapus dari halaman inventory agar request aman.');
+})->middleware('admin');
 Route::delete('/inventory/delete/{id}', [InventoryController::class, 'delete'])->middleware('admin');
 
 Route::get('/patroli', [PatroliController::class, 'index'])->middleware('auth');

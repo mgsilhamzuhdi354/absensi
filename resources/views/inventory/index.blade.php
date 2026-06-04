@@ -71,10 +71,10 @@
                                                         <a href="{{ url('/inventory/edit/'.$inventory->id) }}"><i class="fa fa-solid fa-edit"></i></a>
                                                     </li>
                                                     <li class="delete">
-                                                        <form action="{{ url('/inventory/delete/'.$inventory->id) }}" method="post" class="d-inline">
+                                                        <form action="{{ url('/inventory/delete/'.$inventory->id) }}" method="post" class="d-inline inventory-delete-form" data-confirm="Are You Sure">
                                                             @method('delete')
                                                             @csrf
-                                                            <button class="border-0" style="background-color: transparent;" onClick="return confirm('Are You Sure')"><i class="fa fa-solid fa-trash"></i></button>
+                                                            <button type="submit" class="border-0" style="background-color: transparent;"><i class="fa fa-solid fa-trash"></i></button>
                                                         </form>
                                                     </li>
                                                 </ul>
@@ -95,3 +95,29 @@
     <br>
 
 @endsection
+
+@push('script')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.inventory-delete-form').forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (form.dataset.submitting === '1') {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    if (!confirm(form.dataset.confirm || 'Hapus data ini?')) {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    form.dataset.submitting = '1';
+                    form.querySelectorAll('button[type="submit"]').forEach(function (button) {
+                        button.disabled = true;
+                        button.innerHTML = 'Menghapus...';
+                    });
+                });
+            });
+        });
+    </script>
+@endpush
