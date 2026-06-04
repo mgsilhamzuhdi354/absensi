@@ -14,6 +14,7 @@ use App\Models\Reimbursement;
 use App\Models\LaporanKinerja;
 use App\Models\JenisKinerja;
 use App\Models\InventoryBastDocument;
+use Illuminate\Support\Facades\Schema;
 
 class dashboardController extends Controller
 {
@@ -189,23 +190,7 @@ class dashboardController extends Controller
                                 })
                                 ->groupBy('nama')
                                 ->get();
-            $pending_inventory_bast_count = InventoryBastDocument::where(function ($query) use ($user_login) {
-                    $query->where(function ($receiverQuery) use ($user_login) {
-                        $receiverQuery->whereNull('signed_at')
-                            ->whereHas('transaction', function ($transactionQuery) use ($user_login) {
-                                $transactionQuery->where('penerima_user_id', $user_login);
-                            });
-                    })
-                        ->orWhere(function ($knownQuery) use ($user_login) {
-                            $knownQuery->where('known_by_user_id', $user_login)
-                                ->whereNull('known_signed_at');
-                        })
-                        ->orWhere(function ($firstPartyQuery) use ($user_login) {
-                            $firstPartyQuery->where('first_party_user_id', $user_login)
-                                ->whereNull('first_party_signed_at');
-                        });
-                })
-                ->count();
+            $pending_inventory_bast_count = $this->pendingInventoryBastCount($user_login);
             
             return view('dashboard.indexUser', [
                 'title' => 'Dashboard',
@@ -225,6 +210,31 @@ class dashboardController extends Controller
         return view('dashboard.menu', [
             'title' => 'All Menu',
         ]);
+    }
+
+    private function pendingInventoryBastCount($userId)
+    {
+        if (!Schema::hasTable('inventory_bast_documents') || !Schema::hasTable('inventory_stock_transactions')) {
+            return 0;
+        }
+
+        return InventoryBastDocument::where(function ($query) use ($userId) {
+                $query->where(function ($receiverQuery) use ($userId) {
+                    $receiverQuery->whereNull('signed_at')
+                        ->whereHas('transaction', function ($transactionQuery) use ($userId) {
+                            $transactionQuery->where('penerima_user_id', $userId);
+                        });
+                })
+                    ->orWhere(function ($knownQuery) use ($userId) {
+                        $knownQuery->where('known_by_user_id', $userId)
+                            ->whereNull('known_signed_at');
+                    })
+                    ->orWhere(function ($firstPartyQuery) use ($userId) {
+                        $firstPartyQuery->where('first_party_user_id', $userId)
+                            ->whereNull('first_party_signed_at');
+                    });
+            })
+            ->count();
     }
 
     /**

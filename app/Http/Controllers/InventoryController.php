@@ -14,7 +14,9 @@ use App\Services\InventoryQrService;
 use App\Services\InventoryStockService;
 use App\Notifications\UserNotification;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -383,6 +385,15 @@ class InventoryController extends Controller
     public function myBastDocuments()
     {
         $title = 'BAST Inventory Saya';
+        if (!$this->inventoryBastTablesReady()) {
+            $documents = new LengthAwarePaginator([], 0, 10, 1, [
+                'path' => request()->url(),
+                'pageName' => 'page',
+            ]);
+
+            return view('inventory.my_bast_index', compact('title', 'documents'));
+        }
+
         $documents = $this->myBastDocumentQuery(auth()->id())
             ->latest('inventory_bast_documents.created_at')
             ->paginate(10)
@@ -393,6 +404,10 @@ class InventoryController extends Controller
 
     public function showMyBastDocument($id)
     {
+        if (!$this->inventoryBastTablesReady()) {
+            abort(404);
+        }
+
         $title = 'Detail BAST Inventory';
         $document = $this->myBastDocumentQuery(auth()->id())->findOrFail($id);
 
@@ -401,6 +416,10 @@ class InventoryController extends Controller
 
     public function signMyBastDocument(Request $request, $id, $role = 'receiver')
     {
+        if (!$this->inventoryBastTablesReady()) {
+            abort(404);
+        }
+
         $role = (string) $role;
         $roleConfig = InventoryBastDocument::signatureRoles()[$role] ?? null;
 
@@ -448,6 +467,10 @@ class InventoryController extends Controller
 
     public function downloadMyBastDocument($id)
     {
+        if (!$this->inventoryBastTablesReady()) {
+            abort(404);
+        }
+
         $document = $this->myBastDocumentQuery(auth()->id())->findOrFail($id);
         $document = $this->bastService->storePdf($document);
 
@@ -578,6 +601,12 @@ class InventoryController extends Controller
                     ->orWhere('known_by_user_id', $userId)
                     ->orWhere('first_party_user_id', $userId);
             });
+    }
+
+    private function inventoryBastTablesReady()
+    {
+        return Schema::hasTable('inventory_bast_documents')
+            && Schema::hasTable('inventory_stock_transactions');
     }
 
     private function storeBastSignatureImage(InventoryBastDocument $document, $role, $signatureData)
