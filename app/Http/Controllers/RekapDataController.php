@@ -11,6 +11,7 @@ use App\Exports\RekapExport;
 use App\Exports\DinasLuarExport;
 use App\Models\MappingShift;
 use Illuminate\Http\Request;
+use App\Services\AttendanceRecapService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use RealRashid\SweetAlert\Facades\Alert;
 
@@ -37,12 +38,15 @@ class RekapDataController extends Controller
         $mulai = request()->input('mulai');
         $akhir = request()->input('akhir');
         $title = "Rekap Data Absensi";
+        $rekapSummaries = app(AttendanceRecapService::class)
+            ->summariesForUsers($user->getCollection(), $mulai, $akhir);
 
         return view('rekapdata.getdata', [
             'title' => $title,
             'data_user' => $user,
             'tanggal_mulai' => $mulai,
-            'tanggal_akhir' => $akhir
+            'tanggal_akhir' => $akhir,
+            'rekap_summaries' => $rekapSummaries,
         ]);
     }
 
@@ -71,7 +75,8 @@ class RekapDataController extends Controller
             'user' => $user,
             'tanggal_mulai' => $mulai,
             'tanggal_akhir' => $akhir,
-            'no_gaji' => $no_gaji
+            'no_gaji' => $no_gaji,
+            'rekap_summary' => app(AttendanceRecapService::class)->summaryForUser((int) $id, $mulai, $akhir),
         ]);
     }
 
@@ -221,9 +226,14 @@ class RekapDataController extends Controller
 
     public function rekapPdf()
     {
+        $data = User::orderBy('name', 'ASC')->get();
+        $mulai = request()->input('mulai');
+        $akhir = request()->input('akhir');
+
         $pdf = Pdf::loadView('rekapdata.rekapPdf', [
             'title' => 'Rekap PDF',
-            'data' => User::orderBy('name', 'ASC')->get()
+            'data' => $data,
+            'rekap_summaries' => app(AttendanceRecapService::class)->summariesForUsers($data, $mulai, $akhir),
         ]);
 
         return $pdf->stream();

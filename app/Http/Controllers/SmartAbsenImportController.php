@@ -29,21 +29,32 @@ class SmartAbsenImportController extends Controller
      */
     public function preview(Request $request)
     {
-        $request->validate([
-            'file_absen' => 'required|file|mimes:xlsx,xls,csv|max:10240',
-            'shift_id'   => 'required|exists:shifts,id',
-        ]);
+        $fileRules = is_array($request->file('file_absen'))
+            ? ['file_absen' => 'required|array|min:1', 'file_absen.*' => 'file|mimes:xlsx,xls,csv|max:10240']
+            : ['file_absen' => 'required|file|mimes:xlsx,xls,csv|max:10240'];
+
+        $request->validate(array_merge($fileRules, [
+            'shift_id' => 'required|exists:shifts,id',
+        ]));
 
         try {
             $shift = Shift::findOrFail($request->shift_id);
             $parser = new SmartAbsenParser();
 
+            $uploadedFiles = $request->file('file_absen');
+            $uploadedFiles = is_array($uploadedFiles) ? $uploadedFiles : [$uploadedFiles];
+
             // Simpan file sementara
-            $path = $request->file('file_absen')->store('temp_import', 'local');
-            $fullPath = storage_path('app/' . $path);
+            $paths = [];
+            $fullPaths = [];
+            foreach ($uploadedFiles as $uploadedFile) {
+                $path = $uploadedFile->store('temp_import', 'local');
+                $paths[] = $path;
+                $fullPaths[] = storage_path('app/' . $path);
+            }
 
             // Parse Excel
-            $rows = $parser->parseExcel($fullPath);
+            $rows = $parser->parseExcel($fullPaths[0]);
 
             if (count($rows) < 2) {
                 return response()->json([
@@ -52,33 +63,60 @@ class SmartAbsenImportController extends Controller
                 ], 422);
             }
 
-            // Deteksi header row
-            $headerRowIndex = $parser->findHeaderRow($rows);
-            $headerRow = $rows[$headerRowIndex];
-
-            // Deteksi kolom
-            $columnMap = $parser->detectColumns($headerRow);
-            $rawPreview = $parser->buildRawPreview($rows, $headerRowIndex);
-
             $users = User::orderBy('name', 'ASC')->get();
+            $machineType = $parser->machineFileType($rows);
+            $machineMode = count($fullPaths) > 1 || $machineType !== 'generic';
+            $machineMeta = [
+                'files' => [],
+                'warnings' => [],
+                'date_range' => [],
+            ];
 
-            if ($columnMap['nama'] === null && $columnMap['employee_id'] === null) {
-                $results = $this->buildInvalidPreviewRows(
-                    $rawPreview,
-                    $shift->id,
-                    'Kolom identitas karyawan tidak ditemukan. Pastikan ada kolom Nama/Name/Karyawan atau Employee ID/NIP/PIN.'
-                );
-            } else {
-                $results = $parser->processRows(
-                    $rows,
-                    $headerRowIndex,
-                    $columnMap,
+            if ($machineMode) {
+                $machineResult = $parser->processMachineFiles(
+                    $fullPaths,
                     $users,
                     $shift->id,
                     $shift->jam_masuk,
                     $shift->jam_keluar
                 );
-                $results = $this->attachRawColumnsToResults($results, $rawPreview);
+
+                $results = $machineResult['results'];
+                $rawPreview = $machineResult['raw_preview'];
+                $headerRow = $rawPreview['headers'];
+                $columnMap = ['machine_package' => true];
+                $machineMeta = [
+                    'files' => $machineResult['files'],
+                    'warnings' => $machineResult['warnings'],
+                    'date_range' => $machineResult['date_range'],
+                ];
+            } else {
+                // Deteksi header row
+                $headerRowIndex = $parser->findHeaderRow($rows);
+                $headerRow = $rows[$headerRowIndex];
+
+                // Deteksi kolom
+                $columnMap = $parser->detectColumns($headerRow);
+                $rawPreview = $parser->buildRawPreview($rows, $headerRowIndex);
+
+                if ($columnMap['nama'] === null && $columnMap['employee_id'] === null) {
+                    $results = $this->buildInvalidPreviewRows(
+                        $rawPreview,
+                        $shift->id,
+                        'Kolom identitas karyawan tidak ditemukan. Pastikan ada kolom Nama/Name/Karyawan atau Employee ID/NIP/PIN.'
+                    );
+                } else {
+                    $results = $parser->processRows(
+                        $rows,
+                        $headerRowIndex,
+                        $columnMap,
+                        $users,
+                        $shift->id,
+                        $shift->jam_masuk,
+                        $shift->jam_keluar
+                    );
+                    $results = $this->attachRawColumnsToResults($results, $rawPreview);
+                }
             }
 
             // Cek data existing untuk tandai update/baru
@@ -105,10 +143,15 @@ class SmartAbsenImportController extends Controller
                 'will_update'=> count(array_filter($results, fn($r) => $r['action'] === 'update')),
                 'raw_rows'   => $rawPreview['total_rows'],
                 'raw_columns'=> $rawPreview['total_columns'],
+                'files'      => count($paths),
+                'warnings'   => count($machineMeta['warnings']),
             ];
 
             // Simpan path di session untuk import nanti
-            session(['smart_import_temp_path' => $path]);
+            session([
+                'smart_import_temp_path' => $paths[0],
+                'smart_import_temp_paths' => $paths,
+            ]);
 
             return response()->json([
                 'success'     => true,
@@ -118,6 +161,7 @@ class SmartAbsenImportController extends Controller
                 'preview'     => $results,
                 'stats'       => $stats,
                 'shift_name'  => $shift->nama_shift . ' (' . $shift->jam_masuk . ' - ' . $shift->jam_keluar . ')',
+                'machine'     => $machineMeta,
             ]);
 
         } catch (\Exception $e) {
@@ -186,11 +230,18 @@ class SmartAbsenImportController extends Controller
             DB::commit();
 
             // Hapus file temp
-            $tempPath = session('smart_import_temp_path');
-            if ($tempPath && \Storage::disk('local')->exists($tempPath)) {
-                \Storage::disk('local')->delete($tempPath);
+            $tempPaths = session('smart_import_temp_paths', []);
+            $legacyTempPath = session('smart_import_temp_path');
+            if ($legacyTempPath) {
+                $tempPaths[] = $legacyTempPath;
             }
-            session()->forget('smart_import_temp_path');
+
+            foreach (array_unique(array_filter($tempPaths)) as $tempPath) {
+                if (\Storage::disk('local')->exists($tempPath)) {
+                    \Storage::disk('local')->delete($tempPath);
+                }
+            }
+            session()->forget(['smart_import_temp_path', 'smart_import_temp_paths']);
 
             return response()->json([
                 'success' => true,

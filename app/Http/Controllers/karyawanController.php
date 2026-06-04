@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Storage;
 use App\Services\KinerjaService;
+use App\Services\InventoryBastService;
 use Illuminate\Support\Facades\Schema;
 
 
@@ -386,6 +387,10 @@ class karyawanController extends Controller
             foreach ($request->role as $role) {
                 $user->assignRole($role);
             }
+        }
+
+        if (Schema::hasTable('inventory_bast_documents') && Schema::hasTable('inventory_stock_transactions')) {
+            app(InventoryBastService::class)->refreshFilesForUser($user->fresh('Jabatan'));
         }
 
         $request->session()->flash('success', 'Data Berhasil di Update');

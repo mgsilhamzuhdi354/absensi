@@ -5,13 +5,13 @@
     $tanggalTeks = $tanggal->format('d') . ' ' . $bulan[(int) $tanggal->format('n')] . ' ' . $tanggal->format('Y');
     $hariTeks = $hari[$tanggal->format('l')] ?? $tanggal->format('l');
     $divisiInventory = $inventory->jabatan->nama_jabatan ?? null;
-    $pihakKedua = $document->nama_penerima ?: ($transaction->penerima_barang ?: '-');
-    $jabatanPihakKedua = $document->jabatan_penerima ?: ($transaction->jabatan_penerima ?: '-');
-    $deptPihakKedua = $transaction->departemen_penerima ?: $jabatanPihakKedua;
-    $pihakPertama = optional($document->firstParty)->name ?: ($document->nama_penyerah ?: ($transaction->processedBy->name ?? '-'));
-    $jabatanPihakPertama = optional(optional($document->firstParty)->Jabatan)->nama_jabatan ?: ($document->jabatan_penyerah ?: ($divisiInventory ?: 'IT Engineer'));
-    $deptPihakPertama = $jabatanPihakPertama ?: ($divisiInventory ?: '-');
-    $namaMengetahui = optional($document->knownBy)->name ?: ($document->nama_mengetahui ?: '(____________________)');
+    $pihakKedua = $document->nama_penerima ?: (optional($transaction->penerima)->name ?: ($transaction->penerima_barang ?: '-'));
+    $jabatanPihakKedua = $document->jabatan_penerima ?: (optional(optional($transaction->penerima)->Jabatan)->nama_jabatan ?: ($transaction->jabatan_penerima ?: '-'));
+    $deptPihakKedua = $document->departemen_penerima ?: ($transaction->departemen_penerima ?: $jabatanPihakKedua);
+    $pihakPertama = $document->nama_penyerah ?: (optional($document->firstParty)->name ?: ($transaction->processedBy->name ?? '-'));
+    $jabatanPihakPertama = $document->jabatan_penyerah ?: (optional(optional($document->firstParty)->Jabatan)->nama_jabatan ?: ($divisiInventory ?: 'IT Engineer'));
+    $deptPihakPertama = $document->departemen_penyerah ?: ($jabatanPihakPertama ?: ($divisiInventory ?: '-'));
+    $namaMengetahui = $document->nama_mengetahui ?: (optional($document->knownBy)->name ?: '(____________________)');
     $jabatanMengetahui = optional(optional($document->knownBy)->Jabatan)->nama_jabatan ?: 'HRD / Manager';
     $signatureSrc = function ($path) {
         if (!$path || !\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {

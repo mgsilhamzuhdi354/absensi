@@ -386,6 +386,45 @@ class InventoryController extends Controller
             ->with('success', 'Surat BAST berhasil dibuat: ' . $document->nomor_surat);
     }
 
+    public function updateBast(Request $request, $id)
+    {
+        $document = InventoryBastDocument::with('transaction.inventory')->findOrFail($id);
+        if (!$this->inventoryBastPartyColumnsReady()) {
+            return redirect('/inventory/' . optional($document->transaction)->inventory_id . '/detail')
+                ->with('error', 'Database BAST belum siap. Jalankan php artisan migrate terlebih dahulu.');
+        }
+
+        $validated = $request->validate([
+            'tanggal_surat' => 'required|date',
+            'nama_penyerah' => 'nullable|string|max:255',
+            'jabatan_penyerah' => 'nullable|string|max:255',
+            'departemen_penyerah' => 'nullable|string|max:255',
+            'nama_penerima' => 'nullable|string|max:255',
+            'jabatan_penerima' => 'nullable|string|max:255',
+            'departemen_penerima' => 'nullable|string|max:255',
+            'nama_mengetahui' => 'nullable|string|max:255',
+        ]);
+
+        DB::transaction(function () use ($document, $validated) {
+            $document->forceFill(array_merge($validated, [
+                'party_details_locked' => true,
+            ]))->save();
+
+            if ($document->transaction) {
+                $document->transaction->forceFill([
+                    'penerima_barang' => $validated['nama_penerima'] ?? $document->transaction->penerima_barang,
+                    'jabatan_penerima' => $validated['jabatan_penerima'] ?? $document->transaction->jabatan_penerima,
+                    'departemen_penerima' => $validated['departemen_penerima'] ?? $document->transaction->departemen_penerima,
+                ])->save();
+            }
+        });
+
+        $document = $this->bastService->storePdf($document->fresh());
+
+        return redirect('/inventory/' . $document->transaction->inventory_id . '/detail')
+            ->with('success', 'Detail BAST berhasil diupdate dan PDF sudah dibuat ulang.');
+    }
+
     public function downloadBast($id)
     {
         $document = InventoryBastDocument::with('transaction.inventory')->findOrFail($id);
@@ -626,6 +665,14 @@ class InventoryController extends Controller
     {
         return Schema::hasTable('inventory_bast_documents')
             && Schema::hasTable('inventory_stock_transactions');
+    }
+
+    private function inventoryBastPartyColumnsReady()
+    {
+        return $this->inventoryBastTablesReady()
+            && Schema::hasColumn('inventory_bast_documents', 'departemen_penerima')
+            && Schema::hasColumn('inventory_bast_documents', 'departemen_penyerah')
+            && Schema::hasColumn('inventory_bast_documents', 'party_details_locked');
     }
 
     private function storeBastSignatureImage(InventoryBastDocument $document, $role, $signatureData)

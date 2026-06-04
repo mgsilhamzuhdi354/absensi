@@ -497,6 +497,7 @@ Route::post('/my-inventory-bast/{id}/sign/{role}', [InventoryController::class, 
 Route::get('/my-inventory-bast/{id}/download', [InventoryController::class, 'downloadMyBastDocument'])->middleware('auth');
 Route::post('/inventory/transactions/{id}/bast', [InventoryController::class, 'createBast'])->middleware('admin');
 Route::delete('/inventory/transactions/{id}', [InventoryController::class, 'deleteStockTransaction'])->middleware('admin');
+Route::put('/inventory/bast/{id}', [InventoryController::class, 'updateBast'])->middleware('admin');
 Route::get('/inventory/bast/{id}/download', [InventoryController::class, 'downloadBast'])->middleware('admin');
 Route::get('/inventory/{id}/detail', [InventoryController::class, 'detail'])->middleware('admin');
 Route::post('/inventory/{id}/stock-in', [InventoryController::class, 'stockIn'])->middleware('admin');

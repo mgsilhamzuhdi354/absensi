@@ -285,6 +285,72 @@ class SmartAbsenParserTest extends TestCase
         $this->assertSame('Kolom Jauh', $rows[0][45]);
     }
 
+    /** @test */
+    public function it_processes_machine_package_files_into_daily_mapping_rows(): void
+    {
+        $parser = new SmartAbsenParser();
+        $users = $this->users([
+            ['id' => 8, 'name' => 'MGS ILHAM ZUHDI', 'username' => 'mgs'],
+        ]);
+
+        $files = [
+            $this->makeXlsx([
+                ['Catatan Kehadiran Karyawan'],
+                ['Tanggal Kehadiran:2026-05-01~2026-05-04'],
+                ['', '', '', '', 'User ID.：', '1', '', '', 'Nama：', 'mgs ilham zuhdi', '', '', 'Departemen：', 'it'],
+                ['1', '2', '3', '4'],
+                ['', "07:57\n17:00", '18:10', '08:02'],
+                ['', '17:01', '', ''],
+            ]),
+            $this->makeXlsx([
+                ['Kehadiran Tidak Normal'],
+                ['Tanggal Kehadiran:2026-05-01~2026-05-04'],
+                ['User ID.', 'Nama', 'Departemen', 'Tanggal', 'Pagi', 'Siang', 'Lembur', 'Keterangan', 'Terlambat Masuk', 'Keluar Lebih Awal'],
+                ['1', 'mgs ilham zuhdi', 'it', '2026-05-01', 'Tidak hadir', '', '', '', '0', '0'],
+                ['1', 'mgs ilham zuhdi', 'it', '2026-05-04', '08:02', '', '', '', '2', '0'],
+            ]),
+            $this->makeXlsx([
+                ['Analisa Kehadiran'],
+                ['Tanggal Statistik:2026-05-01~2026-05-04'],
+                ['User ID.', 'Nama', 'Departemen', 'Jam Kerja', 'Jam Kerja', 'Terlambat Masuk', 'Terlambat Masuk', 'Keluar Lebih Awal', 'Keluar Lebih Awal', 'Jam Kerja Lembur', 'Jam Kerja Lembur', 'Hari Kehadiran (Standar/Aktual)', 'Perjalanan Bisnis (hari)', 'Tidak hadir (hari)', 'Cuti (hari)'],
+                ['', '', '', 'Standar', 'Aktual', 'Kali', 'Menit', 'Kali', 'Menit', 'Normal', 'Khusus', '', '', '', ''],
+                ['1', 'mgs ilham zuhdi', 'it', '4,0', '3,0', '1', '2', '0', '0', '0,0', '0,0', '4/3', '0', '1', '0'],
+            ]),
+            $this->makeXlsx([
+                ['Informasi Pengguna'],
+                ['User ID.', 'Nama', 'Departemen'],
+                ['1', 'mgs ilham zuhdi', 'it'],
+            ]),
+        ];
+
+        try {
+            $result = $parser->processMachineFiles($files, $users, 1, '08:00:00', '17:00:00');
+        } finally {
+            foreach ($files as $file) {
+                @unlink($file);
+            }
+        }
+
+        $rows = collect($result['results']);
+        $this->assertSame(['start' => '2026-05-01', 'end' => '2026-05-04'], $result['date_range']);
+        $this->assertCount(4, $rows);
+        $this->assertSame('Tidak Masuk', $rows->firstWhere('tanggal', '2026-05-01')['status_absen']);
+
+        $secondDay = $rows->firstWhere('tanggal', '2026-05-02');
+        $this->assertSame('07:57', $secondDay['jam_absen']);
+        $this->assertSame('17:01', $secondDay['jam_pulang']);
+
+        $thirdDay = $rows->firstWhere('tanggal', '2026-05-03');
+        $this->assertNull($thirdDay['jam_absen']);
+        $this->assertSame('18:10', $thirdDay['jam_pulang']);
+        $this->assertSame('Masuk', $thirdDay['status_absen']);
+
+        $fourthDay = $rows->firstWhere('tanggal', '2026-05-04');
+        $this->assertSame(120, $fourthDay['telat']);
+        $this->assertTrue($fourthDay['valid']);
+        $this->assertSame([], $result['warnings']);
+    }
+
     private function fillAttendanceBlock(array &$rows, int $startCol, string $dept, string $name, string $userId, array $days): void
     {
         $rows[2][$startCol] = 'Dept';
@@ -315,6 +381,17 @@ class SmartAbsenParserTest extends TestCase
                 $rows[$rowIndex][$startCol + 1 + $index] = $time;
             }
         }
+    }
+
+    private function makeXlsx(array $rows): string
+    {
+        $spreadsheet = new Spreadsheet();
+        $spreadsheet->getActiveSheet()->fromArray($rows);
+
+        $path = tempnam(sys_get_temp_dir(), 'smart_machine_') . '.xlsx';
+        (new Xlsx($spreadsheet))->save($path);
+
+        return $path;
     }
 
     private function users(array $attributes): Collection

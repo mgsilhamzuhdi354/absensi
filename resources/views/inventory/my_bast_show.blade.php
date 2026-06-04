@@ -53,7 +53,7 @@
                 'heading' => 'PIHAK KEDUA',
                 'subtitle' => 'Yang Menerima',
                 'name' => $document->receiver_signature_name ?: ($document->nama_penerima ?: (optional($transaction->penerima)->name ?: '-')),
-                'position' => $document->jabatan_penerima ?: ($transaction->jabatan_penerima ?? '-'),
+                'position' => $document->jabatan_penerima ?: (optional(optional($transaction->penerima)->Jabatan)->nama_jabatan ?: ($transaction->jabatan_penerima ?? '-')),
             ],
             'known' => [
                 'heading' => 'MENGETAHUI',
@@ -65,7 +65,7 @@
                 'heading' => 'PIHAK PERTAMA',
                 'subtitle' => 'Yang Menyerahkan',
                 'name' => $document->first_party_signature_name ?: ($document->nama_penyerah ?: (optional($document->firstParty)->name ?: '-')),
-                'position' => optional(optional($document->firstParty)->Jabatan)->nama_jabatan ?: ($document->jabatan_penyerah ?: '-'),
+                'position' => $document->jabatan_penyerah ?: (optional(optional($document->firstParty)->Jabatan)->nama_jabatan ?: '-'),
             ],
         ];
         $hasPendingForUser = collect($signatureRoles)->contains(function ($config, $role) use ($document) {

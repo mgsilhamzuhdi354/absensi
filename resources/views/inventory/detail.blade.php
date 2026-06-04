@@ -350,6 +350,24 @@
                                                             <span class="badge bg-warning text-dark mt-1">Menunggu TTD {{ $signatureRow['label'] }}</span>
                                                         @endif
                                                     @endforeach
+                                                    <details class="mt-2">
+                                                        <summary class="btn btn-sm btn-outline-warning">Edit Detail BAST</summary>
+                                                        <form method="post" action="{{ url('/inventory/bast/'.$bast->id) }}" class="mt-2">
+                                                            @method('put')
+                                                            @csrf
+                                                            <input type="date" name="tanggal_surat" class="form-control form-control-sm mb-1" value="{{ old('tanggal_surat', optional($bast->tanggal_surat)->format('Y-m-d')) }}" required>
+                                                            <div class="small fw-bold mt-2">Pihak Pertama</div>
+                                                            <input type="text" name="nama_penyerah" class="form-control form-control-sm mb-1" value="{{ old('nama_penyerah', $bast->nama_penyerah) }}" placeholder="Nama pihak pertama">
+                                                            <input type="text" name="jabatan_penyerah" class="form-control form-control-sm mb-1" value="{{ old('jabatan_penyerah', $bast->jabatan_penyerah) }}" placeholder="Jabatan pihak pertama">
+                                                            <input type="text" name="departemen_penyerah" class="form-control form-control-sm mb-1" value="{{ old('departemen_penyerah', $bast->departemen_penyerah ?: $bast->jabatan_penyerah) }}" placeholder="Departemen pihak pertama">
+                                                            <div class="small fw-bold mt-2">Pihak Kedua</div>
+                                                            <input type="text" name="nama_penerima" class="form-control form-control-sm mb-1" value="{{ old('nama_penerima', $bast->nama_penerima) }}" placeholder="Nama pihak kedua">
+                                                            <input type="text" name="jabatan_penerima" class="form-control form-control-sm mb-1" value="{{ old('jabatan_penerima', $bast->jabatan_penerima) }}" placeholder="Jabatan pihak kedua">
+                                                            <input type="text" name="departemen_penerima" class="form-control form-control-sm mb-1" value="{{ old('departemen_penerima', $bast->departemen_penerima ?: ($transaction->departemen_penerima ?: $bast->jabatan_penerima)) }}" placeholder="Departemen pihak kedua">
+                                                            <input type="text" name="nama_mengetahui" class="form-control form-control-sm mb-1" value="{{ old('nama_mengetahui', $bast->nama_mengetahui) }}" placeholder="Nama mengetahui">
+                                                            <button type="submit" class="btn btn-sm btn-warning w-100">Simpan & Regenerate PDF</button>
+                                                        </form>
+                                                    </details>
                                                 @else
                                                     <form method="post" action="{{ url('/inventory/transactions/'.$transaction->id.'/bast') }}">
                                                         @csrf

@@ -332,11 +332,11 @@
                                         @enderror
                                     </div>
                                     <div class="col mb-4">
-                                        <label for="jabatan_id">Divisi</label>
+                                        <label for="jabatan_id">Jabatan / Divisi</label>
                                         <select name="jabatan_id" id="jabatan_id"
                                             class="form-control @error('jabatan_id') is-invalid @enderror selectpicker"
                                             data-live-search="true">
-                                            <option value="">Pilih Divisi</option>
+                                            <option value="">Pilih Jabatan / Divisi</option>
                                             @foreach ($data_jabatan as $dj)
                                                 @if(old('jabatan_id', $karyawan->jabatan_id) == $dj->id)
                                                     <option value="{{ $dj->id }}" selected>{{ $dj->nama_jabatan }}</option>

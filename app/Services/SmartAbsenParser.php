@@ -43,7 +43,7 @@ class SmartAbsenParser
      */
     private array $columnKeywords = [
         'nama'        => ['nama', 'name', 'karyawan', 'pegawai', 'employee', 'no name', 'nama pegawai', 'nama karyawan'],
-        'employee_id' => ['employee id', 'emp id', 'pin', 'nik', 'nip', 'id karyawan', 'kode karyawan', 'no pegawai'],
+        'employee_id' => ['employee id', 'emp id', 'pin', 'nik', 'nip', 'user id', 'user id.', 'id karyawan', 'kode karyawan', 'no pegawai'],
         'tanggal'     => ['tanggal', 'date', 'tgl', 'hari', 'tanggal absen'],
         'datetime'    => ['datetime', 'date time', 'tanggal jam', 'waktu scan', 'scan time', 'punch time', 'record time', 'clock time'],
         'jam_masuk'   => ['jam masuk', 'check in', 'checkin', 'masuk kerja', 'clock in', 'time in', 'jam datang'],
@@ -70,7 +70,22 @@ class SmartAbsenParser
      */
     public function parseExcel(string $filePath): array
     {
-        $spreadsheet = IOFactory::load($filePath);
+        $previousReporting = error_reporting();
+        set_error_handler(function ($severity, $message, $file) {
+            if (str_contains((string) $file, 'PhpSpreadsheet')) {
+                return true;
+            }
+
+            return false;
+        });
+
+        try {
+            $spreadsheet = IOFactory::load($filePath);
+        } finally {
+            restore_error_handler();
+            error_reporting($previousReporting);
+        }
+
         $sheet = $spreadsheet->getActiveSheet();
 
         $rows = [];
@@ -101,6 +116,254 @@ class SmartAbsenParser
         }
 
         return $rows;
+    }
+
+    public function machineFileType(array $rows): string
+    {
+        return $this->detectMachineFileType($rows);
+    }
+
+    public function processMachineFiles(
+        array $filePaths,
+        Collection $users,
+        int $shiftId,
+        string $shiftJamMasuk,
+        string $shiftJamKeluar
+    ): array {
+        $parsedFiles = [];
+        $dateRange = [];
+        $userDirectory = [];
+        $dailyRows = [];
+        $abnormalRows = [];
+        $summaries = [];
+        $rawPreviewRows = [];
+        $rawHeaders = ['File', 'Baris', 'Kolom', 'Nilai'];
+        $warnings = [];
+
+        foreach ($filePaths as $filePath) {
+            $rows = $this->parseExcel($filePath);
+            $fileName = basename($filePath);
+            $type = $this->detectMachineFileType($rows);
+            $range = $this->detectReportDateRange($rows);
+            if (!empty($range)) {
+                $dateRange = $dateRange ?: $range;
+            }
+
+            foreach ($this->buildMachineRawRows($rows, $fileName) as $rawRow) {
+                $rawPreviewRows[] = $rawRow;
+            }
+
+            if ($type === 'user_info') {
+                $userDirectory = array_replace($userDirectory, $this->parseMachineUserInfo($rows));
+            } elseif ($type === 'personal_attendance') {
+                $dailyRows = array_merge($dailyRows, $this->parseMachinePersonalAttendanceRows($rows, $range, $fileName));
+            } elseif ($type === 'abnormal_attendance') {
+                $abnormalRows = array_merge($abnormalRows, $this->parseMachineAbnormalRows($rows, $range, $fileName));
+            } elseif ($type === 'attendance_summary') {
+                $summaries = array_replace($summaries, $this->parseMachineAttendanceSummaries($rows, $range, $fileName));
+            }
+
+            $parsedFiles[] = [
+                'file' => $fileName,
+                'type' => $type,
+                'rows' => count($rows),
+            ];
+        }
+
+        $dates = !empty($dateRange) ? $this->dateRange($dateRange['start'], $dateRange['end']) : [];
+        $employees = [];
+        $records = [];
+
+        foreach ($dailyRows as $row) {
+            $key = $this->machineEmployeeKey($row['employee_id'], $row['name']);
+            $employees[$key] = $this->mergeMachineEmployee($employees[$key] ?? [], $row, $userDirectory);
+            $records[$key][$row['tanggal']]['times'] = array_values(array_unique(array_merge(
+                $records[$key][$row['tanggal']]['times'] ?? [],
+                $row['times']
+            )));
+            $records[$key][$row['tanggal']]['raw'][] = $row;
+        }
+
+        foreach ($abnormalRows as $row) {
+            $key = $this->machineEmployeeKey($row['employee_id'], $row['name']);
+            $employees[$key] = $this->mergeMachineEmployee($employees[$key] ?? [], $row, $userDirectory);
+            $records[$key][$row['tanggal']]['abnormal'] = $row;
+            $records[$key][$row['tanggal']]['times'] = array_values(array_unique(array_merge(
+                $records[$key][$row['tanggal']]['times'] ?? [],
+                $row['times']
+            )));
+        }
+
+        foreach ($summaries as $key => $summary) {
+            $employees[$key] = $this->mergeMachineEmployee($employees[$key] ?? [], $summary, $userDirectory);
+        }
+
+        if (empty($dailyRows) && empty($abnormalRows)) {
+            $results = [];
+            foreach ($employees as $key => $employee) {
+                $name = $employee['name'] ?: ($userDirectory[$employee['employee_id']]['name'] ?? '');
+                $employeeId = $employee['employee_id'];
+
+                $results[] = $this->normalizeResultRow([
+                    'preview_key' => 'machine-summary:' . $key,
+                    'row_index' => $summaries[$key]['row_index'] ?? null,
+                    'source_format' => 'machine_package_summary',
+                    'raw_columns' => [
+                        'User ID' => $employeeId,
+                        'Nama' => $name,
+                    ],
+                    'raw_nama' => $name,
+                    'raw_employee_id' => $employeeId,
+                    'raw_tanggal' => '',
+                    'raw_masuk' => '',
+                    'raw_pulang' => '',
+                    'raw_status' => '',
+                    'tanggal' => null,
+                    'jam_absen' => null,
+                    'jam_pulang' => null,
+                    'status_absen' => 'Tidak Masuk',
+                    'telat' => 0,
+                    'pulang_cepat' => 0,
+                    'shift_id' => $shiftId,
+                    'user_id' => null,
+                    'user_name' => null,
+                    'confidence' => 0,
+                    'match_type' => 'not_found',
+                    'valid' => false,
+                    'errors' => ['File laporan hanya berisi rekap. Upload Catatan Kehadiran Karyawan dan/atau Kehadiran Tidak Normal agar tanggal harian tidak ditebak.'],
+                ]);
+            }
+
+            $warnings[] = 'File laporan rekap tidak dipakai untuk menebak tanggal harian. Upload file Catatan Kehadiran Karyawan sebagai sumber utama.';
+
+            return [
+                'results' => array_values($results),
+                'raw_preview' => [
+                    'header_row_index' => 0,
+                    'data_start_index' => 0,
+                    'headers' => $rawHeaders,
+                    'rows' => $rawPreviewRows,
+                    'total_rows' => count($rawPreviewRows),
+                    'total_columns' => count($rawHeaders),
+                ],
+                'files' => $parsedFiles,
+                'date_range' => $dateRange,
+                'summaries' => array_values($summaries),
+                'warnings' => array_values(array_unique($warnings)),
+            ];
+        }
+
+        if (empty($dates)) {
+            $dates = $this->datesFromMachineRecords($records);
+        }
+
+        $results = [];
+        foreach ($employees as $key => $employee) {
+            $name = $employee['name'] ?: ($userDirectory[$employee['employee_id']]['name'] ?? '');
+            $employeeId = $employee['employee_id'];
+            $matchResult = $this->matchEmployee($name, $users, $employeeId);
+            $summary = $summaries[$key] ?? null;
+            $actualMasuk = 0;
+            $actualTidakMasuk = 0;
+            $actualCuti = 0;
+
+            foreach ($dates as $date) {
+                $record = $records[$key][$date] ?? [];
+                $times = $record['times'] ?? [];
+                sort($times);
+
+                $classification = $this->classifyMachineTimes($times, $date, $shiftJamMasuk, $shiftJamKeluar);
+                $abnormal = $record['abnormal'] ?? null;
+                $status = $classification['status'];
+                if (!$classification['has_scan'] && $abnormal && $abnormal['status'] !== '') {
+                    $status = $abnormal['status'];
+                }
+                if (!$classification['has_scan'] && !$abnormal) {
+                    $status = 'Libur';
+                }
+
+                $jamMasuk = $classification['jam_absen'];
+                $jamPulang = $classification['jam_pulang'];
+                $telat = $classification['telat'];
+                $pulangCepat = $classification['pulang_cepat'];
+
+                if ($abnormal) {
+                    $telat = max($telat, (int) ($abnormal['telat'] ?? 0));
+                    $pulangCepat = max($pulangCepat, (int) ($abnormal['pulang_cepat'] ?? 0));
+                }
+
+                if (in_array($status, ['Masuk', 'Izin Telat', 'Izin Pulang Cepat'], true)) {
+                    $actualMasuk++;
+                } elseif ($status === 'Tidak Masuk') {
+                    $actualTidakMasuk++;
+                } elseif ($status === 'Cuti') {
+                    $actualCuti++;
+                }
+
+                $errors = array_filter([
+                    in_array($matchResult['match_type'], ['not_found', 'empty'], true)
+                        ? 'Karyawan tidak ditemukan: "' . trim($employeeId . ' ' . $name) . '"'
+                        : null,
+                ]);
+
+                $results[] = $this->normalizeResultRow([
+                    'preview_key' => 'machine:' . $key . ':' . $date,
+                    'row_index' => $abnormal['row_index'] ?? ($record['raw'][0]['row_index'] ?? null),
+                    'source_format' => 'machine_package',
+                    'raw_columns' => [
+                        'User ID' => $employeeId,
+                        'Nama' => $name,
+                        'Tanggal' => $date,
+                        'Times' => implode(', ', $times),
+                        'Summary' => $summary ? json_encode($summary, JSON_UNESCAPED_UNICODE) : '',
+                    ],
+                    'raw_nama' => $name,
+                    'raw_employee_id' => $employeeId,
+                    'raw_tanggal' => $date,
+                    'raw_masuk' => $jamMasuk ?: '',
+                    'raw_pulang' => $jamPulang ?: '',
+                    'raw_status' => $status,
+                    'tanggal' => $date,
+                    'jam_absen' => $jamMasuk,
+                    'jam_pulang' => $jamPulang,
+                    'status_absen' => $status,
+                    'telat' => $telat,
+                    'pulang_cepat' => $pulangCepat,
+                    'shift_id' => $shiftId,
+                    'user_id' => $matchResult['user'] ? $matchResult['user']->id : null,
+                    'user_name' => $matchResult['user'] ? $matchResult['user']->name : null,
+                    'confidence' => $matchResult['confidence'],
+                    'match_type' => $matchResult['match_type'],
+                    'valid' => !in_array($matchResult['match_type'], ['not_found', 'empty'], true),
+                    'errors' => $errors,
+                ]);
+            }
+
+            if ($summary) {
+                $summaryWarnings = $this->machineSummaryWarnings($name, $summary, [
+                    'masuk' => $actualMasuk,
+                    'tidak_masuk' => $actualTidakMasuk,
+                    'cuti' => $actualCuti,
+                ]);
+                $warnings = array_merge($warnings, $summaryWarnings);
+            }
+        }
+
+        return [
+            'results' => array_values($results),
+            'raw_preview' => [
+                'header_row_index' => 0,
+                'data_start_index' => 0,
+                'headers' => $rawHeaders,
+                'rows' => $rawPreviewRows,
+                'total_rows' => count($rawPreviewRows),
+                'total_columns' => count($rawHeaders),
+            ],
+            'files' => $parsedFiles,
+            'date_range' => $dateRange,
+            'summaries' => array_values($summaries),
+            'warnings' => array_values(array_unique($warnings)),
+        ];
     }
 
     /**
@@ -1188,6 +1451,408 @@ class SmartAbsenParser
         }
 
         return $name;
+    }
+
+    private function detectMachineFileType(array $rows): string
+    {
+        $text = $this->normalizeText(implode(' ', array_map(fn($row) => implode(' ', $row), array_slice($rows, 0, 8))));
+
+        if (str_contains($text, 'catatan kehadiran karyawan')) {
+            return 'personal_attendance';
+        }
+
+        if (str_contains($text, 'kehadiran tidak normal')) {
+            return 'abnormal_attendance';
+        }
+
+        if (str_contains($text, 'analisa kehadiran')) {
+            return 'attendance_summary';
+        }
+
+        if (str_contains($text, 'informasi pengguna')) {
+            return 'user_info';
+        }
+
+        return 'generic';
+    }
+
+    private function buildMachineRawRows(array $rows, string $fileName): array
+    {
+        $rawRows = [];
+        foreach ($rows as $rowIndex => $row) {
+            foreach ($row as $colIndex => $value) {
+                $value = trim((string) $value);
+                if ($value === '') {
+                    continue;
+                }
+
+                $rawRows[] = [
+                    'row_index' => ($rowIndex * 1000) + $colIndex,
+                    'row_number' => $rowIndex + 1,
+                    'values' => [$fileName, $rowIndex + 1, $this->excelColumnName($colIndex), $value],
+                    'columns' => [
+                        'File' => $fileName,
+                        'Baris' => $rowIndex + 1,
+                        'Kolom' => $this->excelColumnName($colIndex),
+                        'Nilai' => $value,
+                    ],
+                ];
+            }
+        }
+
+        return $rawRows;
+    }
+
+    private function parseMachineUserInfo(array $rows): array
+    {
+        $headerIndex = null;
+        foreach ($rows as $index => $row) {
+            $text = $this->normalizeText(implode(' ', $row));
+            if (str_contains($text, 'user id') && str_contains($text, 'nama')) {
+                $headerIndex = $index;
+                break;
+            }
+        }
+
+        if ($headerIndex === null) {
+            return [];
+        }
+
+        $map = [];
+        for ($i = $headerIndex + 1; $i < count($rows); $i++) {
+            $employeeId = $this->cleanMachineLabelValue($this->valueAt($rows[$i], 0));
+            $name = $this->cleanMachineLabelValue($this->valueAt($rows[$i], 1));
+            $department = $this->cleanMachineLabelValue($this->valueAt($rows[$i], 2));
+
+            if ($employeeId === '' || $name === '') {
+                continue;
+            }
+
+            $map[$employeeId] = [
+                'employee_id' => $employeeId,
+                'name' => $name,
+                'department' => $department,
+            ];
+        }
+
+        return $map;
+    }
+
+    private function parseMachinePersonalAttendanceRows(array $rows, array $reportDateRange, string $fileName): array
+    {
+        if (empty($reportDateRange)) {
+            return [];
+        }
+
+        $start = new \DateTimeImmutable($reportDateRange['start']);
+        $results = [];
+
+        for ($rowIndex = 0; $rowIndex < count($rows); $rowIndex++) {
+            $row = $rows[$rowIndex];
+            $meta = $this->extractMachineAttendanceMeta($row);
+            if (!$meta) {
+                continue;
+            }
+
+            $daysRowIndex = $rowIndex + 1;
+            $daysRow = $rows[$daysRowIndex] ?? [];
+            $dayColumns = [];
+            foreach ($daysRow as $colIndex => $value) {
+                if (preg_match('/^\d{1,2}$/', trim((string) $value))) {
+                    $dayColumns[(int) $value] = $colIndex;
+                }
+            }
+
+            if (empty($dayColumns)) {
+                continue;
+            }
+
+            $timeRows = [];
+            for ($scanRowIndex = $daysRowIndex + 1; $scanRowIndex < count($rows); $scanRowIndex++) {
+                if ($this->extractMachineAttendanceMeta($rows[$scanRowIndex] ?? [])) {
+                    break;
+                }
+
+                if (!$this->rowHasValueInRange($rows[$scanRowIndex] ?? [], min($dayColumns), max($dayColumns))) {
+                    break;
+                }
+
+                $timeRows[$scanRowIndex] = $rows[$scanRowIndex];
+            }
+
+            foreach ($dayColumns as $day => $colIndex) {
+                $date = $start->modify('+' . ($day - 1) . ' days')->format('Y-m-d');
+                if ($date < $reportDateRange['start'] || $date > $reportDateRange['end']) {
+                    continue;
+                }
+
+                $times = [];
+                foreach ($timeRows as $scanRowIndex => $scanRow) {
+                    $times = array_merge($times, $this->extractTimesFromCell($scanRow[$colIndex] ?? ''));
+                }
+                $times = array_values(array_unique($times));
+                sort($times);
+
+                if (empty($times)) {
+                    continue;
+                }
+
+                $results[] = [
+                    'file' => $fileName,
+                    'row_index' => $rowIndex,
+                    'employee_id' => $meta['employee_id'],
+                    'name' => $meta['name'],
+                    'department' => $meta['department'],
+                    'tanggal' => $date,
+                    'times' => $times,
+                ];
+            }
+        }
+
+        return $results;
+    }
+
+    private function parseMachineAbnormalRows(array $rows, array $reportDateRange, string $fileName): array
+    {
+        $headerIndex = null;
+        foreach ($rows as $index => $row) {
+            $text = $this->normalizeText(implode(' ', $row));
+            if (str_contains($text, 'user id') && str_contains($text, 'tanggal') && str_contains($text, 'terlambat')) {
+                $headerIndex = $index;
+                break;
+            }
+        }
+
+        if ($headerIndex === null) {
+            return [];
+        }
+
+        $results = [];
+        $dataStart = $headerIndex + ($this->looksLikeSubHeaderRow($rows, $headerIndex) ? 2 : 1);
+        for ($i = $dataStart; $i < count($rows); $i++) {
+            $row = $rows[$i];
+            $employeeId = $this->cleanMachineLabelValue($this->valueAt($row, 0));
+            $name = $this->cleanMachineLabelValue($this->valueAt($row, 1));
+            $tanggal = $this->parseDate($this->valueAt($row, 3));
+            if (($employeeId === '' && $name === '') || !$tanggal) {
+                continue;
+            }
+
+            $times = [];
+            foreach ([4, 5, 6, 7] as $timeCol) {
+                $times = array_merge($times, $this->extractTimesFromCell($row[$timeCol] ?? ''));
+            }
+            $times = array_values(array_unique($times));
+            sort($times);
+
+            $statusText = $this->normalizeText(implode(' ', array_slice($row, 4, 8)));
+            $status = str_contains($statusText, 'cuti')
+                ? 'Cuti'
+                : (str_contains($statusText, 'tidak hadir') ? 'Tidak Masuk' : ($times ? 'Masuk' : ''));
+
+            $results[] = [
+                'file' => $fileName,
+                'row_index' => $i,
+                'employee_id' => $employeeId,
+                'name' => $name,
+                'department' => $this->cleanMachineLabelValue($this->valueAt($row, 2)),
+                'tanggal' => $tanggal,
+                'times' => $times,
+                'status' => $status,
+                'telat' => (int) round($this->parseNumber($this->valueAt($row, 8)) * 60),
+                'pulang_cepat' => (int) round($this->parseNumber($this->valueAt($row, 9)) * 60),
+            ];
+        }
+
+        return $results;
+    }
+
+    private function parseMachineAttendanceSummaries(array $rows, array $reportDateRange, string $fileName): array
+    {
+        $headerIndex = null;
+        foreach ($rows as $index => $row) {
+            $text = $this->normalizeText(implode(' ', $row));
+            if (str_contains($text, 'user id') && str_contains($text, 'hari kehadiran')) {
+                $headerIndex = $index;
+                break;
+            }
+        }
+
+        if ($headerIndex === null) {
+            return [];
+        }
+
+        $summaries = [];
+        $dataStart = $headerIndex + ($this->looksLikeSubHeaderRow($rows, $headerIndex) ? 2 : 1);
+        for ($i = $dataStart; $i < count($rows); $i++) {
+            $row = $rows[$i];
+            $employeeId = $this->cleanMachineLabelValue($this->valueAt($row, 0));
+            $name = $this->cleanMachineLabelValue($this->valueAt($row, 1));
+            if ($employeeId === '' && $name === '') {
+                continue;
+            }
+
+            $attendance = $this->parseAttendancePair($this->valueAt($row, 11));
+            $key = $this->machineEmployeeKey($employeeId, $name);
+            $summaries[$key] = [
+                'file' => $fileName,
+                'row_index' => $i,
+                'employee_id' => $employeeId,
+                'name' => $name,
+                'department' => $this->cleanMachineLabelValue($this->valueAt($row, 2)),
+                'standard_days' => $attendance['standard'],
+                'actual_days' => $attendance['actual'],
+                'absent_days' => $this->parseNumber($this->valueAt($row, 13)),
+                'cuti_days' => $this->parseNumber($this->valueAt($row, 14)),
+                'late_count' => (int) $this->parseNumber($this->valueAt($row, 5)),
+                'late_minutes' => (int) $this->parseNumber($this->valueAt($row, 6)),
+            ];
+        }
+
+        return $summaries;
+    }
+
+    private function extractMachineAttendanceMeta(array $row): ?array
+    {
+        $employeeId = '';
+        $name = '';
+        $department = '';
+
+        foreach ($row as $colIndex => $value) {
+            $label = $this->normalizeMachineLabel((string) $value);
+            if ($label === 'user id') {
+                $employeeId = $this->cleanMachineLabelValue($row[$colIndex + 1] ?? '');
+            } elseif ($label === 'nama') {
+                $name = $this->cleanMachineLabelValue($row[$colIndex + 1] ?? '');
+            } elseif ($label === 'departemen' || $label === 'dept') {
+                $department = $this->cleanMachineLabelValue($row[$colIndex + 1] ?? '');
+            }
+        }
+
+        if ($employeeId === '' && $name === '') {
+            return null;
+        }
+
+        return [
+            'employee_id' => $employeeId,
+            'name' => $name,
+            'department' => $department,
+        ];
+    }
+
+    private function normalizeMachineLabel(string $value): string
+    {
+        $value = str_replace(["\xef\xbc\x9a", ':', '*', '.', '：'], '', $value);
+        return $this->normalizeText($value);
+    }
+
+    private function cleanMachineLabelValue($value): string
+    {
+        return trim(str_replace(["\r", "\n"], ' ', (string) $value));
+    }
+
+    private function extractTimesFromCell($value): array
+    {
+        $value = str_replace(["\r", "\n"], ' ', (string) $value);
+        if ($value === '') {
+            return [];
+        }
+
+        preg_match_all('/\b\d{1,2}[:.]\d{2}(?::\d{2})?\b/', $value, $matches);
+        $times = [];
+        foreach ($matches[0] as $match) {
+            $time = $this->parseTime($match);
+            if ($time !== null) {
+                $times[] = $time;
+            }
+        }
+
+        return array_values(array_unique($times));
+    }
+
+    private function machineEmployeeKey(string $employeeId, string $name): string
+    {
+        $employeeId = trim($employeeId);
+        if ($employeeId !== '') {
+            return 'id:' . $this->normalizeText($employeeId);
+        }
+
+        return 'name:' . $this->normalizeText($name);
+    }
+
+    private function mergeMachineEmployee(array $existing, array $incoming, array $directory): array
+    {
+        $employeeId = $incoming['employee_id'] ?? ($existing['employee_id'] ?? '');
+        $directoryRow = $employeeId !== '' ? ($directory[$employeeId] ?? []) : [];
+
+        return [
+            'employee_id' => $employeeId,
+            'name' => $incoming['name'] ?: ($existing['name'] ?? ($directoryRow['name'] ?? '')),
+            'department' => $incoming['department'] ?: ($existing['department'] ?? ($directoryRow['department'] ?? '')),
+        ];
+    }
+
+    private function datesFromMachineRecords(array $records): array
+    {
+        $dates = [];
+        foreach ($records as $employeeRecords) {
+            foreach (array_keys($employeeRecords) as $date) {
+                $dates[$date] = true;
+            }
+        }
+
+        $dates = array_keys($dates);
+        sort($dates);
+
+        return $dates;
+    }
+
+    private function classifyMachineTimes(array $times, string $date, string $shiftJamMasuk, string $shiftJamKeluar): array
+    {
+        $times = array_values(array_filter($times));
+        sort($times);
+        $jamMasuk = null;
+        $jamPulang = null;
+
+        if (count($times) >= 2) {
+            $jamMasuk = $times[0];
+            $jamPulang = end($times);
+            if ($jamPulang === $jamMasuk) {
+                $jamPulang = null;
+            }
+        } elseif (count($times) === 1) {
+            $only = $times[0];
+            $midpoint = strtotime($date . ' ' . $shiftJamMasuk)
+                + ((strtotime($date . ' ' . $shiftJamKeluar) - strtotime($date . ' ' . $shiftJamMasuk)) / 2);
+
+            if (strtotime($date . ' ' . $only) >= $midpoint) {
+                $jamPulang = $only;
+            } else {
+                $jamMasuk = $only;
+            }
+        }
+
+        return [
+            'has_scan' => count($times) > 0,
+            'status' => count($times) > 0 ? 'Masuk' : 'Libur',
+            'jam_absen' => $jamMasuk,
+            'jam_pulang' => $jamPulang,
+            'telat' => $jamMasuk ? $this->hitungTelat($date, $shiftJamMasuk, $jamMasuk) : 0,
+            'pulang_cepat' => $jamPulang ? $this->hitungPulangCepat($date, $shiftJamKeluar, $jamPulang) : 0,
+        ];
+    }
+
+    private function machineSummaryWarnings(string $name, array $summary, array $actual): array
+    {
+        $warnings = [];
+        if ((float) $summary['actual_days'] !== (float) $actual['masuk']) {
+            $warnings[] = $name . ': total masuk hasil import ' . $actual['masuk'] . ' berbeda dari laporan mesin ' . $summary['actual_days'] . '.';
+        }
+        if ((float) $summary['absent_days'] !== (float) $actual['tidak_masuk']) {
+            $warnings[] = $name . ': total tidak masuk hasil import ' . $actual['tidak_masuk'] . ' berbeda dari laporan mesin ' . $summary['absent_days'] . '.';
+        }
+
+        return $warnings;
     }
 
     private function normalizeText(string $value): string

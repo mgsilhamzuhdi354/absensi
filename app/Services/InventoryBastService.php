@@ -9,6 +9,7 @@ use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -29,7 +30,7 @@ class InventoryBastService
         return DB::transaction(function () use ($transaction, $data, $admin) {
             $date = Carbon::parse($data['tanggal_surat'] ?? now());
             $admin->loadMissing('Jabatan');
-            $transaction->loadMissing('inventory.jabatan');
+            $transaction->loadMissing('inventory.jabatan', 'penerima.Jabatan');
             $inventoryDivision = $transaction->inventory->jabatan->nama_jabatan ?? null;
             $knownBy = !empty($data['known_by_user_id'])
                 ? User::with('Jabatan')->find($data['known_by_user_id'])
@@ -41,19 +42,28 @@ class InventoryBastService
             $senderDivision = $firstParty
                 ? ($firstParty->Jabatan->nama_jabatan ?? null)
                 : ($inventoryDivision ?: ($admin->Jabatan->nama_jabatan ?? null));
+            $receiverPosition = $transaction->penerima->Jabatan->nama_jabatan ?? $transaction->jabatan_penerima;
+            $receiverDepartment = $transaction->departemen_penerima ?: $receiverPosition;
 
-            $document = InventoryBastDocument::create([
+            $documentData = [
                 'inventory_stock_transaction_id' => $transaction->id,
                 'nomor_surat' => $this->generateNumber($date),
                 'tanggal_surat' => $date->toDateString(),
-                'nama_penerima' => $transaction->penerima_barang,
-                'jabatan_penerima' => $transaction->jabatan_penerima,
+                'nama_penerima' => $transaction->penerima->name ?? $transaction->penerima_barang,
+                'jabatan_penerima' => $receiverPosition,
                 'nama_penyerah' => $sender->name,
                 'jabatan_penyerah' => $senderDivision ?: 'IT Engineer',
                 'nama_mengetahui' => $knownBy ? $knownBy->name : ($data['nama_mengetahui'] ?? null),
                 'known_by_user_id' => $knownBy->id ?? null,
                 'first_party_user_id' => $firstParty->id ?? null,
-            ]);
+            ];
+
+            if ($this->supportsPartyDetails()) {
+                $documentData['departemen_penerima'] = $receiverDepartment;
+                $documentData['departemen_penyerah'] = $senderDivision ?: 'IT Engineer';
+            }
+
+            $document = InventoryBastDocument::create($documentData);
 
             $document->loadMissing('signedBy.Jabatan', 'knownBy.Jabatan', 'firstParty.Jabatan');
             $transaction->loadMissing('inventory.jabatan', 'processedBy', 'penerima.Jabatan');
@@ -96,6 +106,25 @@ class InventoryBastService
             });
     }
 
+    public function refreshFilesForUser(User $user)
+    {
+        $documentIds = InventoryBastDocument::query()
+            ->where('known_by_user_id', $user->id)
+            ->orWhere('first_party_user_id', $user->id)
+            ->orWhereHas('transaction', function ($query) use ($user) {
+                $query->where('penerima_user_id', $user->id);
+            })
+            ->pluck('id');
+
+        if ($documentIds->isEmpty()) {
+            return;
+        }
+
+        InventoryBastDocument::whereIn('id', $documentIds)
+            ->get()
+            ->each(fn(InventoryBastDocument $document) => $this->storePdf($document));
+    }
+
     public function storePdf(InventoryBastDocument $document)
     {
         $document->loadMissing(
@@ -111,8 +140,22 @@ class InventoryBastService
             return $document;
         }
 
+        $partyDetailsLocked = $this->supportsPartyDetails() && (bool) $document->party_details_locked;
+        if (!$partyDetailsLocked) {
+            $this->syncPartySnapshots($document);
+            $document->refresh();
+            $document->loadMissing(
+                'transaction.inventory.jabatan',
+                'transaction.processedBy',
+                'transaction.penerima.Jabatan',
+                'signedBy.Jabatan',
+                'knownBy.Jabatan',
+                'firstParty.Jabatan'
+            );
+        }
+
         $senderDivision = $this->resolveSenderDivision($document);
-        if ($senderDivision && $document->jabatan_penyerah !== $senderDivision) {
+        if (!$partyDetailsLocked && $senderDivision && $document->jabatan_penyerah !== $senderDivision) {
             $updates = ['jabatan_penyerah' => $senderDivision];
             if ($document->firstParty && $document->nama_penyerah !== $document->firstParty->name) {
                 $updates['nama_penyerah'] = $document->firstParty->name;
@@ -143,6 +186,62 @@ class InventoryBastService
         return $document->fresh();
     }
 
+    private function syncPartySnapshots(InventoryBastDocument $document): void
+    {
+        $document->loadMissing(
+            'transaction.penerima.Jabatan',
+            'knownBy.Jabatan',
+            'firstParty.Jabatan',
+            'transaction.inventory.jabatan'
+        );
+
+        $updates = [];
+
+        if ($document->transaction && $document->transaction->penerima) {
+            $receiver = $document->transaction->penerima;
+            $receiverPosition = $receiver->Jabatan->nama_jabatan ?? null;
+
+            if ($receiver->name && $document->nama_penerima !== $receiver->name) {
+                $updates['nama_penerima'] = $receiver->name;
+            }
+
+            if ($receiverPosition && $document->jabatan_penerima !== $receiverPosition) {
+                $updates['jabatan_penerima'] = $receiverPosition;
+            }
+
+            if ($this->supportsPartyDetails()) {
+                $receiverDepartment = $document->transaction->departemen_penerima ?: $receiverPosition;
+                if ($receiverDepartment && $document->departemen_penerima !== $receiverDepartment) {
+                    $updates['departemen_penerima'] = $receiverDepartment;
+                }
+            }
+        }
+
+        if ($document->knownBy && $document->nama_mengetahui !== $document->knownBy->name) {
+            $updates['nama_mengetahui'] = $document->knownBy->name;
+        }
+
+        if ($document->firstParty) {
+            $firstPartyPosition = $this->resolveSenderDivision($document);
+
+            if ($document->nama_penyerah !== $document->firstParty->name) {
+                $updates['nama_penyerah'] = $document->firstParty->name;
+            }
+
+            if ($firstPartyPosition && $document->jabatan_penyerah !== $firstPartyPosition) {
+                $updates['jabatan_penyerah'] = $firstPartyPosition;
+            }
+
+            if ($this->supportsPartyDetails() && $firstPartyPosition && $document->departemen_penyerah !== $firstPartyPosition) {
+                $updates['departemen_penyerah'] = $firstPartyPosition;
+            }
+        }
+
+        if (!empty($updates)) {
+            $document->forceFill($updates)->save();
+        }
+    }
+
     private function resolveSenderDivision(InventoryBastDocument $document)
     {
         if ($document->firstParty) {
@@ -152,6 +251,13 @@ class InventoryBastService
         return $document->transaction && $document->transaction->inventory
             ? ($document->transaction->inventory->jabatan->nama_jabatan ?? null)
             : null;
+    }
+
+    private function supportsPartyDetails(): bool
+    {
+        return Schema::hasColumn('inventory_bast_documents', 'departemen_penerima')
+            && Schema::hasColumn('inventory_bast_documents', 'departemen_penyerah')
+            && Schema::hasColumn('inventory_bast_documents', 'party_details_locked');
     }
 
     private function generateNumber(Carbon $date)

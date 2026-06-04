@@ -105,10 +105,10 @@
                     <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
                         <i class="fas fa-cloud-upload-alt"></i>
                         <h5 style="color: #475569;">Drag & Drop file Excel di sini</h5>
-                        <p class="text-muted">atau klik untuk memilih file (.xlsx, .xls, .csv)</p>
+                        <p class="text-muted">Pilih satu file lama, atau paket mesin: Catatan Kehadiran, Tidak Normal, Laporan, Informasi Pengguna.</p>
                         <div class="file-name" id="fileName" style="display:none;"></div>
                     </div>
-                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;">
+                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" multiple style="display:none;">
                 </div>
             </div>
             <div class="col-md-4">
@@ -160,6 +160,7 @@
                 </div>
                 <div class="raw-meta" id="rawMeta"></div>
             </div>
+            <div id="machineInfo" class="mb-3" style="display:none;"></div>
 
             <div id="systemPreviewPanel">
                 <div class="mb-3">
@@ -206,8 +207,19 @@ $(document).ready(function() {
         });
     }
 
-    function showFileName(file) {
-        $('#fileName').show().html('<i class="fas fa-file-excel me-2"></i>' + escapeHtml(file.name) + ' (' + (file.size / 1024).toFixed(1) + ' KB)');
+    function showFileName(files) {
+        files = Array.from(files || []);
+        if (!files.length) {
+            $('#fileName').hide().empty();
+            checkReady();
+            return;
+        }
+
+        let label = files.length === 1
+            ? escapeHtml(files[0].name) + ' (' + (files[0].size / 1024).toFixed(1) + ' KB)'
+            : files.length + ' file dipilih: ' + files.map(function(file) { return escapeHtml(file.name); }).join(', ');
+
+        $('#fileName').show().html('<i class="fas fa-file-excel me-2"></i>' + label);
         checkReady();
     }
 
@@ -232,13 +244,13 @@ $(document).ready(function() {
     zone.addEventListener('drop', function(event) {
         if (event.dataTransfer.files.length) {
             fileInput.files = event.dataTransfer.files;
-            showFileName(event.dataTransfer.files[0]);
+            showFileName(event.dataTransfer.files);
         }
     });
 
     fileInput.addEventListener('change', function() {
         if (this.files.length) {
-            showFileName(this.files[0]);
+            showFileName(this.files);
         }
     });
 
@@ -262,7 +274,9 @@ $(document).ready(function() {
 
     $('#btnPreview').on('click', function() {
         let formData = new FormData();
-        formData.append('file_absen', fileInput.files[0]);
+        Array.from(fileInput.files).forEach(function(file) {
+            formData.append('file_absen[]', file);
+        });
         formData.append('shift_id', $('#shiftSelect').val());
         formData.append('_token', '{{ csrf_token() }}');
 
@@ -282,6 +296,7 @@ $(document).ready(function() {
                 rawPreview = response.raw_preview || { headers: response.headers || [], rows: [], total_rows: 0, total_columns: 0 };
 
                 renderStats(response.stats || {});
+                renderMachineInfo(response.machine || {});
                 renderSystemTable();
                 renderRawTable();
                 $('#rawMeta').text((rawPreview.total_rows || 0) + ' baris Excel - ' + (rawPreview.total_columns || 0) + ' kolom');
@@ -306,6 +321,30 @@ $(document).ready(function() {
             <div class="stat-card stat-create"><div class="stat-number">${stats.will_create || 0}</div><div class="stat-label">Data Baru</div></div>
             <div class="stat-card stat-update"><div class="stat-number">${stats.will_update || 0}</div><div class="stat-label">Update</div></div>
         `);
+    }
+
+    function renderMachineInfo(machine) {
+        let files = Array.isArray(machine.files) ? machine.files : [];
+        let warnings = Array.isArray(machine.warnings) ? machine.warnings : [];
+
+        if (!files.length && !warnings.length) {
+            $('#machineInfo').hide().empty();
+            return;
+        }
+
+        let fileHtml = files.length
+            ? '<div class="mb-2"><strong>File mesin:</strong> ' + files.map(function(file) {
+                return escapeHtml(file.file) + ' <span class="badge bg-secondary">' + escapeHtml(file.type) + '</span>';
+            }).join(' &nbsp; ') + '</div>'
+            : '';
+
+        let warningHtml = warnings.length
+            ? '<div class="alert alert-warning mb-0 py-2"><strong>Validasi mesin:</strong><ul class="mb-0">' + warnings.slice(0, 10).map(function(warning) {
+                return '<li>' + escapeHtml(warning) + '</li>';
+            }).join('') + (warnings.length > 10 ? '<li>+' + (warnings.length - 10) + ' warning lainnya.</li>' : '') + '</ul></div>'
+            : '';
+
+        $('#machineInfo').show().html(fileHtml + warningHtml);
     }
 
     function rowCategory(row) {

@@ -696,6 +696,133 @@ class InventoryQrStockTest extends TestCase
         $this->assertStringNotContainsString(': Administrasi &amp; Umum', $html);
     }
 
+    /** @test */
+    public function updating_employee_position_refreshes_receiver_position_in_inventory_bast()
+    {
+        Storage::fake('public');
+        $newJabatan = Jabatan::create([
+            'nama_jabatan' => 'Keuangan dan Akutansi',
+        ]);
+
+        $inventory = Inventory::create($this->inventoryPayload(['stok' => 1]));
+        $transaction = InventoryStockTransaction::create([
+            'inventory_id' => $inventory->id,
+            'jenis_transaksi' => 'keluar',
+            'jumlah' => 1,
+            'stok_sebelum' => 1,
+            'stok_sesudah' => 0,
+            'tanggal_transaksi' => '2026-06-04',
+            'penerima_user_id' => $this->employee->id,
+            'penerima_barang' => $this->employee->name,
+            'jabatan_penerima' => 'IT Engineer',
+            'kondisi_barang' => 'Baik',
+            'diproses_oleh' => $this->admin->id,
+        ]);
+
+        $this->actingAs($this->admin)->post('/inventory/transactions/' . $transaction->id . '/bast', [
+            'tanggal_surat' => '2026-06-04',
+            'known_by_user_id' => $this->hrd->id,
+            'first_party_user_id' => $this->firstParty->id,
+        ])->assertRedirect('/inventory/' . $inventory->id . '/detail');
+
+        $document = InventoryBastDocument::first();
+        $this->assertSame('IT Engineer', $document->jabatan_penerima);
+
+        $this->actingAs($this->admin)->put('/pegawai/proses-edit/' . $this->employee->id, [
+            'name' => $this->employee->name,
+            'email' => $this->employee->email,
+            'username' => $this->employee->username,
+            'telepon' => '08123456789',
+            'lokasi_id' => $this->lokasi->id,
+            'tgl_lahir' => '2001-04-21',
+            'tgl_join' => '2025-12-15',
+            'gender' => 'Laki-Laki',
+            'is_admin' => 'user',
+            'status_nikah' => 'TK/0',
+            'jabatan_id' => $newJabatan->id,
+        ])->assertRedirect('/pegawai');
+
+        $document->refresh();
+        $this->assertSame('Keuangan dan Akutansi', $document->jabatan_penerima);
+        Storage::disk('public')->assertExists($document->file_pdf);
+
+        $transaction->refresh();
+        $transaction->load('inventory.jabatan', 'processedBy', 'penerima.Jabatan');
+        $html = view('inventory.bast_pdf', [
+            'document' => $document,
+            'transaction' => $transaction,
+            'inventory' => $transaction->inventory,
+        ])->render();
+
+        $this->assertStringContainsString(': Keuangan dan Akutansi', $html);
+        $this->assertStringContainsString('<div class="signature-position">Keuangan dan Akutansi</div>', $html);
+    }
+
+    /** @test */
+    public function admin_can_edit_bast_party_position_and_department_from_inventory_detail()
+    {
+        Storage::fake('public');
+
+        $inventory = Inventory::create($this->inventoryPayload(['stok' => 1]));
+        $transaction = InventoryStockTransaction::create([
+            'inventory_id' => $inventory->id,
+            'jenis_transaksi' => 'keluar',
+            'jumlah' => 1,
+            'stok_sebelum' => 1,
+            'stok_sesudah' => 0,
+            'tanggal_transaksi' => '2026-06-04',
+            'penerima_user_id' => $this->employee->id,
+            'penerima_barang' => $this->employee->name,
+            'jabatan_penerima' => 'IT Engineer',
+            'departemen_penerima' => 'IT Engineer',
+            'kondisi_barang' => 'Baik',
+            'diproses_oleh' => $this->admin->id,
+        ]);
+
+        $this->actingAs($this->admin)->post('/inventory/transactions/' . $transaction->id . '/bast', [
+            'tanggal_surat' => '2026-06-04',
+            'known_by_user_id' => $this->hrd->id,
+            'first_party_user_id' => $this->firstParty->id,
+        ])->assertRedirect('/inventory/' . $inventory->id . '/detail');
+
+        $document = InventoryBastDocument::first();
+
+        $this->actingAs($this->admin)->put('/inventory/bast/' . $document->id, [
+            'tanggal_surat' => '2026-06-04',
+            'nama_penyerah' => 'Mgs Ilham Zuhdi',
+            'jabatan_penyerah' => 'IT Support',
+            'departemen_penyerah' => 'Teknologi Informasi',
+            'nama_penerima' => 'Budhy Krisna Akbar',
+            'jabatan_penerima' => 'Staff Finance',
+            'departemen_penerima' => 'Keuangan dan Akutansi',
+            'nama_mengetahui' => 'HRD One',
+        ])->assertRedirect('/inventory/' . $inventory->id . '/detail');
+
+        $document->refresh();
+        $this->assertTrue((bool) $document->party_details_locked);
+        $this->assertSame('IT Support', $document->jabatan_penyerah);
+        $this->assertSame('Staff Finance', $document->jabatan_penerima);
+        $this->assertSame('Keuangan dan Akutansi', $document->departemen_penerima);
+        $this->assertSame('Teknologi Informasi', $document->departemen_penyerah);
+
+        $transaction->refresh();
+        $this->assertSame('Staff Finance', $transaction->jabatan_penerima);
+        $this->assertSame('Keuangan dan Akutansi', $transaction->departemen_penerima);
+
+        $transaction->load('inventory.jabatan', 'processedBy', 'penerima.Jabatan');
+        $html = view('inventory.bast_pdf', [
+            'document' => $document,
+            'transaction' => $transaction,
+            'inventory' => $transaction->inventory,
+        ])->render();
+
+        $this->assertStringContainsString(': IT Support', $html);
+        $this->assertStringContainsString(': Staff Finance', $html);
+        $this->assertStringContainsString(': Keuangan dan Akutansi', $html);
+        $this->assertStringContainsString(': Teknologi Informasi', $html);
+        Storage::disk('public')->assertExists($document->file_pdf);
+    }
+
     private function signatureData()
     {
         return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';

@@ -116,15 +116,8 @@
                         </div>
                         <div class="col mb-4">
                             @php
-                                $jumlah_hadir = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', '=', 'Masuk')->count();
-                                $jumlah_izin_telat = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Izin Telat')->count();
-                                $jumlah_izin_pulang_cepat = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Izin Pulang Cepat')->count();
-                                $libur = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Libur')->count();
-                                $timestamp_mulai = strtotime($tanggal_mulai);
-                                $timestamp_akhir = strtotime($tanggal_akhir);
-                                $selisih_timestamp = $timestamp_akhir - $timestamp_mulai;
-                                $jumlah_hari = (floor($selisih_timestamp / (60 * 60 * 24)))+1;
-                                $persentase_kehadiran = number_format((($jumlah_hadir + $jumlah_izin_telat + $jumlah_izin_pulang_cepat + $libur) / $jumlah_hari) * 100, 2);
+                                $rekap_summary = $rekap_summary ?? [];
+                                $persentase_kehadiran = number_format($rekap_summary['persentase_kehadiran'] ?? 0, 2, '.', '');
                             @endphp
                             <label for="persentase_kehadiran">Persentase Kehadiran</label>
                             <input type="text" class="form-control @error('persentase_kehadiran') is-invalid @enderror" id="persentase_kehadiran" name="persentase_kehadiran" value="{{ old('persentase_kehadiran', $persentase_kehadiran) }}" readonly>
@@ -258,17 +251,7 @@
                         <div class="col mb-4">
                             <div class="card p-4">
                                 @php
-                                $cuti = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Cuti')->count();
-                                $izin_masuk = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Izin Masuk')->count();
-                                $sakit = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Sakit')->count();
-                                // Mangkir dihitung dari data mapping_shifts yang ada jadwal tapi tidak punya status kehadiran valid
-                                $status_valid = ['Masuk', 'Izin Telat', 'Izin Pulang Cepat', 'Libur', 'Cuti', 'Izin Masuk', 'Sakit', 'Tidak Masuk'];
-                                $total_alfa = $user->MappingShift
-                                    ->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])
-                                    ->filter(function($item) use ($status_valid) {
-                                        return !in_array($item->status_absen, $status_valid);
-                                    })
-                                    ->count();
+                                    $total_alfa = $rekap_summary['total_alfa'] ?? 0;
                                 @endphp
                                 <label for="jumlah_mangkir">Mangkir</label>
                                 <div class="input-group mb-3">
@@ -301,8 +284,7 @@
                          <div class="col mb-4">
                             <div class="card p-4">
                                 @php
-                                    $total_lembur = $user->Lembur->where('status', 'Approved')->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->sum('total_lembur');
-                                    $jam   = floor($total_lembur / (60 * 60));
+                                    $jam = $rekap_summary['lembur_duration']['hours'] ?? 0;
                                 @endphp
                                 <label for="jumlah_lembur">Lembur</label>
                                 <div class="input-group mb-3">
@@ -333,7 +315,7 @@
                         <div class="col mb-4">
                             <div class="card p-4">
                                 @php
-                                    $jumlah_izin = $user->Cuti->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('nama_cuti', 'Izin Masuk')->where('status_cuti', 'Diterima')->count();
+                                    $jumlah_izin = $rekap_summary['izin_masuk'] ?? 0;
                                 @endphp
                                 <label for="jumlah_izin">Izin Masuk</label>
                                 <div class="input-group mb-3">
@@ -404,7 +386,7 @@
                         <div class="col mb-4">
                             <div class="card p-4">
                                 @php
-                                    $jumlah_terlambat = $user->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('telat', '>', 0)->count();
+                                    $jumlah_terlambat = $rekap_summary['jumlah_telat'] ?? 0;
                                 @endphp
 
                                 <label for="jumlah_terlambat">Terlambat</label>
@@ -437,7 +419,7 @@
                     <div class="row">
                          <div class="col mb-4">
                             @php
-                                if ($persentase_kehadiran == 100) {
+                                if ((float) $persentase_kehadiran >= 100) {
                                     $jumlah_kehadiran = 1;
                                 } else {
                                     $jumlah_kehadiran = 0;

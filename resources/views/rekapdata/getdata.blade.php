@@ -61,124 +61,74 @@
                                 @foreach ($data_user as $du)
                                     <tr>
                                         @php
-                                            $cuti = $du->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Cuti')->count();
-
-                                            $izin_masuk = $du->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Izin Masuk')->count();
-
-                                            $sakit = $du->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Sakit')->count();
-
-                                            $izin_telat = $du->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Izin Telat')->count();
-
-                                            $izin_pulang_cepat = $du->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Izin Pulang Cepat')->count();
-
-                                            $masuk = $du->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Masuk')->count();
-
-                                            $total_hadir = $masuk + $izin_telat + $izin_pulang_cepat;
-
-                                            $libur = $du->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('status_absen', 'Libur')->count();
-
-                                            // Total Dinas Luar: dari tabel dinas_luars
-                                            $total_dinas_luar = \App\Models\dinasLuar::where('user_id', $du->id)
-                                                ->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])
-                                                ->count();
-
-                                            // Alfa dihitung hanya dari mapping_shifts yang ada jadwal tapi tidak punya status kehadiran valid
-                                            $status_valid = ['Masuk', 'Izin Telat', 'Izin Pulang Cepat', 'Libur', 'Cuti', 'Izin Masuk', 'Sakit', 'Tidak Masuk'];
-                                            $total_alfa = $du->MappingShift
-                                                ->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])
-                                                ->filter(function($item) use ($status_valid) {
-                                                    return !in_array($item->status_absen, $status_valid);
-                                                })
-                                                ->count();
-
+                                            $summary = $rekap_summaries[$du->id] ?? [];
                                         @endphp
                                         <td>
                                             {{ $du->name }}
                                         </td>
 
                                         <td>
-                                            {{ $cuti }} x
+                                            {{ $summary['cuti'] ?? 0 }} x
                                         </td>
                                         <td>
-                                            {{ $izin_masuk }} x
+                                            {{ $summary['izin_masuk'] ?? 0 }} x
                                         </td>
                                         <td>
-                                            {{ $sakit }} x
+                                            {{ $summary['sakit'] ?? 0 }} x
                                         </td>
                                         <td>
-                                            {{ $izin_telat }} x
+                                            {{ $summary['izin_telat'] ?? 0 }} x
                                         </td>
                                         <td>
-                                            {{ $izin_pulang_cepat }} x
+                                            {{ $summary['izin_pulang_cepat'] ?? 0 }} x
                                         </td>
                                         <td>
-                                            {{ $total_hadir }} x
+                                            {{ $summary['total_hadir'] ?? 0 }} x
                                         </td>
                                         <td>
-                                            <span class="badge badge-info">{{ $total_dinas_luar }} x</span>
+                                            <span class="badge badge-info">{{ $summary['total_dinas_luar'] ?? 0 }} x</span>
                                         </td>
                                         <td>
-                                            {{ $total_alfa }}
+                                            {{ $summary['total_alfa'] ?? 0 }}
                                         </td>
                                         <td>
-                                            {{ $libur }} x
+                                            {{ $summary['libur'] ?? 0 }} x
                                         </td>
                                         <td>
                                             @php
-                                                $total_telat = $du->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->sum('telat');
-                                                $jam   = floor($total_telat / (60 * 60));
-                                                $menit = $total_telat - ( $jam * (60 * 60) );
-                                                $menit2 = floor($menit / 60);
-                                                $jumlah_telat = $du->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('telat', '>', 0)->count();
+                                                $telat = $summary['telat_duration'] ?? ['hours' => 0, 'minutes' => 0, 'label' => '0 Jam 0 Menit'];
                                             @endphp
 
-                                            @if($jam <= 0 && $menit2 <= 0)
+                                            @if(($telat['hours'] ?? 0) <= 0 && ($telat['minutes'] ?? 0) <= 0)
                                                 <span class="badge badge-success">Tidak Pernah Telat</span>
                                             @else
-                                                <span class="badge badge-danger">{{ $jam." Jam ".$menit2." Menit" }}</span>
+                                                <span class="badge badge-danger">{{ $telat['label'] }}</span>
                                                 <br>
-                                                <span class="badge badge-danger">{{ $jumlah_telat }} x</span>
+                                                <span class="badge badge-danger">{{ $summary['jumlah_telat'] ?? 0 }} x</span>
                                             @endif
                                         </td>
                                         <td>
                                             @php
-                                                $total_pulang_cepat = $du->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->sum('pulang_cepat');
-                                                $jam_cepat   = floor($total_pulang_cepat / (60 * 60));
-                                                $menit_cepat = $total_pulang_cepat - ( $jam_cepat * (60 * 60) );
-                                                $menit_cepat2 = floor($menit_cepat / 60);
-                                                $jumlah_pulang_cepat = $du->MappingShift->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->where('pulang_cepat', '>', 0)->count();
+                                                $pulangCepat = $summary['pulang_cepat_duration'] ?? ['hours' => 0, 'minutes' => 0, 'label' => '0 Jam 0 Menit'];
                                             @endphp
 
-                                            @if($jam_cepat <= 0 && $menit_cepat2 <= 0)
+                                            @if(($pulangCepat['hours'] ?? 0) <= 0 && ($pulangCepat['minutes'] ?? 0) <= 0)
                                                 <span class="badge badge-success">Tidak Pernah Pulang Cepat</span>
                                             @else
-                                                <span class="badge badge-danger">{{ $jam_cepat." Jam ".$menit_cepat2." Menit" }}</span>
+                                                <span class="badge badge-danger">{{ $pulangCepat['label'] }}</span>
                                                 <br>
-                                                <span class="badge badge-danger">{{ $jumlah_pulang_cepat }} x</span>
+                                                <span class="badge badge-danger">{{ $summary['jumlah_pulang_cepat'] ?? 0 }} x</span>
                                             @endif
                                         </td>
                                         <td>
                                             @php
-                                                $total_lembur = $du->Lembur->where('status', 'Approved')->whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])->sum('total_lembur');
-                                                $jam_lembur   = floor($total_lembur / (60 * 60));
-                                                $menit_lembur = $total_lembur - ( $jam_lembur * (60 * 60) );
-                                                $menit_lembur2 = floor($menit_lembur / 60);
-                                                $detik = $total_lembur % 60;
+                                                $lembur = $summary['lembur_duration'] ?? ['label' => '0 Jam 0 Menit'];
                                             @endphp
 
-                                            <span class="badge badge-success">{{ $jam_lembur." Jam ".$menit_lembur2." Menit" }}</span>
+                                            <span class="badge badge-success">{{ $lembur['label'] }}</span>
                                         </td>
                                         <td>
-                                            @php
-                                                $timestamp_mulai = strtotime($tanggal_mulai);
-                                                $timestamp_akhir = strtotime($tanggal_akhir);
-                                                $selisih_timestamp = $timestamp_akhir - $timestamp_mulai;
-                                                $jumlah_hari = (floor($selisih_timestamp / (60 * 60 * 24)))+1;
-                                                $hari_kerja = $jumlah_hari - $libur;
-                                                $persentase_kehadiran = $hari_kerja > 0 ? ($total_hadir / $hari_kerja) * 100 : 0;
-                                                $persentase_kehadiran = min(100, max(0, $persentase_kehadiran));
-                                            @endphp
-                                            {{ number_format($persentase_kehadiran, 1) }} %
+                                            {{ number_format($summary['persentase_kehadiran'] ?? 0, 1) }} %
                                         </td>
                                         <td>
                                             @php

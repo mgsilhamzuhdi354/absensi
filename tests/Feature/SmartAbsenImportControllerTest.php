@@ -55,13 +55,11 @@ class SmartAbsenImportControllerTest extends TestCase
         @unlink($filePath);
 
         $response->assertOk()
-            ->assertJsonPath('raw_preview.total_columns', 6)
-            ->assertJsonPath('raw_preview.total_rows', 1)
-            ->assertJsonPath('preview.0.source_format', 'attendance_analysis')
-            ->assertJsonPath('preview.0.tanggal', '2026-06-01')
-            ->assertJsonPath('preview.1.tanggal', '2026-06-02')
-            ->assertJsonPath('preview.0.valid', true)
-            ->assertJsonPath('stats.will_create', 2);
+            ->assertJsonPath('raw_preview.total_columns', 4)
+            ->assertJsonPath('preview.0.source_format', 'machine_package_summary')
+            ->assertJsonPath('preview.0.valid', false)
+            ->assertJsonPath('stats.invalid', 1)
+            ->assertJsonPath('stats.will_create', 0);
     }
 
     /** @test */
@@ -125,6 +123,64 @@ class SmartAbsenImportControllerTest extends TestCase
         $this->assertSame('QR Pulang', $existing->keterangan_pulang);
     }
 
+    /** @test */
+    public function preview_accepts_multiple_machine_files()
+    {
+        $admin = User::create([
+            'name' => 'Admin',
+            'username' => 'admin',
+            'email' => 'admin@example.test',
+            'is_admin' => 'admin',
+        ]);
+
+        User::create([
+            'name' => 'MGS ILHAM ZUHDI',
+            'username' => 'mgs',
+            'email' => 'mgs@example.test',
+            'is_admin' => 'user',
+        ]);
+
+        $shift = Shift::create([
+            'nama_shift' => 'Pagi',
+            'jam_masuk' => '08:00:00',
+            'jam_keluar' => '17:00:00',
+        ]);
+
+        $catatanPath = $this->makeMachineCatatanXlsx();
+        $abnormalPath = $this->makeMachineAbnormalXlsx();
+        $catatanFile = new UploadedFile(
+            $catatanPath,
+            'Catatan Kehadiran Karyawan.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            null,
+            true
+        );
+        $abnormalFile = new UploadedFile(
+            $abnormalPath,
+            'Kehadiran Tidak Normal.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            null,
+            true
+        );
+
+        $response = $this->actingAs($admin)->postJson('/smart-import-absen/preview', [
+            'file_absen' => [$catatanFile, $abnormalFile],
+            'shift_id' => $shift->id,
+        ]);
+
+        @unlink($catatanPath);
+        @unlink($abnormalPath);
+
+        $response->assertOk()
+            ->assertJsonPath('preview.0.source_format', 'machine_package')
+            ->assertJsonPath('preview.0.tanggal', '2026-05-01')
+            ->assertJsonPath('preview.0.status_absen', 'Tidak Masuk')
+            ->assertJsonPath('preview.1.jam_absen', '07:57')
+            ->assertJsonPath('preview.1.jam_pulang', '17:01')
+            ->assertJsonPath('machine.files.0.type', 'personal_attendance')
+            ->assertJsonPath('machine.files.1.type', 'abnormal_attendance');
+    }
+
     private function makeAttendanceAnalysisXlsx(): string
     {
         $spreadsheet = new Spreadsheet();
@@ -137,6 +193,40 @@ class SmartAbsenImportControllerTest extends TestCase
         ]);
 
         $path = tempnam(sys_get_temp_dir(), 'smart_import_') . '.xlsx';
+        (new Xlsx($spreadsheet))->save($path);
+
+        return $path;
+    }
+
+    private function makeMachineCatatanXlsx(): string
+    {
+        $spreadsheet = new Spreadsheet();
+        $spreadsheet->getActiveSheet()->fromArray([
+            ['Catatan Kehadiran Karyawan'],
+            ['Tanggal Kehadiran:2026-05-01~2026-05-02'],
+            ['', '', '', '', 'User ID.：', '1', '', '', 'Nama：', 'mgs ilham zuhdi', '', '', 'Departemen：', 'it'],
+            ['1', '2'],
+            ['', "07:57\n17:00"],
+            ['', '17:01'],
+        ]);
+
+        $path = tempnam(sys_get_temp_dir(), 'smart_catatan_') . '.xlsx';
+        (new Xlsx($spreadsheet))->save($path);
+
+        return $path;
+    }
+
+    private function makeMachineAbnormalXlsx(): string
+    {
+        $spreadsheet = new Spreadsheet();
+        $spreadsheet->getActiveSheet()->fromArray([
+            ['Kehadiran Tidak Normal'],
+            ['Tanggal Kehadiran:2026-05-01~2026-05-02'],
+            ['User ID.', 'Nama', 'Departemen', 'Tanggal', 'Pagi', 'Siang', 'Lembur', 'Keterangan', 'Terlambat Masuk', 'Keluar Lebih Awal'],
+            ['1', 'mgs ilham zuhdi', 'it', '2026-05-01', 'Tidak hadir', '', '', '', '0', '0'],
+        ]);
+
+        $path = tempnam(sys_get_temp_dir(), 'smart_abnormal_') . '.xlsx';
         (new Xlsx($spreadsheet))->save($path);
 
         return $path;
