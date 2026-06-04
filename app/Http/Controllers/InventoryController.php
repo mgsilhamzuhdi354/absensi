@@ -82,8 +82,20 @@ class InventoryController extends Controller
     public function store(Request $request)
     {
         $validated = $this->validatedInventoryData($request);
-        $inventory = Inventory::create($validated);
-        $this->qrService->ensure($inventory, true);
+        $inventory = DB::transaction(function () use ($validated) {
+            $inventory = Inventory::create($validated);
+
+            try {
+                return $this->qrService->ensure($inventory, true);
+            } catch (\Throwable $e) {
+                \Log::error('Inventory QR generation failed during store', [
+                    'inventory_id' => $inventory->id,
+                    'message' => $e->getMessage(),
+                ]);
+
+                return $inventory->fresh();
+            }
+        });
 
         return redirect('/inventory/' . $inventory->id . '/detail')->with('success', 'Data Berhasil Disimpan');
     }
