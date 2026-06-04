@@ -145,34 +145,55 @@
         }
         .signatures {
             margin-top: 14px;
+            table-layout: fixed;
         }
         .signatures td {
             width: 33.33%;
             text-align: center;
             vertical-align: top;
-            padding: 0 6px;
+            padding: 0 7px;
+        }
+        .signature-heading {
+            font-size: 10.5px;
+            font-weight: 700;
+            line-height: 1.25;
+            min-height: 14px;
+        }
+        .signature-subtitle {
+            font-size: 10px;
+            line-height: 1.25;
+            min-height: 14px;
         }
         .signature-box {
-            height: 86px;
+            height: 92px;
             border: 1px solid #d8e1ef;
-            margin: 8px 0 7px;
-            padding: 5px;
+            margin: 8px 0 8px;
+            padding: 5px 6px;
             background: #fbfdff;
+            overflow: hidden;
+        }
+        .signature-media {
+            height: 50px;
+            line-height: 50px;
+            text-align: center;
+            margin-bottom: 3px;
         }
         .signature-image {
             max-width: 135px;
-            max-height: 47px;
-            margin-top: 2px;
+            max-height: 50px;
+            display: inline-block;
+            vertical-align: middle;
         }
         .signature-placeholder {
             color: #6b7280;
             font-size: 9px;
-            margin-top: 26px;
+            line-height: 50px;
         }
         .signature-digital {
             font-size: 9px;
             color: #1f4b86;
-            margin-top: 14px;
+            line-height: 1.25;
+            padding-top: 10px;
         }
         .verified-stamp {
             color: #1f4b86;
@@ -180,13 +201,25 @@
             font-weight: 700;
             border: 1px solid #9db7da;
             display: inline-block;
-            padding: 1px 5px;
-            margin-top: 4px;
+            padding: 2px 7px;
+            background: #f5f9ff;
+            line-height: 1.15;
         }
         .signature-time {
             color: #315f9d;
             font-size: 8.5px;
-            margin-top: 2px;
+            margin-top: 4px;
+            line-height: 1.2;
+        }
+        .signature-name {
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1.25;
+        }
+        .signature-position {
+            font-size: 10px;
+            line-height: 1.25;
+            margin-top: 3px;
         }
         ol {
             padding-left: 18px;
@@ -302,12 +335,14 @@
         <tr>
             @foreach ($signatureRows as $signature)
                 <td>
-                    <strong>{{ $signature['heading'] }}</strong><br>
-                    {{ $signature['subtitle'] }}
+                    <div class="signature-heading">{{ $signature['heading'] }}</div>
+                    <div class="signature-subtitle">{{ $signature['subtitle'] }}</div>
                     <div class="signature-box">
                         @if ($signature['signed_at'] && $signature['image'])
-                            <img class="signature-image" src="{{ $signature['image'] }}" alt="Tanda tangan">
-                            <div class="verified-stamp">Terverifikasi elektronik</div>
+                            <div class="signature-media">
+                                <img class="signature-image" src="{{ $signature['image'] }}" alt="Tanda tangan">
+                            </div>
+                            <div><span class="verified-stamp">Terverifikasi elektronik</span></div>
                             <div class="signature-time">{{ \Carbon\Carbon::parse($signature['signed_at'])->format('d/m/Y H:i') }}</div>
                         @elseif ($signature['signed_at'])
                             <div class="signature-digital">
@@ -315,13 +350,15 @@
                                 oleh {{ $signature['name'] }}<br>
                                 {{ \Carbon\Carbon::parse($signature['signed_at'])->format('d/m/Y H:i') }}
                             </div>
-                            <div class="verified-stamp">Terverifikasi elektronik</div>
+                            <div><span class="verified-stamp">Terverifikasi elektronik</span></div>
                         @else
-                            <div class="signature-placeholder">Menunggu tanda tangan</div>
+                            <div class="signature-media">
+                                <div class="signature-placeholder">Menunggu tanda tangan</div>
+                            </div>
                         @endif
                     </div>
-                    <strong>{{ $signature['name'] }}</strong><br>
-                    {{ $signature['position'] }}
+                    <div class="signature-name">{{ $signature['name'] }}</div>
+                    <div class="signature-position">{{ $signature['position'] }}</div>
                 </td>
             @endforeach
         </tr>
