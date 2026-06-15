@@ -10,6 +10,7 @@ use App\Models\Lokasi;
 use App\Models\settings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
@@ -192,6 +193,31 @@ class InventoryQrStockTest extends TestCase
             ->get('/inventory/scan')
             ->assertOk()
             ->assertSee('Scan Aset Kantor');
+    }
+
+    /** @test */
+    public function detail_page_still_renders_when_return_bast_tables_are_missing()
+    {
+        Storage::fake('public');
+
+        Schema::dropIfExists('inventory_return_documents');
+
+        $inventory = Inventory::create($this->inventoryPayload(['stok' => 1]));
+        InventoryStockTransaction::create([
+            'inventory_id' => $inventory->id,
+            'jenis_transaksi' => 'masuk',
+            'jumlah' => 1,
+            'stok_sebelum' => 0,
+            'stok_sesudah' => 1,
+            'tanggal_transaksi' => '2026-06-15',
+            'sumber_barang' => 'Pengembalian dari pegawai',
+            'diproses_oleh' => $this->admin->id,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get('/inventory/' . $inventory->id . '/detail')
+            ->assertOk()
+            ->assertSee('Riwayat Stok Barang');
     }
 
     /** @test */

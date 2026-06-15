@@ -161,7 +161,8 @@ class InventoryController extends Controller
         }
 
         $inventory = $this->qrService->ensure($inventory);
-        $inventory->load([
+        $inventoryReturnTablesReady = $this->inventoryReturnTablesReady();
+        $stockTransactionRelations = [
             'lokasi',
             'jabatan',
             'stockTransactions.lokasi',
@@ -170,10 +171,18 @@ class InventoryController extends Controller
             'stockTransactions.bastDocument.signedBy',
             'stockTransactions.bastDocument.knownBy',
             'stockTransactions.bastDocument.firstParty',
-            'stockTransactions.returnDocument',
-        ]);
+        ];
+        if ($inventoryReturnTablesReady) {
+            $stockTransactionRelations[] = 'stockTransactions.returnDocument';
+        }
+        $inventory->load($stockTransactionRelations);
+
+        $deletedStockTransactionRelations = ['processedBy', 'deletedBy', 'bastDocument.signedBy', 'bastDocument.knownBy', 'bastDocument.firstParty'];
+        if ($inventoryReturnTablesReady) {
+            $deletedStockTransactionRelations[] = 'returnDocument';
+        }
         $deletedStockTransactions = InventoryStockTransaction::onlyTrashed()
-            ->with(['processedBy', 'deletedBy', 'bastDocument.signedBy', 'bastDocument.knownBy', 'bastDocument.firstParty', 'returnDocument'])
+            ->with($deletedStockTransactionRelations)
             ->where('inventory_id', $inventory->id)
             ->latest('deleted_at')
             ->latest('id')
@@ -190,7 +199,7 @@ class InventoryController extends Controller
         $lokasi = Lokasi::orderBy('nama_lokasi')->get();
         $users = User::with('Jabatan')->orderBy('name')->get();
 
-        return view('inventory.detail', compact('title', 'inventory', 'lokasi', 'users', 'deletedStockTransactions', 'currentHolderTransaction'));
+        return view('inventory.detail', compact('title', 'inventory', 'lokasi', 'users', 'deletedStockTransactions', 'currentHolderTransaction', 'inventoryReturnTablesReady'));
     }
 
     public function scan()
@@ -304,10 +313,16 @@ class InventoryController extends Controller
 
     public function deleteStockTransaction($id)
     {
-        $transaction = InventoryStockTransaction::with(['inventory', 'returnDocument'])->findOrFail($id);
+        $relations = ['inventory'];
+        $inventoryReturnTablesReady = $this->inventoryReturnTablesReady();
+        if ($inventoryReturnTablesReady) {
+            $relations[] = 'returnDocument';
+        }
+
+        $transaction = InventoryStockTransaction::with($relations)->findOrFail($id);
         $inventoryId = $transaction->inventory_id;
 
-        if ($transaction->return_for_transaction_id || $transaction->returnDocument) {
+        if ($inventoryReturnTablesReady && ($transaction->return_for_transaction_id || $transaction->returnDocument)) {
             return redirect('/inventory/' . $inventoryId . '/detail')
                 ->with('error', 'Transaksi pengembalian aset pegawai keluar tidak bisa dihapus dari riwayat stok.');
         }
@@ -679,6 +694,14 @@ class InventoryController extends Controller
             && Schema::hasColumn('inventory_bast_documents', 'departemen_penerima')
             && Schema::hasColumn('inventory_bast_documents', 'departemen_penyerah')
             && Schema::hasColumn('inventory_bast_documents', 'party_details_locked');
+    }
+
+    private function inventoryReturnTablesReady()
+    {
+        return Schema::hasTable('inventory_return_documents')
+            && Schema::hasTable('pegawai_keluar_asset_clearances')
+            && Schema::hasColumn('inventory_stock_transactions', 'return_for_transaction_id')
+            && Schema::hasColumn('inventory_stock_transactions', 'pegawai_keluar_id');
     }
 
     private function storeBastSignatureImage(InventoryBastDocument $document, $role, $signatureData)

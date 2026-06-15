@@ -387,7 +387,7 @@
                                                         <button type="submit" class="btn btn-sm btn-primary">Buat Surat BAST</button>
                                                     </form>
                                                 @endif
-                                            @elseif ($transaction->jenis_transaksi === 'masuk' && $transaction->returnDocument)
+                                            @elseif (($inventoryReturnTablesReady ?? false) && $transaction->jenis_transaksi === 'masuk' && $transaction->returnDocument)
                                                 <a href="{{ url('/exit/asset-return/'.$transaction->returnDocument->id.'/download') }}" class="btn btn-sm btn-info">Download BAST Pengembalian</a>
                                                 <div class="small mt-1">{{ $transaction->returnDocument->nomor_surat }}</div>
                                                 <span class="badge bg-success mt-1">Pengembalian Pegawai Keluar</span>
@@ -475,7 +475,7 @@
                                                         <span class="badge bg-warning text-dark mt-1">Menunggu TTD {{ $signatureRow['label'] }}</span>
                                                     @endif
                                                 @endforeach
-                                            @elseif ($transaction->returnDocument)
+                                            @elseif (($inventoryReturnTablesReady ?? false) && $transaction->returnDocument)
                                                 <a href="{{ url('/exit/asset-return/'.$transaction->returnDocument->id.'/download') }}" class="btn btn-sm btn-info">Download BAST Pengembalian</a>
                                                 <div class="small mt-1">{{ $transaction->returnDocument->nomor_surat }}</div>
                                             @else
