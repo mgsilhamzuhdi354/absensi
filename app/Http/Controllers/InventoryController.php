@@ -35,7 +35,7 @@ class InventoryController extends Controller
 
     public function index()
     {
-        $title = 'Inventory';
+        $title = 'Aset Kantor';
         $search = request()->input('search');
         $inventories = Inventory::with(['lokasi', 'jabatan'])
                                 ->when($search, function ($query) use ($search) {
@@ -61,7 +61,7 @@ class InventoryController extends Controller
 
     public function tambah()
     {
-        $title = 'Inventory';
+        $title = 'Aset Kantor';
         $lokasi = Lokasi::orderBy('nama_lokasi')->get();
         $jabatan = Jabatan::orderBy('nama_jabatan')->get();
         $counter = Counter::firstOrCreate(
@@ -104,7 +104,7 @@ class InventoryController extends Controller
 
     public function edit($id)
     {
-        $title = 'Inventory';
+        $title = 'Aset Kantor';
         $lokasi = Lokasi::orderBy('nama_lokasi')->get();
         $jabatan = Jabatan::orderBy('nama_jabatan')->get();
         $inventory = Inventory::find($id);
@@ -154,7 +154,7 @@ class InventoryController extends Controller
 
     public function detail($id)
     {
-        $title = 'Detail Inventory';
+        $title = 'Detail Aset Kantor';
         $inventory = Inventory::with(['lokasi', 'jabatan'])->find($id);
         if (!$inventory) {
             return redirect('/inventory')->with('error', 'Data inventory sudah tidak tersedia.');
@@ -194,7 +194,7 @@ class InventoryController extends Controller
 
     public function scan()
     {
-        $title = 'Scan Barang';
+        $title = 'Scan Aset Kantor';
 
         return view('inventory.scan', compact('title'));
     }
@@ -442,7 +442,7 @@ class InventoryController extends Controller
 
     public function myBastDocuments()
     {
-        $title = 'BAST Inventory Saya';
+        $title = 'BAST Aset Kantor Saya';
         if (!$this->inventoryBastTablesReady()) {
             $documents = new LengthAwarePaginator([], 0, 10, 1, [
                 'path' => request()->url(),
@@ -466,7 +466,7 @@ class InventoryController extends Controller
             abort(404);
         }
 
-        $title = 'Detail BAST Inventory';
+        $title = 'Detail BAST Aset Kantor';
         $document = $this->myBastDocumentQuery(auth()->id())->findOrFail($id);
 
         return view('inventory.my_bast_show', compact('title', 'document'));

@@ -1,0 +1,89 @@
+@php
+    $atk = $atk ?? null;
+    $submitLabel = $submitLabel ?? 'Submit';
+    $isActive = old('active', $atk ? $atk->active : 1);
+@endphp
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="kode_atk" class="float-left">Kode ATK</label>
+            <input type="text" class="form-control @error('kode_atk') is-invalid @enderror" id="kode_atk" name="kode_atk" value="{{ old('kode_atk', $atk->kode_atk ?? $kode_atk ?? '') }}">
+            @error('kode_atk')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="nama_atk" class="float-left">Nama ATK</label>
+            <input type="text" class="form-control @error('nama_atk') is-invalid @enderror" id="nama_atk" name="nama_atk" value="{{ old('nama_atk', $atk->nama_atk ?? '') }}">
+            @error('nama_atk')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="kategori" class="float-left">Kategori</label>
+            <input type="text" class="form-control @error('kategori') is-invalid @enderror" id="kategori" name="kategori" value="{{ old('kategori', $atk->kategori ?? '') }}">
+            @error('kategori')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="form-group">
+            <label for="stok" class="float-left">Stok</label>
+            <input type="number" step="0.01" min="0" class="form-control @error('stok') is-invalid @enderror" id="stok" name="stok" value="{{ old('stok', $atk ? $atk->formatted_stock : '') }}">
+            @error('stok')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="form-group">
+            <label for="satuan" class="float-left">Satuan</label>
+            <input type="text" class="form-control @error('satuan') is-invalid @enderror" id="satuan" name="satuan" list="satuan_options" value="{{ old('satuan', $atk->satuan ?? 'Pcs') }}">
+            <datalist id="satuan_options">
+                <option value="Pcs">
+                <option value="Box">
+                <option value="Pack">
+                <option value="Rim">
+                <option value="Lusin">
+                <option value="Unit">
+                <option value="Roll">
+            </datalist>
+            @error('satuan')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+    </div>
+</div>
+
+<div class="form-group">
+    <label for="lokasi" class="float-left">Lokasi</label>
+    <input type="text" class="form-control @error('lokasi') is-invalid @enderror" id="lokasi" name="lokasi" value="{{ old('lokasi', $atk->lokasi ?? '') }}">
+    @error('lokasi')
+        <div class="invalid-feedback">{{ $message }}</div>
+    @enderror
+</div>
+
+<div class="form-group">
+    <label for="keterangan" class="form-label">Keterangan</label>
+    <textarea name="keterangan" id="keterangan" class="form-control @error('keterangan') is-invalid @enderror" rows="4">{{ old('keterangan', $atk->keterangan ?? '') }}</textarea>
+    @error('keterangan')
+        <div class="invalid-feedback">{{ $message }}</div>
+    @enderror
+</div>
+
+<div class="form-group">
+    <input type="hidden" name="active" value="0">
+    <input name="active" class="form-check-input" type="checkbox" value="1" id="active" {{ (string) $isActive === '1' ? 'checked' : '' }}>
+    <label class="form-check-label" for="active">Aktif</label>
+</div>
+
+<button type="submit" class="btn btn-primary float-right">{{ $submitLabel }}</button>

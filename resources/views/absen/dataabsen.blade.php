@@ -77,6 +77,12 @@
                             <tbody>
                                 @foreach ($data_absen as $key => $da)
                                     <tr>
+                                        @php
+                                            $statusAbsen = trim((string) $da->status_absen);
+                                            $isTidakMasuk = in_array($statusAbsen, ['Tidak Masuk', 'Alpha', 'Alfa'], true);
+                                            $statusTanpaScanLabel = $isTidakMasuk ? 'Tidak Masuk' : null;
+                                            $statusTanpaScanBadge = $isTidakMasuk ? 'badge-danger' : 'badge-success';
+                                        @endphp
                                         <td>{{ ($data_absen->currentpage() - 1) * $data_absen->perpage() + $key + 1 }}.</td>
                                         <td>{{ $da->name }}</td>
                                         <td>
@@ -97,6 +103,8 @@
                                                 <span class="badge badge-warning">Sedang Izin masuk</span>
                                             @elseif($da->status_absen == 'Sakit')
                                                 <span class="badge badge-warning">Sedang Sakit</span>
+                                            @elseif($statusTanpaScanLabel)
+                                                <span class="badge {{ $statusTanpaScanBadge }}">{{ $statusTanpaScanLabel }}</span>
                                             @elseif($da->jam_absen == null)
                                                 <span class="badge badge-danger">Belum Absen</span>
                                             @else
@@ -114,6 +122,8 @@
                                                 <span class="badge badge-warning">Sedang Sakit</span>
                                             @elseif($da->status_absen == 'Izin Telat')
                                                 <span class="badge badge-warning">Izin Telat</span>
+                                            @elseif($statusTanpaScanLabel)
+                                                <span class="badge {{ $statusTanpaScanBadge }}">{{ $statusTanpaScanLabel }}</span>
                                             @elseif($da->jam_absen == null)
                                                 <span class="badge badge-danger">Belum Absen</span>
                                             @else
@@ -140,6 +150,8 @@
                                                 <span class="badge badge-warning">Sedang Izin masuk</span>
                                             @elseif($da->status_absen == 'Sakit')
                                                 <span class="badge badge-warning">Sedang Sakit</span>
+                                            @elseif($statusTanpaScanLabel)
+                                                <span class="badge {{ $statusTanpaScanBadge }}">{{ $statusTanpaScanLabel }}</span>
                                             @elseif($da->jam_absen == null)
                                                 <span class="badge badge-danger">Belum Absen</span>
                                             @else
@@ -161,6 +173,8 @@
                                                 <span class="badge badge-warning">Sedang Izin masuk</span>
                                             @elseif($da->status_absen == 'Sakit')
                                                 <span class="badge badge-warning">Sedang Sakit</span>
+                                            @elseif($statusTanpaScanLabel)
+                                                <span class="badge {{ $statusTanpaScanBadge }}">{{ $statusTanpaScanLabel }}</span>
                                             @elseif($da->jam_absen == null)
                                                 <span class="badge badge-danger">Belum Absen</span>
                                             @else
@@ -184,6 +198,8 @@
                                                 <span class="badge badge-warning">Sedang Izin masuk</span>
                                             @elseif($da->status_absen == 'Sakit')
                                                 <span class="badge badge-warning">Sedang Sakit</span>
+                                            @elseif($statusTanpaScanLabel)
+                                                <span class="badge {{ $statusTanpaScanBadge }}">{{ $statusTanpaScanLabel }}</span>
                                             @elseif($da->jam_absen == null)
                                                 <span class="badge badge-danger">Belum Absen</span>
                                             @else
@@ -199,6 +215,8 @@
                                                 <span class="badge badge-warning">Sedang Izin masuk</span>
                                             @elseif($da->status_absen == 'Sakit')
                                                 <span class="badge badge-warning">Sedang Sakit</span>
+                                            @elseif($statusTanpaScanLabel)
+                                                <span class="badge {{ $statusTanpaScanBadge }}">{{ $statusTanpaScanLabel }}</span>
                                             @elseif($da->jam_absen == null)
                                                 <span class="badge badge-danger">Belum Absen</span>
                                             @elseif($da->jam_pulang == null)
@@ -218,6 +236,8 @@
                                                 <span class="badge badge-warning">Sedang Sakit</span>
                                             @elseif($da->status_absen == 'Izin Pulang Cepat')
                                                 <span class="badge badge-warning">Izin Pulang Cepat</span>
+                                            @elseif($statusTanpaScanLabel)
+                                                <span class="badge {{ $statusTanpaScanBadge }}">{{ $statusTanpaScanLabel }}</span>
                                             @elseif($da->jam_absen == null)
                                                 <span class="badge badge-danger">Belum Absen</span>
                                             @elseif($da->jam_pulang == null)
@@ -247,6 +267,8 @@
                                                 <span class="badge badge-warning">Sedang Izin masuk</span>
                                             @elseif($da->status_absen == 'Sakit')
                                                 <span class="badge badge-warning">Sedang Sakit</span>
+                                            @elseif($statusTanpaScanLabel)
+                                                <span class="badge {{ $statusTanpaScanBadge }}">{{ $statusTanpaScanLabel }}</span>
                                             @elseif($da->jam_absen == null)
                                                 <span class="badge badge-danger">Belum Absen</span>
                                             @elseif($da->jam_pulang == null)
@@ -270,6 +292,8 @@
                                                 <span class="badge badge-warning">Sedang Izin masuk</span>
                                             @elseif($da->status_absen == 'Sakit')
                                                 <span class="badge badge-warning">Sedang Sakit</span>
+                                            @elseif($statusTanpaScanLabel)
+                                                <span class="badge {{ $statusTanpaScanBadge }}">{{ $statusTanpaScanLabel }}</span>
                                             @elseif($da->jam_absen == null)
                                                 <span class="badge badge-danger">Belum Absen</span>
                                             @elseif($da->jam_pulang == null)
@@ -295,6 +319,8 @@
                                                 <span class="badge badge-warning">Sedang Izin masuk</span>
                                             @elseif($da->status_absen == 'Sakit')
                                                 <span class="badge badge-warning">Sedang Sakit</span>
+                                            @elseif($statusTanpaScanLabel)
+                                                <span class="badge {{ $statusTanpaScanBadge }}">{{ $statusTanpaScanLabel }}</span>
                                             @elseif($da->jam_absen == null)
                                                 <span class="badge badge-danger">Belum Absen</span>
                                             @elseif($da->jam_pulang == null)
@@ -357,7 +383,9 @@
                                                     <li class="me-2">
                                                         <span class="badge badge-warning">Sedang Sakit</span>
                                                     </li>
-                                                @elseif($da->jam_absen == null)
+                                                @elseif($statusTanpaScanLabel)
+                                                <span class="badge {{ $statusTanpaScanBadge }}">{{ $statusTanpaScanLabel }}</span>
+                                            @elseif($da->jam_absen == null)
                                                     <li class="me-2">
                                                         <span class="badge badge-danger">Belum Masuk</span>
                                                     </li>

@@ -412,11 +412,13 @@
                     @endif
 
                     @if(auth()->user()->hasRole('admin'))
-                      <li class="sidebar-list"><a class="sidebar-link sidebar-title {{ Request::is('inventory*') ? 'active' : '' }}"
-                          href="javascript:void(0)"><i data-feather="git-merge"> </i><span>Inventory</span></a>
+                      <li class="sidebar-list"><a class="sidebar-link sidebar-title {{ Request::is('inventory*') || Request::is('atk*') ? 'active' : '' }}"
+                          href="javascript:void(0)"><i data-feather="git-merge"> </i><span>Manajemen Barang</span></a>
                         <ul class="sidebar-submenu">
-                          <li><a href="{{ url('/inventory') }}">Data Barang</a></li>
-                          <li><a href="{{ url('/inventory/scan') }}">Scan Barang</a></li>
+                          <li><a href="{{ url('/inventory') }}">Aset Kantor</a></li>
+                          <li><a href="{{ url('/atk') }}">ATK</a></li>
+                          <li><a href="{{ url('/inventory/scan') }}">Scan Aset Kantor</a></li>
+                          <li><a href="{{ url('/atk/scan') }}">Scan ATK</a></li>
                         </ul>
                       </li>
                     @endif

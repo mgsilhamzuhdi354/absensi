@@ -191,7 +191,7 @@ class InventoryQrStockTest extends TestCase
         $this->actingAs($this->admin)
             ->get('/inventory/scan')
             ->assertOk()
-            ->assertSee('Scan Barang');
+            ->assertSee('Scan Aset Kantor');
     }
 
     /** @test */

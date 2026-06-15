@@ -8,27 +8,27 @@
                         <h4>{{ $title }}</h4>
                     </div>
                     <div class="col-md-6 p-0">
-                        <a href="{{ url('/inventory') }}" class="btn btn-danger btn-sm ms-2">Back</a>
+                        <a href="{{ url('/atk') }}" class="btn btn-danger btn-sm ms-2">Back</a>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="col-lg-8 mx-auto">
-            <div class="card inventory-scan-card">
+            <div class="card atk-scan-card">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                    <h5 class="mb-0">Scanner QR Aset Kantor</h5>
+                    <h5 class="mb-0">Scanner QR ATK</h5>
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-outline-secondary btn-sm" id="retry-camera">Muat Ulang Kamera</button>
                         <button type="button" class="btn btn-outline-primary btn-sm" id="toggle-manual">Input Manual</button>
                     </div>
                 </div>
                 <div class="card-body">
-                    <div class="mx-auto inventory-reader" id="reader"></div>
-                    <div id="scan-status" class="alert alert-info mt-3">Kamera siap membaca QR aset kantor.</div>
+                    <div class="mx-auto atk-reader" id="reader"></div>
+                    <div id="scan-status" class="alert alert-info mt-3">Kamera siap membaca QR ATK.</div>
 
                     <form id="manual-scan-form" class="mt-3" style="display: none;">
-                        <label>Kode QR / Kode Aset Kantor</label>
+                        <label>Kode QR / Kode ATK</label>
                         <div class="input-group">
                             <input type="text" id="manual-code" class="form-control" autocomplete="off">
                             <div class="input-group-append">
@@ -98,7 +98,7 @@
             return scannerLibraryPromise;
         }
 
-        function lookupInventory(code) {
+        function lookupAtk(code) {
             code = normalizeScanValue(code);
             if (!code || scanLocked) {
                 return;
@@ -112,9 +112,9 @@
             lastScanAt = now;
 
             scanLocked = true;
-            setScanStatus('Memproses QR aset kantor...', 'info');
+            setScanStatus('Memproses QR ATK...', 'info');
 
-            fetch('{{ url('/inventory/scan/lookup') }}?code=' + encodeURIComponent(code), {
+            fetch('{{ url('/atk/scan/lookup') }}?code=' + encodeURIComponent(code), {
                 credentials: 'same-origin',
                 headers: {
                     'Accept': 'application/json',
@@ -135,7 +135,7 @@
 
                     return response.json().then(function (data) {
                         if (!response.ok) {
-                            throw new Error(data.message || 'Barang tidak ditemukan.');
+                            throw new Error(data.message || 'ATK tidak ditemukan.');
                         }
                         if (!data.url) {
                             throw new Error('Data scan tidak lengkap. Coba scan ulang.');
@@ -163,10 +163,10 @@
                     scanner.pause();
                 } catch (e) {}
             }
-            lookupInventory(decodedText);
+            lookupAtk(decodedText);
         }
 
-        async function startInventoryScanner() {
+        async function startAtkScanner() {
             if (scanStarted) {
                 return;
             }
@@ -199,7 +199,7 @@
                 setScanStatus('Menyalakan kamera...', 'info');
                 await scanner.start({ facingMode: 'environment' }, qrConfig, onScanSuccess, function () {});
                 scanStarted = true;
-                setScanStatus('Kamera aktif. Arahkan ke QR aset kantor.', 'success');
+                setScanStatus('Kamera aktif. Arahkan ke QR ATK.', 'success');
                 return;
             } catch (primaryError) {
                 try {
@@ -214,7 +214,7 @@
                     if (selectedCamera && selectedCamera.id) {
                         await scanner.start({ deviceId: { exact: selectedCamera.id } }, qrConfig, onScanSuccess, function () {});
                         scanStarted = true;
-                        setScanStatus('Kamera aktif. Arahkan ke QR aset kantor.', 'success');
+                        setScanStatus('Kamera aktif. Arahkan ke QR ATK.', 'success');
                         return;
                     }
                 } catch (cameraListError) {}
@@ -222,7 +222,7 @@
                 try {
                     await scanner.start({ facingMode: 'user' }, qrConfig, onScanSuccess, function () {});
                     scanStarted = true;
-                    setScanStatus('Kamera depan aktif. Arahkan ke QR aset kantor.', 'success');
+                    setScanStatus('Kamera depan aktif. Arahkan ke QR ATK.', 'success');
                     return;
                 } catch (fallbackError) {
                     scanStarted = false;
@@ -243,21 +243,21 @@
 
             document.getElementById('manual-scan-form').addEventListener('submit', function (event) {
                 event.preventDefault();
-                lookupInventory(document.getElementById('manual-code').value);
+                lookupAtk(document.getElementById('manual-code').value);
             });
 
             document.getElementById('retry-camera').addEventListener('click', function () {
                 if (scanner && scanStarted) {
                     scanner.stop().catch(function () {}).finally(function () {
                         scanStarted = false;
-                        startInventoryScanner();
+                        startAtkScanner();
                     });
                     return;
                 }
-                startInventoryScanner();
+                startAtkScanner();
             });
 
-            startInventoryScanner();
+            startAtkScanner();
         });
     </script>
 @endpush

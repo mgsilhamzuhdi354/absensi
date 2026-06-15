@@ -6,6 +6,7 @@ use App\Http\Controllers\DinasLuar;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\authController;
+use App\Http\Controllers\AtkController;
 use App\Http\Controllers\CutiController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\RoleController;
@@ -484,6 +485,19 @@ Route::get('/rapat-kerja', [RapatController::class, 'rapatKerja'])->middleware('
 Route::get('/rapat-kerja/show/{id}', [RapatController::class, 'rapatKerjaShow'])->middleware('auth');
 Route::get('/rapat-kerja/hadir/{id}', [RapatController::class, 'rapatKerjaHadir'])->middleware('auth');
 Route::post('/rapat-kerja/notulen/{id}', [RapatController::class, 'rapatKerjaNotulen'])->middleware('auth');
+
+Route::get('/atk', [AtkController::class, 'index'])->middleware('admin');
+Route::get('/atk/export', [AtkController::class, 'export'])->middleware('admin');
+Route::get('/atk/tambah', [AtkController::class, 'tambah'])->middleware('admin');
+Route::post('/atk/store', [AtkController::class, 'store'])->middleware('admin');
+Route::get('/atk/scan', [AtkController::class, 'scan'])->middleware('admin');
+Route::get('/atk/scan/lookup', [AtkController::class, 'scanLookup'])->middleware('admin');
+Route::get('/atk/{id}/detail', [AtkController::class, 'detail'])->middleware('admin');
+Route::get('/atk/{id}/qr/print', [AtkController::class, 'printQr'])->middleware('admin');
+Route::get('/atk/{id}/qr/download', [AtkController::class, 'downloadQr'])->middleware('admin');
+Route::get('/atk/edit/{id}', [AtkController::class, 'edit'])->middleware('admin');
+Route::put('/atk/update/{id}', [AtkController::class, 'update'])->middleware('admin');
+Route::delete('/atk/delete/{id}', [AtkController::class, 'delete'])->middleware('admin');
 
 Route::get('/inventory', [InventoryController::class, 'index'])->middleware('admin');
 Route::get('/inventory/tambah', [InventoryController::class, 'tambah'])->middleware('admin');

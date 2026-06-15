@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Shift;
 use App\Models\MappingShift;
+use App\Models\dinasLuar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Services\SmartAbsenParser;
@@ -12,6 +13,8 @@ use App\Services\KinerjaService;
 
 class SmartAbsenImportController extends Controller
 {
+    private array $officeLocationCache = [];
+
     /**
      * Tampilkan halaman Smart Import
      */
@@ -65,7 +68,13 @@ class SmartAbsenImportController extends Controller
 
             $users = User::orderBy('name', 'ASC')->get();
             $machineType = $parser->machineFileType($rows);
-            $machineMode = count($fullPaths) > 1 || $machineType !== 'generic';
+            $workbookTypes = [];
+            foreach ($fullPaths as $fullPath) {
+                $workbookTypes = array_merge($workbookTypes, $parser->workbookFileTypes($fullPath));
+            }
+            $machineMode = count($fullPaths) > 1
+                || $machineType !== 'generic'
+                || collect($workbookTypes)->contains(fn($type) => $type !== 'generic');
             $machineMeta = [
                 'files' => [],
                 'warnings' => [],
@@ -188,11 +197,23 @@ class SmartAbsenImportController extends Controller
             'import_rows.*.telat'        => 'nullable|integer',
             'import_rows.*.pulang_cepat' => 'nullable|integer',
             'import_rows.*.shift_id'     => 'required|integer|exists:shifts,id',
+            'import_rows.*.target_table' => 'nullable|string',
+            'import_rows.*.source_priority' => 'nullable|integer',
+            'import_rows.*.special_type' => 'nullable|string',
         ]);
 
         $importRows = $request->import_rows;
+        $importDates = collect($importRows)->pluck('tanggal')->filter()->sort()->values();
+        $importDateRange = $importDates->isNotEmpty()
+            ? ['start' => $importDates->first(), 'end' => $importDates->last()]
+            : null;
+        $clockRows = collect($importRows)->filter(function (array $row) {
+            return !empty($row['jam_absen']) || !empty($row['jam_pulang']);
+        })->count();
         $created = 0;
         $updated = 0;
+        $dinasCreated = 0;
+        $dinasUpdated = 0;
         $skipped = 0;
         $errors  = [];
 
@@ -200,26 +221,47 @@ class SmartAbsenImportController extends Controller
         try {
             foreach ($importRows as $index => $row) {
                 try {
-                    $existing = MappingShift::where('user_id', $row['user_id'])
-                        ->where('tanggal', $row['tanggal'])
-                        ->first();
+                    if (($row['source_format'] ?? '') === 'machine_package_summary') {
+                        $errors[] = "Baris " . ($index + 1) . ": File laporan rekap tidak bisa diimport sebagai data absensi. Upload Catatan Kehadiran Karyawan.";
+                        $skipped++;
+                        continue;
+                    }
 
-                    $data = $this->buildMappingShiftData($row);
+                    $targetTable = $row['target_table'] ?? 'mapping_shifts';
+                    $shouldImportMapping = $targetTable === '' || str_contains($targetTable, 'mapping_shifts');
+                    $shouldImportDinas = str_contains($targetTable, 'dinas_luars');
 
-                    if ($existing) {
-                        // Update existing record
-                        $existing->update($this->mergeWithExistingAttendance($data, $existing));
-                        // Update performance points
-                        KinerjaService::updateAttendancePoints($existing->id, $row['user_id']);
-                        $updated++;
-                    } else {
-                        // Create new record
-                        $data = $this->withDefaultSystemFields($data);
+                    if ($shouldImportMapping) {
+                        $existing = MappingShift::where('user_id', $row['user_id'])
+                            ->where('tanggal', $row['tanggal'])
+                            ->first();
 
-                        $newShift = MappingShift::create($data);
-                        // Update performance points
-                        KinerjaService::updateAttendancePoints($newShift->id, $row['user_id']);
-                        $created++;
+                        $data = $this->buildMappingShiftData($row);
+
+                        if ($existing) {
+                            // Update existing record
+                            $existing->update($this->mergeWithExistingAttendance($data, $existing, $row));
+                            // Update performance points
+                            KinerjaService::updateAttendancePoints($existing->id, $row['user_id']);
+                            $updated++;
+                        } else {
+                            // Create new record
+                            $data = $this->withDefaultSystemFields($data);
+
+                            $newShift = MappingShift::create($data);
+                            // Update performance points
+                            KinerjaService::updateAttendancePoints($newShift->id, $row['user_id']);
+                            $created++;
+                        }
+                    }
+
+                    if ($shouldImportDinas) {
+                        $dinas = $this->upsertDinasLuar($row);
+                        if ($dinas->wasRecentlyCreated) {
+                            $dinasCreated++;
+                        } else {
+                            $dinasUpdated++;
+                        }
                     }
                 } catch (\Exception $e) {
                     $errors[] = "Baris " . ($index + 1) . ": " . $e->getMessage();
@@ -251,7 +293,17 @@ class SmartAbsenImportController extends Controller
                     'updated' => $updated,
                     'skipped' => $skipped,
                     'errors'  => $errors,
+                    'clock_rows' => $clockRows,
+                    'dinas_created' => $dinasCreated,
+                    'dinas_updated' => $dinasUpdated,
                 ],
+                'date_range' => $importDateRange,
+                'data_absen_url' => $importDateRange
+                    ? url('/data-absen') . '?' . http_build_query([
+                        'mulai' => $importDateRange['start'],
+                        'akhir' => $importDateRange['end'],
+                    ])
+                    : url('/data-absen'),
             ]);
 
         } catch (\Exception $e) {
@@ -305,13 +357,31 @@ class SmartAbsenImportController extends Controller
                 'errors' => [$message],
                 'existing_id' => null,
                 'action' => 'skip',
+                'source_sheet' => '',
+                'source_priority' => 0,
+                'source_confidence' => 0,
+                'target_table' => 'mapping_shifts',
+                'conflict_notes' => [],
+                'special_type' => null,
             ];
         }, $rawPreview['rows']);
     }
 
     private function buildMappingShiftData(array $row): array
     {
-        return [
+        $sourceFormat = $row['source_format'] ?? '';
+        $keterangan = 'Smart Import Absensi';
+        if ($sourceFormat === 'machine_package') {
+            $keterangan = 'Smart Import Absensi (Scan Mesin)';
+        } elseif ($sourceFormat === 'shift_schedule') {
+            $keterangan = 'Smart Import Absensi (Jadwal Mesin)';
+        }
+
+        $hasCheckIn = !empty($row['jam_absen']);
+        $hasCheckOut = !empty($row['jam_pulang']);
+        $officeLocation = $this->officeLocationForUser((int) $row['user_id']);
+
+        $data = [
             'user_id'      => $row['user_id'],
             'shift_id'     => $row['shift_id'],
             'tanggal'      => $row['tanggal'],
@@ -320,27 +390,107 @@ class SmartAbsenImportController extends Controller
             'status_absen' => $row['status_absen'],
             'telat'        => $row['telat'] ?? 0,
             'pulang_cepat' => $row['pulang_cepat'] ?? 0,
-            'keterangan_masuk' => 'Smart Import Absensi',
-            'keterangan_pulang' => !empty($row['jam_pulang']) ? 'Smart Import Absensi' : null,
+            'keterangan_masuk' => $keterangan,
+            'keterangan_pulang' => !empty($row['jam_pulang']) ? $keterangan : null,
         ];
-    }
 
-    private function mergeWithExistingAttendance(array $data, MappingShift $existing): array
-    {
-        if ($data['jam_absen'] === null && $existing->jam_absen !== null) {
-            unset($data['jam_absen'], $data['telat'], $data['keterangan_masuk']);
+        if ($hasCheckIn && $officeLocation) {
+            $data['lat_absen'] = $officeLocation['lat'];
+            $data['long_absen'] = $officeLocation['long'];
+            $data['jarak_masuk'] = 0;
         }
 
-        if ($data['jam_pulang'] === null && $existing->jam_pulang !== null) {
-            unset($data['jam_pulang'], $data['pulang_cepat'], $data['keterangan_pulang']);
+        if ($hasCheckOut && $officeLocation) {
+            $data['lat_pulang'] = $officeLocation['lat'];
+            $data['long_pulang'] = $officeLocation['long'];
+            $data['jarak_pulang'] = 0;
         }
 
         return $data;
     }
 
+    private function upsertDinasLuar(array $row): dinasLuar
+    {
+        return dinasLuar::updateOrCreate(
+            [
+                'user_id' => $row['user_id'],
+                'tanggal' => $row['tanggal'],
+                'shift_id' => $row['shift_id'],
+            ],
+            $this->buildDinasLuarData($row)
+        );
+    }
+
+    private function buildDinasLuarData(array $row): array
+    {
+        $hasCheckIn = !empty($row['jam_absen']);
+        $hasCheckOut = !empty($row['jam_pulang']);
+        $officeLocation = $this->officeLocationForUser((int) $row['user_id']);
+        $data = [
+            'jam_absen' => $hasCheckIn ? $row['jam_absen'] : null,
+            'jam_pulang' => $hasCheckOut ? $row['jam_pulang'] : null,
+            'telat' => $row['telat'] ?? 0,
+            'pulang_cepat' => $row['pulang_cepat'] ?? 0,
+            'status_absen' => $hasCheckIn ? 'Masuk' : 'Izin Masuk',
+            'lokasi' => 'Smart Import Absensi',
+        ];
+
+        if ($hasCheckIn && $officeLocation) {
+            $data['lat_absen'] = $officeLocation['lat'];
+            $data['long_absen'] = $officeLocation['long'];
+        }
+
+        if ($hasCheckOut && $officeLocation) {
+            $data['lat_pulang'] = $officeLocation['lat'];
+            $data['long_pulang'] = $officeLocation['long'];
+        }
+
+        return $data;
+    }
+
+    private function mergeWithExistingAttendance(array $data, MappingShift $existing, array $row = []): array
+    {
+        $shouldClearEmptyAttendance = $this->shouldClearEmptyAttendance($row);
+
+        if ($data['jam_absen'] === null && $existing->jam_absen !== null && !$shouldClearEmptyAttendance) {
+            unset($data['jam_absen'], $data['telat'], $data['keterangan_masuk']);
+        }
+
+        if ($data['jam_pulang'] === null && $existing->jam_pulang !== null && !$shouldClearEmptyAttendance) {
+            unset($data['jam_pulang'], $data['pulang_cepat'], $data['keterangan_pulang']);
+        }
+
+        if ($shouldClearEmptyAttendance) {
+            if (($data['jam_absen'] ?? null) === null) {
+                $data['lat_absen'] = 0;
+                $data['long_absen'] = 0;
+                $data['jarak_masuk'] = 0;
+            }
+
+            if (($data['jam_pulang'] ?? null) === null) {
+                $data['lat_pulang'] = 0;
+                $data['long_pulang'] = 0;
+                $data['jarak_pulang'] = 0;
+            }
+        }
+
+        return $data;
+    }
+
+    private function shouldClearEmptyAttendance(array $row): bool
+    {
+        $priority = (int) ($row['source_priority'] ?? 0);
+        $status = $row['status_absen'] ?? '';
+
+        return $priority >= 60
+            && empty($row['jam_absen'])
+            && empty($row['jam_pulang'])
+            && in_array($status, ['Libur', 'Cuti', 'Izin Masuk', 'Sakit', 'Tidak Masuk'], true);
+    }
+
     private function withDefaultSystemFields(array $data): array
     {
-        return array_merge($data, [
+        return array_merge([
             'lock_location' => 0,
             'lat_absen' => 0,
             'long_absen' => 0,
@@ -348,6 +498,24 @@ class SmartAbsenImportController extends Controller
             'long_pulang' => 0,
             'jarak_masuk' => 0,
             'jarak_pulang' => 0,
-        ]);
+        ], $data);
+    }
+
+    private function officeLocationForUser(int $userId): ?array
+    {
+        if (array_key_exists($userId, $this->officeLocationCache)) {
+            return $this->officeLocationCache[$userId];
+        }
+
+        $user = User::with('Lokasi:id,lat_kantor,long_kantor')->find($userId);
+        $lokasi = $user ? $user->Lokasi : null;
+        if (!$lokasi || $lokasi->lat_kantor === null || $lokasi->long_kantor === null) {
+            return $this->officeLocationCache[$userId] = null;
+        }
+
+        return $this->officeLocationCache[$userId] = [
+            'lat' => $lokasi->lat_kantor,
+            'long' => $lokasi->long_kantor,
+        ];
     }
 }

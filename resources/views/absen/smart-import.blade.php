@@ -334,7 +334,8 @@ $(document).ready(function() {
 
         let fileHtml = files.length
             ? '<div class="mb-2"><strong>File mesin:</strong> ' + files.map(function(file) {
-                return escapeHtml(file.file) + ' <span class="badge bg-secondary">' + escapeHtml(file.type) + '</span>';
+                let sheetLabel = file.sheet ? ' / ' + escapeHtml(file.sheet) : '';
+                return escapeHtml(file.file) + sheetLabel + ' <span class="badge bg-secondary">' + escapeHtml(file.type) + '</span>';
             }).join(' &nbsp; ') + '</div>'
             : '';
 
@@ -369,7 +370,7 @@ $(document).ready(function() {
 
         let html = '<table class="preview-table"><thead><tr>';
         html += '<th><input type="checkbox" id="checkAll" checked></th>';
-        html += '<th>No</th><th>Sumber</th><th>Nama (File)</th><th>Nama (Sistem)</th><th>Match</th>';
+        html += '<th>No</th><th>Sumber</th><th>Sheet</th><th>Nama (File)</th><th>Nama (Sistem)</th><th>Match</th>';
         html += '<th>Tanggal</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Status</th><th>Aksi</th><th>Catatan</th>';
         html += '</tr></thead><tbody>';
 
@@ -386,12 +387,20 @@ $(document).ready(function() {
                 : (row.action === 'update'
                     ? '<span class="action-badge action-update">Update</span>'
                     : '<span class="badge bg-secondary">Skip</span>');
-            let errors = Array.isArray(row.errors) && row.errors.length ? row.errors.join('; ') : '-';
+            let notes = [];
+            if (Array.isArray(row.errors) && row.errors.length) {
+                notes = notes.concat(row.errors);
+            }
+            if (Array.isArray(row.conflict_notes) && row.conflict_notes.length) {
+                notes = notes.concat(row.conflict_notes);
+            }
+            let errors = notes.length ? notes.join('; ') : '-';
 
             html += `<tr class="${rowClass}">`;
             html += `<td><input type="checkbox" class="row-check" data-key="${escapeHtml(row._preview_key)}" ${row.valid ? 'checked' : 'disabled'}></td>`;
             html += `<td>${index + 1}</td>`;
             html += `<td>${escapeHtml(row.source_format || '-')}</td>`;
+            html += `<td>${escapeHtml(row.source_sheet || '-')}</td>`;
             html += `<td><strong>${escapeHtml(row.raw_nama || row.raw_employee_id || '-')}</strong></td>`;
             html += `<td>${row.user_name ? escapeHtml(row.user_name) : '<em class="text-danger">-</em>'}</td>`;
             html += `<td>${matchBadge}</td>`;
@@ -405,7 +414,7 @@ $(document).ready(function() {
         });
 
         if (!filtered.length) {
-            html += '<tr><td colspan="12" class="text-center text-muted py-4">Tidak ada data pada filter ini.</td></tr>';
+            html += '<tr><td colspan="13" class="text-center text-muted py-4">Tidak ada data pada filter ini.</td></tr>';
         }
 
         html += '</tbody></table>';
@@ -505,8 +514,12 @@ $(document).ready(function() {
                 success: function(response) {
                     goToStep(3);
                     let stats = response.stats || {};
+                    let dataAbsenUrl = response.data_absen_url || '{{ url('/data-absen') }}';
                     let errors = Array.isArray(stats.errors) && stats.errors.length
                         ? '<div class="mt-3 text-start"><strong>Errors:</strong><ul>' + stats.errors.map(function(error) { return '<li class="text-danger">' + escapeHtml(error) + '</li>'; }).join('') + '</ul></div>'
+                        : '';
+                    let clockNote = Number(stats.clock_rows || 0) === 0
+                        ? '<div class="alert alert-info mt-3 mb-0 text-start"><strong>Catatan:</strong> File yang diimport tidak berisi jam scan harian, jadi kolom jam masuk/pulang tetap kosong. Upload file Catatan Kehadiran Karyawan bersama file rekap untuk mengisi jam.</div>'
                         : '';
 
                     $('#importResult').html(`
@@ -519,8 +532,9 @@ $(document).ready(function() {
                             <div class="stat-card stat-invalid"><div class="stat-number">${stats.skipped || 0}</div><div class="stat-label">Dilewati</div></div>
                         </div>
                         ${errors}
+                        ${clockNote}
                         <div class="mt-4">
-                            <a href="{{ url('/data-absen') }}" class="btn btn-primary px-4 py-2 me-2"><i class="fas fa-table me-1"></i>Lihat Data Absen</a>
+                            <a href="${escapeHtml(dataAbsenUrl)}" class="btn btn-primary px-4 py-2 me-2"><i class="fas fa-table me-1"></i>Lihat Data Absen</a>
                             <a href="{{ url('/rekap-data') }}" class="btn btn-success px-4 py-2 me-2"><i class="fas fa-chart-bar me-1"></i>Rekap Data</a>
                             <button class="btn btn-outline-secondary px-4 py-2" onclick="location.reload()"><i class="fas fa-redo me-1"></i>Import Lagi</button>
                         </div>

@@ -351,6 +351,86 @@ class SmartAbsenParserTest extends TestCase
         $this->assertSame([], $result['warnings']);
     }
 
+    /** @test */
+    public function it_reconciles_incomplete_machine_scans_with_attendance_summary(): void
+    {
+        $parser = new SmartAbsenParser();
+        $users = $this->users([
+            ['id' => 8, 'name' => 'MGS ILHAM ZUHDI', 'username' => 'mgs'],
+        ]);
+
+        $files = [
+            $this->makeXlsx([
+                ['Pengaturan Shift Kehadiran Karyawan (Laporan)'],
+                ['Tanggal Statistik:2026-05-01~2026-05-05'],
+                ['User ID.', 'Nama', 'Departemen', '1', '2', '3', '4', '5'],
+                ['', '', '', 'Jum', 'Sab', 'Min', 'Sen', 'Sel'],
+                ['1', 'mgs ilham zuhdi', 'it', '1', '1', '1', '1', '1'],
+            ]),
+            $this->makeXlsx([
+                ['Catatan Kehadiran Karyawan'],
+                ['Tanggal Kehadiran:2026-05-01~2026-05-05'],
+                ['', '', '', '', 'User ID', '1', '', '', 'Nama', 'mgs ilham zuhdi', '', '', 'Departemen', 'it'],
+                ['1', '2', '3', '4', '5'],
+                ["07:57\n17:01", '07:58', '07:59', "08:00\n17:00", ''],
+            ]),
+            $this->makeXlsx([
+                ['Analisa Kehadiran'],
+                ['Tanggal Statistik:2026-05-01~2026-05-05'],
+                ['User ID.', 'Nama', 'Departemen', 'Jam Kerja', 'Jam Kerja', 'Terlambat Masuk', 'Terlambat Masuk', 'Keluar Lebih Awal', 'Keluar Lebih Awal', 'Jam Kerja Lembur', 'Jam Kerja Lembur', 'Hari Kehadiran (Standar/Aktual)', 'Perjalanan Bisnis (hari)', 'Tidak hadir (hari)', 'Cuti (hari)'],
+                ['', '', '', 'Standar', 'Aktual', 'Kali', 'Menit', 'Kali', 'Menit', 'Normal', 'Khusus', '', '', '', ''],
+                ['1', 'mgs ilham zuhdi', 'it', '45', '18', '0', '0', '0', '0', '0', '0', '5/2', '0', '3', '0'],
+            ]),
+        ];
+
+        try {
+            $result = $parser->processMachineFiles($files, $users, 1, '08:00:00', '17:00:00');
+        } finally {
+            foreach ($files as $file) {
+                @unlink($file);
+            }
+        }
+
+        $rows = collect($result['results']);
+        $this->assertSame(['Masuk' => 2, 'Tidak Masuk' => 3], $rows->groupBy('status_absen')->map->count()->all());
+        $this->assertSame([], $result['warnings']);
+
+        $secondDay = $rows->firstWhere('tanggal', '2026-05-02');
+        $this->assertSame('07:58', $secondDay['jam_absen']);
+        $this->assertNull($secondDay['jam_pulang']);
+        $this->assertSame('Tidak Masuk', $secondDay['status_absen']);
+        $this->assertStringContainsString('Scan masuk/pulang tidak lengkap', implode(' ', $secondDay['conflict_notes']));
+    }
+
+    /** @test */
+    public function it_rejects_machine_summary_only_file_because_it_has_no_scan_times(): void
+    {
+        $parser = new SmartAbsenParser();
+        $users = $this->users([
+            ['id' => 8, 'name' => 'MGS ILHAM ZUHDI', 'username' => 'mgs'],
+        ]);
+
+        $file = $this->makeXlsx([
+            ['Analisa Kehadiran'],
+            ['Tanggal Statistik:2026-06-01~2026-06-05'],
+            ['User ID.', 'Nama', 'Departemen', 'Hari Kehadiran (Standar/Aktual)', 'Tidak hadir (hari)', 'Cuti (hari)'],
+            ['1', 'mgs ilham zuhdi', 'it', '3/2', '1', '0'],
+        ]);
+
+        try {
+            $result = $parser->processMachineFiles([$file], $users, 1, '08:00:00', '17:00:00');
+        } finally {
+            @unlink($file);
+        }
+
+        $rows = collect($result['results']);
+        $this->assertCount(1, $rows);
+        $this->assertFalse($rows->first()['valid']);
+        $this->assertSame('machine_package_summary', $rows->first()['source_format']);
+        $this->assertStringContainsString('tidak punya jam scan harian', implode(' ', $rows->first()['errors']));
+        $this->assertStringContainsString('Catatan Kehadiran Karyawan', implode(' ', $result['warnings']));
+    }
+
     private function fillAttendanceBlock(array &$rows, int $startCol, string $dept, string $name, string $userId, array $days): void
     {
         $rows[2][$startCol] = 'Dept';

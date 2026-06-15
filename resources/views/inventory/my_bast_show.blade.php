@@ -79,7 +79,7 @@
                 <div class="tf-spacing-16"></div>
                 <div class="d-flex justify-content-between align-items-start gap-3">
                     <div>
-                        <h3 class="mb-1">{{ $inventory->nama_barang ?? 'BAST Inventory' }}</h3>
+                        <h3 class="mb-1">{{ $inventory->nama_barang ?? 'BAST Aset Kantor' }}</h3>
                         <p class="text-muted mb-0">{{ $document->nomor_surat }}</p>
                     </div>
                     @if ($hasPendingForUser)

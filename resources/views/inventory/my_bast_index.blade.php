@@ -19,7 +19,7 @@
                 <div class="tf-spacing-16"></div>
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h3 class="mb-1">BAST Inventory</h3>
+                        <h3 class="mb-1">BAST Aset Kantor</h3>
                         <p class="text-muted mb-0">Surat serah terima barang yang terkait dengan akun Anda.</p>
                     </div>
                     @if ($pendingCount > 0)
@@ -51,7 +51,7 @@
                             <a href="{{ url('/my-inventory-bast/'.$document->id) }}" class="w-100" style="text-decoration: none; color: inherit;">
                                 <div class="d-flex justify-content-between align-items-start gap-3">
                                     <div>
-                                        <h4 class="mb-1">{{ $inventory->nama_barang ?? 'Barang Inventori' }}</h4>
+                                        <h4 class="mb-1">{{ $inventory->nama_barang ?? 'Aset Kantor' }}</h4>
                                         <p class="mb-1 text-muted">{{ $document->nomor_surat }}</p>
                                         <p class="mb-0 text-muted">
                                             {{ optional($document->tanggal_surat)->format('d/m/Y') ?? '-' }}
@@ -79,7 +79,7 @@
                         </li>
                     @empty
                         <li class="p-4 text-center text-muted" style="background-color: #fff; border-radius: 14px;">
-                            Belum ada surat BAST inventory untuk Anda.
+                            Belum ada surat BAST aset kantor untuk Anda.
                         </li>
                     @endforelse
                 </ul>

@@ -318,7 +318,21 @@
                                     <a href="{{ url('/inventory') }}" class="nav-link">
                                         <i class="fas fa-warehouse"
                                             style="{{ Request::is('inventory*') ? 'color: blue' : 'color: black' }}"></i>
-                                        <span style="{{ Request::is('inventory*') ? 'color: blue' : '' }}">Inventory</span>
+                                        <span style="{{ Request::is('inventory*') ? 'color: blue' : '' }}">Aset Kantor</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ url('/atk') }}" class="nav-link">
+                                        <i class="fas fa-pencil-ruler"
+                                            style="{{ Request::is('atk*') ? 'color: blue' : 'color: black' }}"></i>
+                                        <span style="{{ Request::is('atk*') ? 'color: blue' : '' }}">ATK</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ url('/atk/scan') }}" class="nav-link">
+                                        <i class="fas fa-qrcode"
+                                            style="{{ Request::is('atk/scan*') ? 'color: blue' : 'color: black' }}"></i>
+                                        <span style="{{ Request::is('atk/scan*') ? 'color: blue' : '' }}">Scan ATK</span>
                                     </a>
                                 </li>
                             @endif
@@ -356,7 +370,7 @@
                                     <i class="fas fa-file-signature"
                                         style="{{ Request::is('my-inventory-bast*') ? 'color: blue' : 'color: black' }}"></i>
                                     <span style="{{ Request::is('my-inventory-bast*') ? 'color: blue' : '' }}">BAST
-                                        Inventory</span>
+                                        Aset Kantor</span>
                                 </a>
                             </li>
                             <li>
