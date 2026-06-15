@@ -95,6 +95,11 @@
                                             <td>{!! $pegawai_keluar->notes ? nl2br(e($pegawai_keluar->notes)) : '-' !!}</td>
                                             <td>
                                                 <ul class="action">
+                                                    <li>
+                                                        <a href="{{ url('/exit/'.$pegawai_keluar->id.'/assets') }}" title="Clearance aset">
+                                                            <i class="fa fa-laptop" style="color:#0d6efd"></i>
+                                                        </a>
+                                                    </li>
                                                     @if ($pegawai_keluar->status == 'PENDING')
                                                         <li class="edit">
                                                             <a href="{{ url('/exit/edit/'.$pegawai_keluar->id) }}"><i class="fa fa-solid fa-edit"></i></a>

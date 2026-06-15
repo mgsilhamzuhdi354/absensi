@@ -170,9 +170,10 @@ class InventoryController extends Controller
             'stockTransactions.bastDocument.signedBy',
             'stockTransactions.bastDocument.knownBy',
             'stockTransactions.bastDocument.firstParty',
+            'stockTransactions.returnDocument',
         ]);
         $deletedStockTransactions = InventoryStockTransaction::onlyTrashed()
-            ->with(['processedBy', 'deletedBy', 'bastDocument.signedBy', 'bastDocument.knownBy', 'bastDocument.firstParty'])
+            ->with(['processedBy', 'deletedBy', 'bastDocument.signedBy', 'bastDocument.knownBy', 'bastDocument.firstParty', 'returnDocument'])
             ->where('inventory_id', $inventory->id)
             ->latest('deleted_at')
             ->latest('id')
@@ -303,8 +304,13 @@ class InventoryController extends Controller
 
     public function deleteStockTransaction($id)
     {
-        $transaction = InventoryStockTransaction::with('inventory')->findOrFail($id);
+        $transaction = InventoryStockTransaction::with(['inventory', 'returnDocument'])->findOrFail($id);
         $inventoryId = $transaction->inventory_id;
+
+        if ($transaction->return_for_transaction_id || $transaction->returnDocument) {
+            return redirect('/inventory/' . $inventoryId . '/detail')
+                ->with('error', 'Transaksi pengembalian aset pegawai keluar tidak bisa dihapus dari riwayat stok.');
+        }
 
         DB::transaction(function () use ($transaction) {
             $lockedInventory = Inventory::whereKey($transaction->inventory_id)->lockForUpdate()->firstOrFail();

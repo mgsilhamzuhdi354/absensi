@@ -49,4 +49,24 @@ class InventoryStockTransaction extends Model
     {
         return $this->hasOne(InventoryBastDocument::class, 'inventory_stock_transaction_id');
     }
+
+    public function returnDocument()
+    {
+        return $this->hasOne(InventoryReturnDocument::class, 'return_inventory_stock_transaction_id');
+    }
+
+    public function returnedFromTransaction()
+    {
+        return $this->belongsTo(self::class, 'return_for_transaction_id')->withTrashed();
+    }
+
+    public function returnedTransaction()
+    {
+        return $this->hasOne(self::class, 'return_for_transaction_id')->withTrashed();
+    }
+
+    public function pegawaiKeluar()
+    {
+        return $this->belongsTo(PegawaiKeluar::class);
+    }
 }

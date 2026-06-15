@@ -165,6 +165,10 @@ Route::get('/exit/edit/{id}', [PegawaiKeluarController::class, 'edit'])->middlew
 Route::put('/exit/update/{id}', [PegawaiKeluarController::class, 'update'])->middleware('auth');
 Route::delete('/exit/delete/{id}', [PegawaiKeluarController::class, 'delete'])->middleware('auth');
 Route::post('/exit/approval/{id}', [PegawaiKeluarController::class, 'approval'])->middleware('auth');
+Route::get('/exit/asset-return/{document}/download', [PegawaiKeluarController::class, 'downloadReturnDocument'])->middleware('admin');
+Route::get('/exit/{id}/assets', [PegawaiKeluarController::class, 'assets'])->middleware('admin');
+Route::post('/exit/{exit}/assets/{transaction}/return', [PegawaiKeluarController::class, 'returnAsset'])->middleware('admin');
+Route::post('/exit/{exit}/assets/{transaction}/waive', [PegawaiKeluarController::class, 'waiveAsset'])->middleware('admin');
 
 Route::resource('/shift', ShiftController::class)->middleware('admin');
 
@@ -509,6 +513,10 @@ Route::get('/my-inventory-bast/{id}', [InventoryController::class, 'showMyBastDo
 Route::post('/my-inventory-bast/{id}/sign', [InventoryController::class, 'signMyBastDocument'])->middleware('auth');
 Route::post('/my-inventory-bast/{id}/sign/{role}', [InventoryController::class, 'signMyBastDocument'])->middleware('auth');
 Route::get('/my-inventory-bast/{id}/download', [InventoryController::class, 'downloadMyBastDocument'])->middleware('auth');
+Route::get('/my-inventory-return-bast', [PegawaiKeluarController::class, 'myReturnBastDocuments'])->middleware('auth');
+Route::get('/my-inventory-return-bast/{id}', [PegawaiKeluarController::class, 'showMyReturnBastDocument'])->middleware('auth');
+Route::post('/my-inventory-return-bast/{id}/sign/{role}', [PegawaiKeluarController::class, 'signMyReturnBastDocument'])->middleware('auth');
+Route::get('/my-inventory-return-bast/{id}/download', [PegawaiKeluarController::class, 'downloadMyReturnBastDocument'])->middleware('auth');
 Route::post('/inventory/transactions/{id}/bast', [InventoryController::class, 'createBast'])->middleware('admin');
 Route::delete('/inventory/transactions/{id}', [InventoryController::class, 'deleteStockTransaction'])->middleware('admin');
 Route::put('/inventory/bast/{id}', [InventoryController::class, 'updateBast'])->middleware('admin');
