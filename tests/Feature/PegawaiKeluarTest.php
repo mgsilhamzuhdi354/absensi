@@ -3,13 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Inventory;
-use App\Models\InventoryReturnDocument;
+use App\Models\DokumenPengembalianAset;
 use App\Models\InventoryStockTransaction;
 use App\Models\Jabatan;
 use App\Models\Lokasi;
 use App\Models\MasterLookup;
 use App\Models\PegawaiKeluar;
-use App\Models\PegawaiKeluarAssetClearance;
+use App\Models\PenyelesaianAsetPegawaiKeluar;
 use App\Models\settings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -186,7 +186,7 @@ class PegawaiKeluarTest extends TestCase
         $this->assertDatabaseHas('pegawai_keluar_asset_clearances', [
             'pegawai_keluar_id' => $pegawaiKeluar->id,
             'inventory_stock_transaction_id' => $transaction->id,
-            'status' => PegawaiKeluarAssetClearance::STATUS_PENDING,
+            'status' => PenyelesaianAsetPegawaiKeluar::STATUS_PENDING,
         ]);
         $this->actingAs($this->admin)
             ->get('/exit/' . $pegawaiKeluar->id . '/assets')
@@ -236,7 +236,7 @@ class PegawaiKeluarTest extends TestCase
         $this->assertSame($pegawaiKeluar->id, (int) $returnTransaction->pegawai_keluar_id);
         $this->assertStringContainsString('Pengembalian dari ' . $this->employee->name, $returnTransaction->sumber_barang);
 
-        $document = InventoryReturnDocument::first();
+        $document = DokumenPengembalianAset::first();
         $this->assertNotNull($document);
         $this->assertSame('001 / IT-BAST-PB / V / 2026', $document->nomor_surat);
         $this->assertSame($this->employee->id, (int) $document->employee_user_id);
@@ -264,7 +264,7 @@ class PegawaiKeluarTest extends TestCase
         $this->assertDatabaseHas('pegawai_keluar_asset_clearances', [
             'pegawai_keluar_id' => $pegawaiKeluar->id,
             'inventory_stock_transaction_id' => $transaction->id,
-            'status' => PegawaiKeluarAssetClearance::STATUS_RETURNED,
+            'status' => PenyelesaianAsetPegawaiKeluar::STATUS_RETURNED,
             'returned_inventory_stock_transaction_id' => $returnTransaction->id,
         ]);
 
@@ -312,7 +312,7 @@ class PegawaiKeluarTest extends TestCase
         $this->assertDatabaseHas('pegawai_keluar_asset_clearances', [
             'pegawai_keluar_id' => $pegawaiKeluar->id,
             'inventory_stock_transaction_id' => $transaction->id,
-            'status' => PegawaiKeluarAssetClearance::STATUS_WAIVED,
+            'status' => PenyelesaianAsetPegawaiKeluar::STATUS_WAIVED,
             'waived_by_user_id' => $this->admin->id,
         ]);
 
@@ -343,7 +343,7 @@ class PegawaiKeluarTest extends TestCase
             'known_by_user_id' => $this->hrd->id,
         ]);
 
-        $document = InventoryReturnDocument::first();
+        $document = DokumenPengembalianAset::first();
         $signature = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
 
         $this->actingAs($this->otherEmployee)

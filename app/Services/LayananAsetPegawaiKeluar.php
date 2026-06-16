@@ -3,10 +3,10 @@
 namespace App\Services;
 
 use App\Models\Inventory;
-use App\Models\InventoryReturnDocument;
+use App\Models\DokumenPengembalianAset;
 use App\Models\InventoryStockTransaction;
 use App\Models\PegawaiKeluar;
-use App\Models\PegawaiKeluarAssetClearance;
+use App\Models\PenyelesaianAsetPegawaiKeluar;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
-class PegawaiKeluarAssetService
+class LayananAsetPegawaiKeluar
 {
     public function syncClearances(PegawaiKeluar $pegawaiKeluar)
     {
@@ -26,11 +26,11 @@ class PegawaiKeluarAssetService
 
         $this->heldAssetTransactionsForUser($pegawaiKeluar->user_id)
             ->each(function (InventoryStockTransaction $transaction) use ($pegawaiKeluar) {
-                PegawaiKeluarAssetClearance::firstOrCreate([
+                PenyelesaianAsetPegawaiKeluar::firstOrCreate([
                     'pegawai_keluar_id' => $pegawaiKeluar->id,
                     'inventory_stock_transaction_id' => $transaction->id,
                 ], [
-                    'status' => PegawaiKeluarAssetClearance::STATUS_PENDING,
+                    'status' => PenyelesaianAsetPegawaiKeluar::STATUS_PENDING,
                 ]);
             });
 
@@ -42,7 +42,7 @@ class PegawaiKeluarAssetService
         $this->syncClearances($pegawaiKeluar);
 
         return $this->clearanceQuery($pegawaiKeluar)
-            ->where('status', PegawaiKeluarAssetClearance::STATUS_PENDING)
+            ->where('status', PenyelesaianAsetPegawaiKeluar::STATUS_PENDING)
             ->get();
     }
 
@@ -85,7 +85,7 @@ class PegawaiKeluarAssetService
         $this->ensureReturnDateIsValid($originalTransaction, $data['tanggal_kembali'] ?? null);
 
         return DB::transaction(function () use ($pegawaiKeluar, $originalTransaction, $data, $admin) {
-            $clearance = PegawaiKeluarAssetClearance::where([
+            $clearance = PenyelesaianAsetPegawaiKeluar::where([
                     'pegawai_keluar_id' => $pegawaiKeluar->id,
                     'inventory_stock_transaction_id' => $originalTransaction->id,
                 ])
@@ -93,14 +93,14 @@ class PegawaiKeluarAssetService
                 ->first();
 
             if (!$clearance) {
-                $clearance = PegawaiKeluarAssetClearance::create([
+                $clearance = PenyelesaianAsetPegawaiKeluar::create([
                     'pegawai_keluar_id' => $pegawaiKeluar->id,
                     'inventory_stock_transaction_id' => $originalTransaction->id,
-                    'status' => PegawaiKeluarAssetClearance::STATUS_PENDING,
+                    'status' => PenyelesaianAsetPegawaiKeluar::STATUS_PENDING,
                 ]);
             }
 
-            if ($clearance->status !== PegawaiKeluarAssetClearance::STATUS_PENDING) {
+            if ($clearance->status !== PenyelesaianAsetPegawaiKeluar::STATUS_PENDING) {
                 throw ValidationException::withMessages([
                     'asset' => 'Clearance aset ini sudah selesai diproses.',
                 ]);
@@ -138,7 +138,7 @@ class PegawaiKeluarAssetService
             ]);
 
             $clearance->forceFill([
-                'status' => PegawaiKeluarAssetClearance::STATUS_RETURNED,
+                'status' => PenyelesaianAsetPegawaiKeluar::STATUS_RETURNED,
                 'returned_inventory_stock_transaction_id' => $returnTransaction->id,
                 'returned_at' => now(),
             ])->save();
@@ -158,21 +158,21 @@ class PegawaiKeluarAssetService
         $this->ensureTransactionBelongsToExitUser($pegawaiKeluar, $originalTransaction);
 
         return DB::transaction(function () use ($pegawaiKeluar, $originalTransaction, $data, $admin) {
-            $clearance = PegawaiKeluarAssetClearance::firstOrCreate([
+            $clearance = PenyelesaianAsetPegawaiKeluar::firstOrCreate([
                 'pegawai_keluar_id' => $pegawaiKeluar->id,
                 'inventory_stock_transaction_id' => $originalTransaction->id,
             ], [
-                'status' => PegawaiKeluarAssetClearance::STATUS_PENDING,
+                'status' => PenyelesaianAsetPegawaiKeluar::STATUS_PENDING,
             ]);
 
-            if ($clearance->status === PegawaiKeluarAssetClearance::STATUS_RETURNED) {
+            if ($clearance->status === PenyelesaianAsetPegawaiKeluar::STATUS_RETURNED) {
                 throw ValidationException::withMessages([
                     'asset' => 'Aset ini sudah dikembalikan dan tidak perlu dikecualikan.',
                 ]);
             }
 
             $clearance->forceFill([
-                'status' => PegawaiKeluarAssetClearance::STATUS_WAIVED,
+                'status' => PenyelesaianAsetPegawaiKeluar::STATUS_WAIVED,
                 'waiver_reason' => $data['waiver_reason'],
                 'waived_by_user_id' => $admin->id,
                 'waived_at' => now(),
@@ -182,7 +182,7 @@ class PegawaiKeluarAssetService
         });
     }
 
-    public function storePdf(InventoryReturnDocument $document)
+    public function storePdf(DokumenPengembalianAset $document)
     {
         $document->loadMissing(
             'inventory.lokasi',
@@ -195,7 +195,7 @@ class PegawaiKeluarAssetService
             'returnTransaction'
         );
 
-        $pdf = Pdf::loadView('inventory.return_bast_pdf', [
+        $pdf = Pdf::loadView('inventory.pdf_bast_pengembalian', [
             'document' => $document,
             'inventory' => $document->inventory,
             'pegawaiKeluar' => $document->pegawaiKeluar,
@@ -210,9 +210,9 @@ class PegawaiKeluarAssetService
         return $document->fresh();
     }
 
-    public function storeSignature(InventoryReturnDocument $document, $role, $signatureData, User $user, $ip, $userAgent)
+    public function storeSignature(DokumenPengembalianAset $document, $role, $signatureData, User $user, $ip, $userAgent)
     {
-        $roleConfig = InventoryReturnDocument::signatureRoles()[$role] ?? null;
+        $roleConfig = DokumenPengembalianAset::signatureRoles()[$role] ?? null;
         if (!$roleConfig) {
             throw ValidationException::withMessages([
                 'signature_data' => 'Role tanda tangan tidak valid.',
@@ -245,7 +245,7 @@ class PegawaiKeluarAssetService
 
     private function clearanceQuery(PegawaiKeluar $pegawaiKeluar)
     {
-        return PegawaiKeluarAssetClearance::with([
+        return PenyelesaianAsetPegawaiKeluar::with([
                 'originalTransaction.inventory.lokasi',
                 'originalTransaction.inventory.jabatan',
                 'originalTransaction.penerima.Jabatan',
@@ -260,7 +260,7 @@ class PegawaiKeluarAssetService
             ->latest('id');
     }
 
-    private function createReturnDocument(PegawaiKeluarAssetClearance $clearance, InventoryStockTransaction $returnTransaction, InventoryStockTransaction $originalTransaction, array $data, User $admin)
+    private function createReturnDocument(PenyelesaianAsetPegawaiKeluar $clearance, InventoryStockTransaction $returnTransaction, InventoryStockTransaction $originalTransaction, array $data, User $admin)
     {
         $date = Carbon::parse($data['tanggal_kembali'] ?? now());
         $pegawaiKeluar = $clearance->pegawaiKeluar()->with('user.Jabatan')->first();
@@ -272,7 +272,7 @@ class PegawaiKeluarAssetService
             ? User::with('Jabatan')->find($data['known_by_user_id'])
             : null;
 
-        $document = InventoryReturnDocument::create([
+        $document = DokumenPengembalianAset::create([
             'pegawai_keluar_asset_clearance_id' => $clearance->id,
             'return_inventory_stock_transaction_id' => $returnTransaction->id,
             'original_inventory_stock_transaction_id' => $originalTransaction->id,
@@ -380,7 +380,7 @@ class PegawaiKeluarAssetService
     private function generateReturnNumber(Carbon $date)
     {
         $romanMonth = $this->romanMonth((int) $date->format('n'));
-        $nextNumber = InventoryReturnDocument::whereYear('tanggal_surat', $date->year)
+        $nextNumber = DokumenPengembalianAset::whereYear('tanggal_surat', $date->year)
             ->whereMonth('tanggal_surat', $date->month)
             ->lockForUpdate()
             ->count() + 1;

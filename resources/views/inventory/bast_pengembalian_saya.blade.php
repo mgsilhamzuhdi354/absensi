@@ -1,7 +1,7 @@
 @extends('templates.app')
 @section('container')
     @php
-        $signatureRoles = \App\Models\InventoryReturnDocument::signatureRoles();
+        $signatureRoles = \App\Models\DokumenPengembalianAset::signatureRoles();
         $pendingCount = $documents->getCollection()->filter(function ($document) use ($signatureRoles) {
             foreach ($signatureRoles as $role => $config) {
                 if ($document->canUserSignRole(auth()->user(), $role) && !$document->{$config['signed_at']}) {

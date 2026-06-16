@@ -22,6 +22,6 @@ class PegawaiKeluar extends Model
 
     public function assetClearances()
     {
-        return $this->hasMany(PegawaiKeluarAssetClearance::class);
+        return $this->hasMany(PenyelesaianAsetPegawaiKeluar::class, 'pegawai_keluar_id');
     }
 }

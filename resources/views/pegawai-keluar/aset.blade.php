@@ -100,13 +100,13 @@
                                         </td>
                                         <td>{{ optional($transaction->tanggal_transaksi)->format('d/m/Y') ?? '-' }}</td>
                                         <td>
-                                            @if ($clearance->status === \App\Models\PegawaiKeluarAssetClearance::STATUS_RETURNED)
+                                            @if ($clearance->status === \App\Models\PenyelesaianAsetPegawaiKeluar::STATUS_RETURNED)
                                                 <span class="badge bg-success">{{ $clearance->status_label }}</span>
                                                 @if ($returnDocument)
                                                     <div class="small mt-2">{{ $returnDocument->nomor_surat }}</div>
                                                     <a href="{{ url('/exit/asset-return/'.$returnDocument->id.'/download') }}" class="btn btn-sm btn-info mt-2">Download BAST</a>
                                                 @endif
-                                            @elseif ($clearance->status === \App\Models\PegawaiKeluarAssetClearance::STATUS_WAIVED)
+                                            @elseif ($clearance->status === \App\Models\PenyelesaianAsetPegawaiKeluar::STATUS_WAIVED)
                                                 <span class="badge bg-secondary">{{ $clearance->status_label }}</span>
                                                 <div class="small mt-2">{{ $clearance->waiver_reason }}</div>
                                                 <div class="small text-muted">{{ $clearance->waivedBy->name ?? '-' }}</div>
@@ -115,7 +115,7 @@
                                             @endif
                                         </td>
                                         <td>
-                                            @if ($clearance->status === \App\Models\PegawaiKeluarAssetClearance::STATUS_PENDING && $transaction)
+                                            @if ($clearance->status === \App\Models\PenyelesaianAsetPegawaiKeluar::STATUS_PENDING && $transaction)
                                                 <form method="post" action="{{ url('/exit/'.$pegawai_keluar->id.'/assets/'.$transaction->id.'/return') }}" class="mb-3">
                                                     @csrf
                                                     <div class="row">

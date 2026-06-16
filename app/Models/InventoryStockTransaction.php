@@ -52,7 +52,7 @@ class InventoryStockTransaction extends Model
 
     public function returnDocument()
     {
-        return $this->hasOne(InventoryReturnDocument::class, 'return_inventory_stock_transaction_id');
+        return $this->hasOne(DokumenPengembalianAset::class, 'return_inventory_stock_transaction_id');
     }
 
     public function returnedFromTransaction()

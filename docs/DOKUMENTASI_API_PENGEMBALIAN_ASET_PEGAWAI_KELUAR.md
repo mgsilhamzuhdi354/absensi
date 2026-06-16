@@ -1,6 +1,6 @@
-# API Documentation: Clearance Aset Pegawai Keluar
+# Dokumentasi API Pengembalian Aset Pegawai Keluar
 
-Dokumen ini menjelaskan endpoint, workflow, data model, validasi, dan response untuk fitur clearance aset saat pegawai keluar. Endpoint pada modul ini adalah Laravel web endpoints berbasis session, bukan stateless REST API. Semua request `POST` membutuhkan CSRF token.
+Dokumen ini menjelaskan endpoint, alur kerja, struktur data, validasi, dan response untuk fitur pengembalian aset saat pegawai keluar. Endpoint pada modul ini adalah endpoint web Laravel berbasis session, bukan REST API stateless. Semua request `POST` membutuhkan CSRF token.
 
 ## Ringkasan
 
@@ -131,7 +131,7 @@ Behavior:
 - Memanggil sync clearance aset untuk pegawai tersebut.
 - Mencari aset yang masih dipegang pegawai.
 - Membuat record clearance `pending` jika belum ada.
-- Menampilkan halaman `resources/views/pegawai-keluar/assets.blade.php`.
+- Menampilkan halaman `resources/views/pegawai-keluar/aset.blade.php`.
 
 Response sukses:
 
@@ -373,7 +373,7 @@ HTML daftar BAST Pengembalian Aset
 View:
 
 ```text
-resources/views/inventory/my_return_bast_index.blade.php
+resources/views/inventory/bast_pengembalian_saya.blade.php
 ```
 
 ### 6. Detail BAST Pengembalian Saya
@@ -417,7 +417,7 @@ HTML detail BAST Pengembalian
 View:
 
 ```text
-resources/views/inventory/my_return_bast_show.blade.php
+resources/views/inventory/detail_bast_pengembalian_saya.blade.php
 ```
 
 Error:
@@ -672,14 +672,14 @@ app/Http/Controllers/InventoryController.php
 Service:
 
 ```text
-app/Services/PegawaiKeluarAssetService.php
+app/Services/LayananAsetPegawaiKeluar.php
 ```
 
 Model:
 
 ```text
-app/Models/PegawaiKeluarAssetClearance.php
-app/Models/InventoryReturnDocument.php
+app/Models/PenyelesaianAsetPegawaiKeluar.php
+app/Models/DokumenPengembalianAset.php
 app/Models/InventoryStockTransaction.php
 app/Models/PegawaiKeluar.php
 ```
@@ -687,10 +687,10 @@ app/Models/PegawaiKeluar.php
 View:
 
 ```text
-resources/views/pegawai-keluar/assets.blade.php
-resources/views/inventory/my_return_bast_index.blade.php
-resources/views/inventory/my_return_bast_show.blade.php
-resources/views/inventory/return_bast_pdf.blade.php
+resources/views/pegawai-keluar/aset.blade.php
+resources/views/inventory/bast_pengembalian_saya.blade.php
+resources/views/inventory/detail_bast_pengembalian_saya.blade.php
+resources/views/inventory/pdf_bast_pengembalian.blade.php
 resources/views/inventory/detail.blade.php
 resources/views/pegawai-keluar/index.blade.php
 ```
@@ -764,4 +764,3 @@ Coverage utama:
 - User hanya bisa tanda tangan role yang ditugaskan.
 - Existing BAST serah terima aset tetap berjalan.
 - Detail inventory tetap render walaupun migration BAST Pengembalian belum dijalankan.
-

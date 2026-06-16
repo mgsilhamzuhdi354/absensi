@@ -35,8 +35,8 @@ class AttendanceTest extends TestCase
         // Create shift
         $shift = Shift::create([
             'nama_shift' => 'Pagi',
-            'jam_masuk' => '08:00:00',
-            'jam_keluar' => '17:00:00',
+            'jam_masuk' => '00:00:00',
+            'jam_keluar' => '23:59:00',
         ]);
 
         // Create user

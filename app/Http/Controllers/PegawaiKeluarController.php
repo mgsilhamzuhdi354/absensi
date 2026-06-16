@@ -5,13 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Events\NotifApproval;
-use App\Models\InventoryReturnDocument;
+use App\Models\DokumenPengembalianAset;
 use App\Models\InventoryStockTransaction;
 use App\Models\Lokasi;
 use App\Models\PegawaiKeluar;
 use App\Models\MasterLookup;
 use App\Notifications\UserNotification;
-use App\Services\PegawaiKeluarAssetService;
+use App\Services\LayananAsetPegawaiKeluar;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -21,11 +21,11 @@ class PegawaiKeluarController extends Controller
     private const FILE_DISK = 'public';
     private const FILE_DIRECTORY = 'pegawai_keluar_file_path';
 
-    private $assetService;
+    private $layananAset;
 
-    public function __construct(PegawaiKeluarAssetService $assetService)
+    public function __construct(LayananAsetPegawaiKeluar $layananAset)
     {
-        $this->assetService = $assetService;
+        $this->layananAset = $layananAset;
     }
 
     public function index()
@@ -59,7 +59,7 @@ class PegawaiKeluarController extends Controller
 
 
 
-        if (auth()->user()->is_admin == 'admin') {
+        if ($this->isAdmin()) {
             return view('pegawai-keluar.index', compact(
                 'title',
                 'pegawai_keluars'
@@ -79,7 +79,7 @@ class PegawaiKeluarController extends Controller
         $users = User::orderBy('name')->get();
         $exitTypes = MasterLookup::getByType(MasterLookup::TYPE_EXIT);
 
-        if (auth()->user()->is_admin == 'admin') {
+        if ($this->isAdmin()) {
             return view('pegawai-keluar.tambah', compact(
                 'title',
                 'users',
@@ -115,7 +115,7 @@ class PegawaiKeluarController extends Controller
 
         $exitTypes = MasterLookup::getByType(MasterLookup::TYPE_EXIT);
 
-        if (auth()->user()->is_admin == 'admin') {
+        if ($this->isAdmin()) {
             return view('pegawai-keluar.edit', compact(
                 'title',
                 'users',
@@ -159,7 +159,7 @@ class PegawaiKeluarController extends Controller
         $validated['tanggal_approval'] = now()->toDateString();
 
         if ($validated['status'] == 'APPROVED') {
-            $pendingClearances = $this->assetService->pendingClearances($pegawai_keluar);
+            $pendingClearances = $this->layananAset->pendingClearances($pegawai_keluar);
 
             if ($pendingClearances->isNotEmpty()) {
                 $assetNames = $pendingClearances->map(function ($clearance) {
@@ -168,7 +168,7 @@ class PegawaiKeluarController extends Controller
                     return trim(($inventory->kode_barang ? $inventory->kode_barang . ' - ' : '') . ($inventory->nama_barang ?? 'Aset kantor'));
                 })->implode(', ');
 
-                $target = auth()->user()->is_admin == 'admin'
+                $target = $this->isAdmin()
                     ? '/exit/' . $pegawai_keluar->id . '/assets'
                     : '/exit';
 
@@ -205,20 +205,20 @@ class PegawaiKeluarController extends Controller
 
     public function assets($id)
     {
-        abort_unless(auth()->user()->is_admin == 'admin', 403);
+        abort_unless($this->isAdmin(), 403);
 
         $title = 'Clearance Aset Pegawai Keluar';
         $pegawai_keluar = PegawaiKeluar::with(['user.Jabatan', 'approvedBy'])->findOrFail($id);
-        $clearances = $this->assetService->syncClearances($pegawai_keluar);
+        $clearances = $this->layananAset->syncClearances($pegawai_keluar);
         $lokasi = Lokasi::orderBy('nama_lokasi')->get();
         $users = User::with('Jabatan')->orderBy('name')->get();
 
-        return view('pegawai-keluar.assets', compact('title', 'pegawai_keluar', 'clearances', 'lokasi', 'users'));
+        return view('pegawai-keluar.aset', compact('title', 'pegawai_keluar', 'clearances', 'lokasi', 'users'));
     }
 
     public function returnAsset(Request $request, $exit, $transaction)
     {
-        abort_unless(auth()->user()->is_admin == 'admin', 403);
+        abort_unless($this->isAdmin(), 403);
 
         $pegawai_keluar = PegawaiKeluar::with('user.Jabatan')->findOrFail($exit);
         $stockTransaction = InventoryStockTransaction::with(['inventory', 'penerima.Jabatan'])->findOrFail($transaction);
@@ -233,7 +233,7 @@ class PegawaiKeluarController extends Controller
             'catatan' => 'nullable|string',
         ]);
 
-        $result = $this->assetService->processReturn($pegawai_keluar, $stockTransaction, $validated, auth()->user());
+        $result = $this->layananAset->processReturn($pegawai_keluar, $stockTransaction, $validated, auth()->user());
         $this->notifyReturnSigners($result['document'], auth()->user());
 
         return redirect('/exit/' . $pegawai_keluar->id . '/assets')
@@ -242,7 +242,7 @@ class PegawaiKeluarController extends Controller
 
     public function waiveAsset(Request $request, $exit, $transaction)
     {
-        abort_unless(auth()->user()->is_admin == 'admin', 403);
+        abort_unless($this->isAdmin(), 403);
 
         $pegawai_keluar = PegawaiKeluar::with('user')->findOrFail($exit);
         $stockTransaction = InventoryStockTransaction::with('inventory')->findOrFail($transaction);
@@ -253,7 +253,7 @@ class PegawaiKeluarController extends Controller
             'waiver_reason.min' => 'Alasan pengecualian minimal 5 karakter.',
         ]);
 
-        $this->assetService->waive($pegawai_keluar, $stockTransaction, $validated, auth()->user());
+        $this->layananAset->waive($pegawai_keluar, $stockTransaction, $validated, auth()->user());
 
         return redirect('/exit/' . $pegawai_keluar->id . '/assets')
             ->with('success', 'Aset berhasil diberi pengecualian clearance.');
@@ -261,10 +261,10 @@ class PegawaiKeluarController extends Controller
 
     public function downloadReturnDocument($document)
     {
-        abort_unless(auth()->user()->is_admin == 'admin', 403);
+        abort_unless($this->isAdmin(), 403);
 
-        $document = InventoryReturnDocument::with(['inventory', 'pegawaiKeluar.user'])->findOrFail($document);
-        $document = $this->assetService->storePdf($document);
+        $document = DokumenPengembalianAset::with(['inventory', 'pegawaiKeluar.user'])->findOrFail($document);
+        $document = $this->layananAset->storePdf($document);
 
         if (!$document->file_pdf || !Storage::disk('public')->exists($document->file_pdf)) {
             abort(404);
@@ -284,7 +284,7 @@ class PegawaiKeluarController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        return view('inventory.my_return_bast_index', compact('title', 'documents'));
+        return view('inventory.bast_pengembalian_saya', compact('title', 'documents'));
     }
 
     public function showMyReturnBastDocument($id)
@@ -292,13 +292,13 @@ class PegawaiKeluarController extends Controller
         $title = 'Detail BAST Pengembalian Aset';
         $document = $this->myReturnDocumentQuery(auth()->id())->findOrFail($id);
 
-        return view('inventory.my_return_bast_show', compact('title', 'document'));
+        return view('inventory.detail_bast_pengembalian_saya', compact('title', 'document'));
     }
 
     public function signMyReturnBastDocument(Request $request, $id, $role)
     {
         $role = (string) $role;
-        $roleConfig = InventoryReturnDocument::signatureRoles()[$role] ?? null;
+        $roleConfig = DokumenPengembalianAset::signatureRoles()[$role] ?? null;
 
         if (!$roleConfig) {
             abort(404);
@@ -320,7 +320,7 @@ class PegawaiKeluarController extends Controller
         ]);
 
         if (!$document->{$roleConfig['signed_at']}) {
-            $this->assetService->storeSignature(
+            $this->layananAset->storeSignature(
                 $document,
                 $role,
                 $request->input('signature_data'),
@@ -337,7 +337,7 @@ class PegawaiKeluarController extends Controller
     public function downloadMyReturnBastDocument($id)
     {
         $document = $this->myReturnDocumentQuery(auth()->id())->findOrFail($id);
-        $document = $this->assetService->storePdf($document);
+        $document = $this->layananAset->storePdf($document);
 
         if (!$document->file_pdf || !Storage::disk('public')->exists($document->file_pdf)) {
             abort(404);
@@ -351,7 +351,7 @@ class PegawaiKeluarController extends Controller
 
     private function validatedRequestData(Request $request, ?PegawaiKeluar $pegawaiKeluar = null)
     {
-        $isAdmin = auth()->user()->is_admin == 'admin';
+        $isAdmin = $this->isAdmin();
         $validated = $request->validate([
             'user_id' => $isAdmin ? ['required', 'integer', 'exists:users,id'] : ['nullable'],
             'jenis' => ['required', 'string', Rule::in(MasterLookup::valuesForType(MasterLookup::TYPE_EXIT))],
@@ -404,7 +404,7 @@ class PegawaiKeluarController extends Controller
         NotifApproval::dispatch($type, $approver->id, $notif, $url);
     }
 
-    private function notifyReturnSigners(InventoryReturnDocument $document, User $sender)
+    private function notifyReturnSigners(DokumenPengembalianAset $document, User $sender)
     {
         $document->loadMissing('inventory', 'employee', 'itReceiver', 'knownBy');
         $inventoryName = $document->inventory->nama_barang ?? 'aset kantor';
@@ -429,7 +429,7 @@ class PegawaiKeluarController extends Controller
 
     private function myReturnDocumentQuery($userId)
     {
-        return InventoryReturnDocument::with([
+        return DokumenPengembalianAset::with([
                 'inventory.lokasi',
                 'inventory.jabatan',
                 'employee.Jabatan',
@@ -451,11 +451,16 @@ class PegawaiKeluarController extends Controller
         return trim(preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $value), '-') ?: 'inventory-return';
     }
 
+    private function isAdmin()
+    {
+        return auth()->user() && auth()->user()->is_admin == 'admin';
+    }
+
     private function canModify(PegawaiKeluar $pegawaiKeluar)
     {
         $user = auth()->user();
 
-        return $user->is_admin == 'admin'
+        return $this->isAdmin()
             || $pegawaiKeluar->user_id == $user->id
             || $this->canApprove($pegawaiKeluar);
     }
@@ -464,7 +469,7 @@ class PegawaiKeluarController extends Controller
     {
         $user = auth()->user();
 
-        return $user->is_admin == 'admin'
+        return $this->isAdmin()
             || optional(optional($pegawaiKeluar->user)->Jabatan)->manager == $user->id;
     }
 }

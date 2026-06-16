@@ -5,13 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class PegawaiKeluarAssetClearance extends Model
+class PenyelesaianAsetPegawaiKeluar extends Model
 {
     use HasFactory;
 
     public const STATUS_PENDING = 'pending';
     public const STATUS_RETURNED = 'returned';
     public const STATUS_WAIVED = 'waived';
+
+    protected $table = 'pegawai_keluar_asset_clearances';
 
     protected $guarded = ['id'];
 
@@ -37,7 +39,7 @@ class PegawaiKeluarAssetClearance extends Model
 
     public function returnDocument()
     {
-        return $this->hasOne(InventoryReturnDocument::class);
+        return $this->hasOne(DokumenPengembalianAset::class, 'pegawai_keluar_asset_clearance_id');
     }
 
     public function waivedBy()

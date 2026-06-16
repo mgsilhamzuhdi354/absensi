@@ -5,9 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class InventoryReturnDocument extends Model
+class DokumenPengembalianAset extends Model
 {
     use HasFactory;
+
+    protected $table = 'inventory_return_documents';
 
     protected $guarded = ['id'];
 
@@ -20,7 +22,7 @@ class InventoryReturnDocument extends Model
 
     public function clearance()
     {
-        return $this->belongsTo(PegawaiKeluarAssetClearance::class, 'pegawai_keluar_asset_clearance_id');
+        return $this->belongsTo(PenyelesaianAsetPegawaiKeluar::class, 'pegawai_keluar_asset_clearance_id');
     }
 
     public function returnTransaction()

@@ -46,7 +46,7 @@
 @section('container')
     @php
         $inventory = $document->inventory;
-        $signatureRoles = \App\Models\InventoryReturnDocument::signatureRoles();
+        $signatureRoles = \App\Models\DokumenPengembalianAset::signatureRoles();
         $roleDetails = [
             'employee' => [
                 'heading' => 'PIHAK PERTAMA',
