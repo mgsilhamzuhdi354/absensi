@@ -16,6 +16,13 @@ use Illuminate\Validation\ValidationException;
 
 class LayananAsetPegawaiKeluar
 {
+    private const TRANSAKSI_MASUK = 'masuk';
+    private const TRANSAKSI_KELUAR = 'keluar';
+    private const STATUS_BARANG_TERSEDIA = 'Tersedia';
+    private const PDF_DIRECTORY = 'inventory/return-bast';
+    private const SIGNATURE_DIRECTORY = 'inventory/return-bast/signatures';
+    private const USER_AGENT_LIMIT = 1000;
+
     public function syncClearances(PegawaiKeluar $pegawaiKeluar)
     {
         $pegawaiKeluar->loadMissing('user');
@@ -26,12 +33,7 @@ class LayananAsetPegawaiKeluar
 
         $this->heldAssetTransactionsForUser($pegawaiKeluar->user_id)
             ->each(function (InventoryStockTransaction $transaction) use ($pegawaiKeluar) {
-                PenyelesaianAsetPegawaiKeluar::firstOrCreate([
-                    'pegawai_keluar_id' => $pegawaiKeluar->id,
-                    'inventory_stock_transaction_id' => $transaction->id,
-                ], [
-                    'status' => PenyelesaianAsetPegawaiKeluar::STATUS_PENDING,
-                ]);
+                $this->createPendingClearance($pegawaiKeluar, $transaction);
             });
 
         return $this->clearanceQuery($pegawaiKeluar)->get();
@@ -55,7 +57,7 @@ class LayananAsetPegawaiKeluar
                 'processedBy',
                 'bastDocument',
             ])
-            ->where('jenis_transaksi', 'keluar')
+            ->where('jenis_transaksi', self::TRANSAKSI_KELUAR)
             ->where('penerima_user_id', $userId)
             ->whereNotExists(function ($query) {
                 $query->select(DB::raw(1))
@@ -85,63 +87,15 @@ class LayananAsetPegawaiKeluar
         $this->ensureReturnDateIsValid($originalTransaction, $data['tanggal_kembali'] ?? null);
 
         return DB::transaction(function () use ($pegawaiKeluar, $originalTransaction, $data, $admin) {
-            $clearance = PenyelesaianAsetPegawaiKeluar::where([
-                    'pegawai_keluar_id' => $pegawaiKeluar->id,
-                    'inventory_stock_transaction_id' => $originalTransaction->id,
-                ])
-                ->lockForUpdate()
-                ->first();
+            $clearance = $this->lockedClearance($pegawaiKeluar, $originalTransaction);
+            $this->ensureClearanceIsPending($clearance);
 
-            if (!$clearance) {
-                $clearance = PenyelesaianAsetPegawaiKeluar::create([
-                    'pegawai_keluar_id' => $pegawaiKeluar->id,
-                    'inventory_stock_transaction_id' => $originalTransaction->id,
-                    'status' => PenyelesaianAsetPegawaiKeluar::STATUS_PENDING,
-                ]);
-            }
+            $lockedInventory = $this->lockedInventory($originalTransaction);
+            $returnData = $this->returnData($lockedInventory, $originalTransaction, $data);
 
-            if ($clearance->status !== PenyelesaianAsetPegawaiKeluar::STATUS_PENDING) {
-                throw ValidationException::withMessages([
-                    'asset' => 'Clearance aset ini sudah selesai diproses.',
-                ]);
-            }
-
-            $lockedInventory = Inventory::whereKey($originalTransaction->inventory_id)->lockForUpdate()->firstOrFail();
-            $quantity = $this->normalizeQuantity($originalTransaction->jumlah);
-            $stokSebelum = $this->stockBeforeTransaction($lockedInventory);
-            $stokSesudah = $stokSebelum + $quantity;
-            $condition = $data['kondisi_barang'] ?? $lockedInventory->kondisi;
-            $statusBarang = $data['status_barang'] ?? ($lockedInventory->status_barang ?: 'Tersedia');
-            $lokasiId = $data['lokasi_id'] ?? $lockedInventory->lokasi_id;
-
-            $lockedInventory->update([
-                'stok' => $lockedInventory->usesWholeStock() ? (int) round($stokSesudah) : round($stokSesudah, 2),
-                'kondisi' => $condition,
-                'status_barang' => $statusBarang,
-                'lokasi_id' => $lokasiId,
-            ]);
-
-            $returnTransaction = InventoryStockTransaction::create([
-                'inventory_id' => $lockedInventory->id,
-                'return_for_transaction_id' => $originalTransaction->id,
-                'pegawai_keluar_id' => $pegawaiKeluar->id,
-                'jenis_transaksi' => 'masuk',
-                'jumlah' => $quantity,
-                'stok_sebelum' => $stokSebelum,
-                'stok_sesudah' => $stokSesudah,
-                'tanggal_transaksi' => $data['tanggal_kembali'],
-                'sumber_barang' => 'Pengembalian dari ' . ($pegawaiKeluar->user->name ?? $originalTransaction->penerima_barang ?? 'pegawai'),
-                'kondisi_barang' => $condition,
-                'lokasi_id' => $lokasiId,
-                'catatan' => $this->returnTransactionNote($data),
-                'diproses_oleh' => $admin->id,
-            ]);
-
-            $clearance->forceFill([
-                'status' => PenyelesaianAsetPegawaiKeluar::STATUS_RETURNED,
-                'returned_inventory_stock_transaction_id' => $returnTransaction->id,
-                'returned_at' => now(),
-            ])->save();
+            $this->updateInventoryAfterReturn($lockedInventory, $returnData);
+            $returnTransaction = $this->createReturnTransaction($pegawaiKeluar, $originalTransaction, $returnData, $data, $admin);
+            $this->markClearanceReturned($clearance, $returnTransaction);
 
             $document = $this->createReturnDocument($clearance->fresh(), $returnTransaction, $originalTransaction, $data, $admin);
 
@@ -158,12 +112,7 @@ class LayananAsetPegawaiKeluar
         $this->ensureTransactionBelongsToExitUser($pegawaiKeluar, $originalTransaction);
 
         return DB::transaction(function () use ($pegawaiKeluar, $originalTransaction, $data, $admin) {
-            $clearance = PenyelesaianAsetPegawaiKeluar::firstOrCreate([
-                'pegawai_keluar_id' => $pegawaiKeluar->id,
-                'inventory_stock_transaction_id' => $originalTransaction->id,
-            ], [
-                'status' => PenyelesaianAsetPegawaiKeluar::STATUS_PENDING,
-            ]);
+            $clearance = $this->createPendingClearance($pegawaiKeluar, $originalTransaction);
 
             if ($clearance->status === PenyelesaianAsetPegawaiKeluar::STATUS_RETURNED) {
                 throw ValidationException::withMessages([
@@ -203,7 +152,7 @@ class LayananAsetPegawaiKeluar
             'returnTransaction' => $document->returnTransaction,
         ]);
 
-        $path = 'inventory/return-bast/' . $document->id . '.pdf';
+        $path = self::PDF_DIRECTORY . '/' . $document->id . '.pdf';
         Storage::disk('public')->put($path, $pdf->output());
         $document->update(['file_pdf' => $path]);
 
@@ -212,23 +161,9 @@ class LayananAsetPegawaiKeluar
 
     public function storeSignature(DokumenPengembalianAset $document, $role, $signatureData, User $user, $ip, $userAgent)
     {
-        $roleConfig = DokumenPengembalianAset::signatureRoles()[$role] ?? null;
-        if (!$roleConfig) {
-            throw ValidationException::withMessages([
-                'signature_data' => 'Role tanda tangan tidak valid.',
-            ]);
-        }
-
-        $payload = preg_replace('/^data:image\/png;base64,/', '', (string) $signatureData);
-        $binary = base64_decode($payload, true);
-
-        if ($binary === false || strlen($binary) < 20) {
-            throw ValidationException::withMessages([
-                'signature_data' => 'Tanda tangan tidak valid. Silakan hapus dan tanda tangani ulang.',
-            ]);
-        }
-
-        $path = 'inventory/return-bast/signatures/' . $document->id . '-' . $this->safeFilename($role) . '-' . time() . '.png';
+        $roleConfig = $this->signatureRoleConfig($role);
+        $binary = $this->decodeSignature($signatureData);
+        $path = self::SIGNATURE_DIRECTORY . '/' . $document->id . '-' . $this->safeFilename($role) . '-' . time() . '.png';
         Storage::disk('public')->put($path, $binary);
 
         $document->forceFill([
@@ -237,10 +172,136 @@ class LayananAsetPegawaiKeluar
             $roleConfig['image'] => $path,
             $roleConfig['signed_at'] => now(),
             $roleConfig['ip'] => $ip,
-            $roleConfig['user_agent'] => substr((string) $userAgent, 0, 1000),
+            $roleConfig['user_agent'] => substr((string) $userAgent, 0, self::USER_AGENT_LIMIT),
         ])->save();
 
         return $this->storePdf($document->fresh());
+    }
+
+    private function createPendingClearance(PegawaiKeluar $pegawaiKeluar, InventoryStockTransaction $transaction)
+    {
+        return PenyelesaianAsetPegawaiKeluar::firstOrCreate([
+            'pegawai_keluar_id' => $pegawaiKeluar->id,
+            'inventory_stock_transaction_id' => $transaction->id,
+        ], [
+            'status' => PenyelesaianAsetPegawaiKeluar::STATUS_PENDING,
+        ]);
+    }
+
+    private function lockedClearance(PegawaiKeluar $pegawaiKeluar, InventoryStockTransaction $transaction)
+    {
+        $clearance = PenyelesaianAsetPegawaiKeluar::where([
+                'pegawai_keluar_id' => $pegawaiKeluar->id,
+                'inventory_stock_transaction_id' => $transaction->id,
+            ])
+            ->lockForUpdate()
+            ->first();
+
+        if ($clearance) {
+            return $clearance;
+        }
+
+        return $this->createPendingClearance($pegawaiKeluar, $transaction);
+    }
+
+    private function ensureClearanceIsPending(PenyelesaianAsetPegawaiKeluar $clearance): void
+    {
+        if ($clearance->status === PenyelesaianAsetPegawaiKeluar::STATUS_PENDING) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'asset' => 'Clearance aset ini sudah selesai diproses.',
+        ]);
+    }
+
+    private function lockedInventory(InventoryStockTransaction $transaction)
+    {
+        return Inventory::whereKey($transaction->inventory_id)
+            ->lockForUpdate()
+            ->firstOrFail();
+    }
+
+    private function returnData(Inventory $inventory, InventoryStockTransaction $originalTransaction, array $data)
+    {
+        $quantity = $this->normalizeQuantity($originalTransaction->jumlah);
+        $stokSebelum = $this->stockBeforeTransaction($inventory);
+        $stokSesudah = $stokSebelum + $quantity;
+
+        return [
+            'quantity' => $quantity,
+            'stok_sebelum' => $stokSebelum,
+            'stok_sesudah' => $stokSesudah,
+            'stok_akhir' => $inventory->usesWholeStock() ? (int) round($stokSesudah) : round($stokSesudah, 2),
+            'condition' => $data['kondisi_barang'] ?? $inventory->kondisi,
+            'status_barang' => $data['status_barang'] ?? ($inventory->status_barang ?: self::STATUS_BARANG_TERSEDIA),
+            'lokasi_id' => $data['lokasi_id'] ?? $inventory->lokasi_id,
+        ];
+    }
+
+    private function updateInventoryAfterReturn(Inventory $inventory, array $returnData): void
+    {
+        $inventory->update([
+            'stok' => $returnData['stok_akhir'],
+            'kondisi' => $returnData['condition'],
+            'status_barang' => $returnData['status_barang'],
+            'lokasi_id' => $returnData['lokasi_id'],
+        ]);
+    }
+
+    private function createReturnTransaction(PegawaiKeluar $pegawaiKeluar, InventoryStockTransaction $originalTransaction, array $returnData, array $data, User $admin)
+    {
+        return InventoryStockTransaction::create([
+            'inventory_id' => $originalTransaction->inventory_id,
+            'return_for_transaction_id' => $originalTransaction->id,
+            'pegawai_keluar_id' => $pegawaiKeluar->id,
+            'jenis_transaksi' => self::TRANSAKSI_MASUK,
+            'jumlah' => $returnData['quantity'],
+            'stok_sebelum' => $returnData['stok_sebelum'],
+            'stok_sesudah' => $returnData['stok_sesudah'],
+            'tanggal_transaksi' => $data['tanggal_kembali'],
+            'sumber_barang' => 'Pengembalian dari ' . ($pegawaiKeluar->user->name ?? $originalTransaction->penerima_barang ?? 'pegawai'),
+            'kondisi_barang' => $returnData['condition'],
+            'lokasi_id' => $returnData['lokasi_id'],
+            'catatan' => $this->returnTransactionNote($data),
+            'diproses_oleh' => $admin->id,
+        ]);
+    }
+
+    private function markClearanceReturned(PenyelesaianAsetPegawaiKeluar $clearance, InventoryStockTransaction $returnTransaction): void
+    {
+        $clearance->forceFill([
+            'status' => PenyelesaianAsetPegawaiKeluar::STATUS_RETURNED,
+            'returned_inventory_stock_transaction_id' => $returnTransaction->id,
+            'returned_at' => now(),
+        ])->save();
+    }
+
+    private function signatureRoleConfig($role)
+    {
+        $roleConfig = DokumenPengembalianAset::signatureRoles()[$role] ?? null;
+
+        if ($roleConfig) {
+            return $roleConfig;
+        }
+
+        throw ValidationException::withMessages([
+            'signature_data' => 'Role tanda tangan tidak valid.',
+        ]);
+    }
+
+    private function decodeSignature($signatureData)
+    {
+        $payload = preg_replace('/^data:image\/png;base64,/', '', (string) $signatureData);
+        $binary = base64_decode($payload, true);
+
+        if ($binary !== false && strlen($binary) >= 20) {
+            return $binary;
+        }
+
+        throw ValidationException::withMessages([
+            'signature_data' => 'Tanda tangan tidak valid. Silakan hapus dan tanda tangani ulang.',
+        ]);
     }
 
     private function clearanceQuery(PegawaiKeluar $pegawaiKeluar)
@@ -306,7 +367,7 @@ class LayananAsetPegawaiKeluar
             ]);
         }
 
-        if ($transaction->jenis_transaksi !== 'keluar') {
+        if ($transaction->jenis_transaksi !== self::TRANSAKSI_KELUAR) {
             throw ValidationException::withMessages([
                 'asset' => 'Hanya transaksi aset keluar yang bisa diproses sebagai pengembalian.',
             ]);
