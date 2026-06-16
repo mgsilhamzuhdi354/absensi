@@ -114,7 +114,7 @@ class PegawaiKeluarTest extends TestCase
         $this->assertDatabaseHas('pegawai_keluars', [
             'user_id' => $this->employee->id,
             'jenis' => 'Mengundurkan Diri',
-            'status' => 'PENDING',
+            'status' => PegawaiKeluar::STATUS_PENDING,
         ]);
     }
 
@@ -147,11 +147,11 @@ class PegawaiKeluarTest extends TestCase
             'jenis' => 'Pensiun',
             'alasan' => 'Masa kerja selesai.',
             'tanggal' => '2026-05-31',
-            'status' => 'PENDING',
+            'status' => PegawaiKeluar::STATUS_PENDING,
         ]);
 
         $response = $this->actingAs($this->admin)->post('/exit/approval/' . $pegawaiKeluar->id, [
-            'status' => 'APPROVED',
+            'status' => PegawaiKeluar::STATUS_APPROVED,
             'notes' => 'Disetujui.',
             'approved_by' => $this->otherEmployee->id,
         ]);
@@ -159,7 +159,7 @@ class PegawaiKeluarTest extends TestCase
         $response->assertRedirect('/exit');
         $this->assertDatabaseHas('pegawai_keluars', [
             'id' => $pegawaiKeluar->id,
-            'status' => 'APPROVED',
+            'status' => PegawaiKeluar::STATUS_APPROVED,
             'approved_by' => $this->admin->id,
             'tanggal_approval' => now()->toDateString(),
         ]);
@@ -177,7 +177,7 @@ class PegawaiKeluarTest extends TestCase
         $pegawaiKeluar = $this->createExitRequest();
 
         $response = $this->actingAs($this->admin)->post('/exit/approval/' . $pegawaiKeluar->id, [
-            'status' => 'APPROVED',
+            'status' => PegawaiKeluar::STATUS_APPROVED,
             'notes' => 'Disetujui.',
         ]);
 
@@ -195,7 +195,7 @@ class PegawaiKeluarTest extends TestCase
             ->assertSee('Belum Kembali');
         $this->assertDatabaseHas('pegawai_keluars', [
             'id' => $pegawaiKeluar->id,
-            'status' => 'PENDING',
+            'status' => PegawaiKeluar::STATUS_PENDING,
         ]);
         $this->assertNull($this->employee->fresh()->masa_berlaku);
     }
@@ -269,14 +269,14 @@ class PegawaiKeluarTest extends TestCase
         ]);
 
         $approval = $this->actingAs($this->admin)->post('/exit/approval/' . $pegawaiKeluar->id, [
-            'status' => 'APPROVED',
+            'status' => PegawaiKeluar::STATUS_APPROVED,
             'notes' => 'Aset sudah kembali.',
         ]);
 
         $approval->assertRedirect('/exit');
         $this->assertDatabaseHas('pegawai_keluars', [
             'id' => $pegawaiKeluar->id,
-            'status' => 'APPROVED',
+            'status' => PegawaiKeluar::STATUS_APPROVED,
         ]);
         $this->assertDatabaseHas('users', [
             'id' => $this->employee->id,
@@ -318,7 +318,7 @@ class PegawaiKeluarTest extends TestCase
 
         $this->actingAs($this->admin)
             ->post('/exit/approval/' . $pegawaiKeluar->id, [
-                'status' => 'APPROVED',
+                'status' => PegawaiKeluar::STATUS_APPROVED,
                 'notes' => 'Clearance dikecualikan.',
             ])
             ->assertRedirect('/exit');
@@ -380,7 +380,7 @@ class PegawaiKeluarTest extends TestCase
             'jenis' => 'Mengundurkan Diri',
             'alasan' => 'Kontrak selesai.',
             'tanggal' => '2026-05-31',
-            'status' => 'PENDING',
+            'status' => PegawaiKeluar::STATUS_PENDING,
         ], $overrides));
     }
 

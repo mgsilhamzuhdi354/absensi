@@ -28,13 +28,14 @@ class PegawaiKeluarController extends Controller
         $this->layananAset = $layananAset;
     }
 
-    public function index()
+    public function index(Request $request)
     {
         date_default_timezone_set('Asia/Jakarta');
         $title = 'Pegawai Keluar';
-        $nama = request()->input('nama');
-        $mulai = request()->input('mulai');
-        $akhir = request()->input('akhir');
+        $nama = $request->input('nama');
+        $mulai = $request->input('mulai');
+        $akhir = $request->input('akhir');
+        $user = auth()->user();
 
         $pegawai_keluars = PegawaiKeluar::with(['user.Jabatan.man', 'approvedBy', 'assetClearances'])
                             ->when($mulai && $akhir, function ($query) use ($mulai, $akhir) {
@@ -45,19 +46,17 @@ class PegawaiKeluarController extends Controller
                                     $q->where('name', 'LIKE', '%' . $nama . '%');
                                 });
                             })
-                            ->when(auth()->user() && auth()->user()->Jabatan && auth()->user()->Jabatan->manager != auth()->user()->id && auth()->user()->is_admin == 'user', function ($query) {
-                                $query->where('user_id', auth()->user()->id);
+                            ->when($this->isRegularEmployee($user), function ($query) use ($user) {
+                                $query->where('user_id', $user->id);
                             })
-                            ->when(auth()->user() && auth()->user()->Jabatan && auth()->user()->Jabatan->manager == auth()->user()->id && auth()->user()->is_admin == 'user', function ($query) {
-                                $query->whereHas('user', function ($q) {
-                                    $q->where('jabatan_id', auth()->user()->jabatan_id);
+                            ->when($this->isDepartmentManager($user), function ($query) use ($user) {
+                                $query->whereHas('user', function ($q) use ($user) {
+                                    $q->where('jabatan_id', $user->jabatan_id);
                                 });
                             })
                             ->orderBy('tanggal', 'DESC')
                             ->paginate(10)
                             ->withQueryString();
-
-
 
         if ($this->isAdmin()) {
             return view('pegawai-keluar.index', compact(
@@ -98,7 +97,7 @@ class PegawaiKeluarController extends Controller
     public function store(Request $request)
     {
         $validated = $this->validatedRequestData($request);
-        $validated['status'] = 'PENDING';
+        $validated['status'] = PegawaiKeluar::STATUS_PENDING;
 
         $pegawai_keluar = PegawaiKeluar::create($validated);
         $this->notifyApprover($pegawai_keluar);
@@ -151,36 +150,25 @@ class PegawaiKeluarController extends Controller
         abort_unless($this->canApprove($pegawai_keluar), 403);
 
         $validated = $request->validate([
-            'status' => ['required', Rule::in(['APPROVED', 'REJECTED'])],
+            'status' => ['required', Rule::in(PegawaiKeluar::approvalStatuses())],
             'notes' => 'nullable|string',
         ]);
 
         $validated['approved_by'] = auth()->id();
         $validated['tanggal_approval'] = now()->toDateString();
 
-        if ($validated['status'] == 'APPROVED') {
-            $pendingClearances = $this->layananAset->pendingClearances($pegawai_keluar);
+        if ($validated['status'] === PegawaiKeluar::STATUS_APPROVED) {
+            $blockedApproval = $this->rejectApprovalWhenAssetPending($pegawai_keluar);
 
-            if ($pendingClearances->isNotEmpty()) {
-                $assetNames = $pendingClearances->map(function ($clearance) {
-                    $inventory = optional($clearance->originalTransaction)->inventory;
-
-                    return trim(($inventory->kode_barang ? $inventory->kode_barang . ' - ' : '') . ($inventory->nama_barang ?? 'Aset kantor'));
-                })->implode(', ');
-
-                $target = $this->isAdmin()
-                    ? '/exit/' . $pegawai_keluar->id . '/assets'
-                    : '/exit';
-
-                return redirect($target)
-                    ->with('error', 'Approval belum bisa diproses. Aset berikut belum dikembalikan atau dikecualikan: ' . $assetNames);
+            if ($blockedApproval) {
+                return $blockedApproval;
             }
         }
 
         DB::transaction(function () use ($pegawai_keluar, $validated) {
             $pegawai_keluar->update($validated);
 
-            if ($validated['status'] == 'APPROVED' && $pegawai_keluar->user) {
+            if ($validated['status'] === PegawaiKeluar::STATUS_APPROVED && $pegawai_keluar->user) {
                 $pegawai_keluar->user->update([
                     'masa_berlaku' => $pegawai_keluar->tanggal
                 ]);
@@ -222,16 +210,7 @@ class PegawaiKeluarController extends Controller
 
         $pegawai_keluar = PegawaiKeluar::with('user.Jabatan')->findOrFail($exit);
         $stockTransaction = InventoryStockTransaction::with(['inventory', 'penerima.Jabatan'])->findOrFail($transaction);
-        $validated = $request->validate([
-            'tanggal_kembali' => 'required|date',
-            'kondisi_barang' => 'required|string|max:255',
-            'kelengkapan' => 'required|string|max:255',
-            'status_barang' => 'nullable|string|max:255',
-            'lokasi_id' => 'nullable|exists:lokasis,id',
-            'it_receiver_user_id' => 'nullable|exists:users,id',
-            'known_by_user_id' => 'nullable|exists:users,id',
-            'catatan' => 'nullable|string',
-        ]);
+        $validated = $this->validatedReturnAssetData($request);
 
         $result = $this->layananAset->processReturn($pegawai_keluar, $stockTransaction, $validated, auth()->user());
         $this->notifyReturnSigners($result['document'], auth()->user());
@@ -246,12 +225,7 @@ class PegawaiKeluarController extends Controller
 
         $pegawai_keluar = PegawaiKeluar::with('user')->findOrFail($exit);
         $stockTransaction = InventoryStockTransaction::with('inventory')->findOrFail($transaction);
-        $validated = $request->validate([
-            'waiver_reason' => 'required|string|min:5',
-        ], [
-            'waiver_reason.required' => 'Alasan pengecualian wajib diisi.',
-            'waiver_reason.min' => 'Alasan pengecualian minimal 5 karakter.',
-        ]);
+        $validated = $this->validatedWaiveAssetData($request);
 
         $this->layananAset->waive($pegawai_keluar, $stockTransaction, $validated, auth()->user());
 
@@ -264,16 +238,8 @@ class PegawaiKeluarController extends Controller
         abort_unless($this->isAdmin(), 403);
 
         $document = DokumenPengembalianAset::with(['inventory', 'pegawaiKeluar.user'])->findOrFail($document);
-        $document = $this->layananAset->storePdf($document);
 
-        if (!$document->file_pdf || !Storage::disk('public')->exists($document->file_pdf)) {
-            abort(404);
-        }
-
-        return Storage::disk('public')->download(
-            $document->file_pdf,
-            'bast-pengembalian-' . $this->safeFilename($document->nomor_surat) . '.pdf'
-        );
+        return $this->downloadReturnBast($document);
     }
 
     public function myReturnBastDocuments()
@@ -337,6 +303,68 @@ class PegawaiKeluarController extends Controller
     public function downloadMyReturnBastDocument($id)
     {
         $document = $this->myReturnDocumentQuery(auth()->id())->findOrFail($id);
+
+        return $this->downloadReturnBast($document);
+    }
+
+    private function rejectApprovalWhenAssetPending(PegawaiKeluar $pegawai_keluar)
+    {
+        $pendingClearances = $this->layananAset->pendingClearances($pegawai_keluar);
+
+        if ($pendingClearances->isEmpty()) {
+            return null;
+        }
+
+        return redirect($this->assetClearanceRedirect($pegawai_keluar))
+            ->with('error', 'Approval belum bisa diproses. Aset berikut belum dikembalikan atau dikecualikan: ' . $this->pendingAssetNames($pendingClearances));
+    }
+
+    private function pendingAssetNames($pendingClearances)
+    {
+        return $pendingClearances->map(function ($clearance) {
+            $inventory = optional($clearance->originalTransaction)->inventory;
+            $kodeBarang = $inventory->kode_barang ?? null;
+            $namaBarang = $inventory->nama_barang ?? 'Aset kantor';
+
+            return trim(($kodeBarang ? $kodeBarang . ' - ' : '') . $namaBarang);
+        })->implode(', ');
+    }
+
+    private function assetClearanceRedirect(PegawaiKeluar $pegawai_keluar)
+    {
+        if (!$this->isAdmin()) {
+            return '/exit';
+        }
+
+        return '/exit/' . $pegawai_keluar->id . '/assets';
+    }
+
+    private function validatedReturnAssetData(Request $request)
+    {
+        return $request->validate([
+            'tanggal_kembali' => 'required|date',
+            'kondisi_barang' => 'required|string|max:255',
+            'kelengkapan' => 'required|string|max:255',
+            'status_barang' => 'nullable|string|max:255',
+            'lokasi_id' => 'nullable|exists:lokasis,id',
+            'it_receiver_user_id' => 'nullable|exists:users,id',
+            'known_by_user_id' => 'nullable|exists:users,id',
+            'catatan' => 'nullable|string',
+        ]);
+    }
+
+    private function validatedWaiveAssetData(Request $request)
+    {
+        return $request->validate([
+            'waiver_reason' => 'required|string|min:5',
+        ], [
+            'waiver_reason.required' => 'Alasan pengecualian wajib diisi.',
+            'waiver_reason.min' => 'Alasan pengecualian minimal 5 karakter.',
+        ]);
+    }
+
+    private function downloadReturnBast(DokumenPengembalianAset $document)
+    {
         $document = $this->layananAset->storePdf($document);
 
         if (!$document->file_pdf || !Storage::disk('public')->exists($document->file_pdf)) {
@@ -399,7 +427,7 @@ class PegawaiKeluarController extends Controller
             'message' => $notif,
             'action' => $action,
         ];
-        $approver->notify(new \App\Notifications\UserNotification);
+        $approver->notify(new UserNotification);
 
         NotifApproval::dispatch($type, $approver->id, $notif, $url);
     }
@@ -454,6 +482,22 @@ class PegawaiKeluarController extends Controller
     private function isAdmin()
     {
         return auth()->user() && auth()->user()->is_admin == 'admin';
+    }
+
+    private function isRegularEmployee(?User $user)
+    {
+        return $user
+            && $user->is_admin == 'user'
+            && $user->Jabatan
+            && $user->Jabatan->manager != $user->id;
+    }
+
+    private function isDepartmentManager(?User $user)
+    {
+        return $user
+            && $user->is_admin == 'user'
+            && $user->Jabatan
+            && $user->Jabatan->manager == $user->id;
     }
 
     private function canModify(PegawaiKeluar $pegawaiKeluar)

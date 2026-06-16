@@ -84,9 +84,9 @@
                                             </td>
                                             <td class="text-center">{{ $pegawai_keluar->approvedBy->name ?? '-' }}</td>
                                             <td class="text-center">
-                                                @if ($pegawai_keluar->status == 'REJECTED')
+                                                @if ($pegawai_keluar->status == \App\Models\PegawaiKeluar::STATUS_REJECTED)
                                                     <span class="btn btn-xs" style="color: rgba(78, 26, 26, 0.889); background-color:rgb(242, 170, 170); border-radius:10px;">{{ $pegawai_keluar->status ?? '-' }}</span>
-                                                @elseif($pegawai_keluar->status == 'APPROVED')
+                                                @elseif($pegawai_keluar->status == \App\Models\PegawaiKeluar::STATUS_APPROVED)
                                                     <span class="btn btn-xs" style="color: rgba(20, 78, 7, 0.889); background-color:rgb(186, 238, 162); border-radius:10px;">{{ $pegawai_keluar->status ?? '-' }}</span>
                                                 @else
                                                     <span class="btn btn-xs" style="color: rgba(255, 123, 0, 0.889); background-color:rgb(255, 238, 177); border-radius:10px;">{{ $pegawai_keluar->status ?? '-' }}</span>
@@ -100,7 +100,7 @@
                                                             <i class="fa fa-laptop" style="color:#0d6efd"></i>
                                                         </a>
                                                     </li>
-                                                    @if ($pegawai_keluar->status == 'PENDING')
+                                                    @if ($pegawai_keluar->status == \App\Models\PegawaiKeluar::STATUS_PENDING)
                                                         <li class="edit">
                                                             <a href="{{ url('/exit/edit/'.$pegawai_keluar->id) }}"><i class="fa fa-solid fa-edit"></i></a>
                                                         </li>
@@ -129,11 +129,11 @@
                                                                                         @php
                                                                                             $status = array(
                                                                                                 [
-                                                                                                    "status" => "APPROVED",
+                                                                                                    "status" => \App\Models\PegawaiKeluar::STATUS_APPROVED,
                                                                                                     "status_name" => "APPROVE"
                                                                                                 ],
                                                                                                 [
-                                                                                                    "status" => "REJECTED",
+                                                                                                    "status" => \App\Models\PegawaiKeluar::STATUS_REJECTED,
                                                                                                     "status_name" => "REJECT"
                                                                                                 ]
                                                                                             );

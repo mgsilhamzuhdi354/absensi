@@ -8,7 +8,20 @@ use Illuminate\Database\Eloquent\Model;
 class PegawaiKeluar extends Model
 {
     use HasFactory;
+
+    public const STATUS_PENDING = 'PENDING';
+    public const STATUS_APPROVED = 'APPROVED';
+    public const STATUS_REJECTED = 'REJECTED';
+
     protected $guarded = ["id"];
+
+    public static function approvalStatuses()
+    {
+        return [
+            self::STATUS_APPROVED,
+            self::STATUS_REJECTED,
+        ];
+    }
 
     public function user()
     {

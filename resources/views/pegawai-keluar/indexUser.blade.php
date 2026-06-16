@@ -83,9 +83,9 @@
                                     </td>
                                     <td class="text-center">{{ $pegawai_keluar->approvedBy->name ?? '-' }}</td>
                                     <td class="text-center">
-                                        @if ($pegawai_keluar->status == 'REJECTED')
+                                        @if ($pegawai_keluar->status == \App\Models\PegawaiKeluar::STATUS_REJECTED)
                                             <span class="badge" style="color: rgba(78, 26, 26, 0.889); background-color:rgb(242, 170, 170); border-radius:10px;">{{ $pegawai_keluar->status ?? '-' }}</span>
-                                        @elseif($pegawai_keluar->status == 'APPROVED')
+                                        @elseif($pegawai_keluar->status == \App\Models\PegawaiKeluar::STATUS_APPROVED)
                                             <span class="badge" style="color: rgba(20, 78, 7, 0.889); background-color:rgb(186, 238, 162); border-radius:10px;">{{ $pegawai_keluar->status ?? '-' }}</span>
                                         @else
                                             <span class="badge" style="color: rgba(255, 123, 0, 0.889); background-color:rgb(255, 238, 177); border-radius:10px;">{{ $pegawai_keluar->status ?? '-' }}</span>
@@ -94,7 +94,7 @@
                                     <td>{!! $pegawai_keluar->notes ? nl2br(e($pegawai_keluar->notes)) : '-' !!}</td>
                                     <td>
                                         <div style="display: flex; gap: 5px;">
-                                            @if ($pegawai_keluar->status == 'PENDING')
+                                            @if ($pegawai_keluar->status == \App\Models\PegawaiKeluar::STATUS_PENDING)
                                                 <a class="btn btn-sm btn-warning" href="{{ url('/exit/edit/'.$pegawai_keluar->id) }}"><i class="fa fa-solid fa-edit"></i></a>
 
 
@@ -120,11 +120,11 @@
                                                                             @php
                                                                                 $status = array(
                                                                                     [
-                                                                                        "status" => "APPROVED",
+                                                                                        "status" => \App\Models\PegawaiKeluar::STATUS_APPROVED,
                                                                                         "status_name" => "APPROVE"
                                                                                     ],
                                                                                     [
-                                                                                        "status" => "REJECTED",
+                                                                                        "status" => \App\Models\PegawaiKeluar::STATUS_REJECTED,
                                                                                         "status_name" => "REJECT"
                                                                                     ]
                                                                                 );
