@@ -19,6 +19,86 @@
     </div>
 
     <!-- Stats Cards -->
+    <div class="col-12 mb-4">
+      <div class="card border-0 shadow-sm atk-monitor-card">
+        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+          <div>
+            <h5 class="mb-1"><i data-feather="package" class="me-2" style="width: 20px; height: 20px;"></i>Monitoring Cepat ATK</h5>
+            <span class="text-muted small">Ringkasan stok alat tulis kantor</span>
+          </div>
+          <a href="{{ url('/atk') }}" class="btn btn-primary btn-sm"><i class="fa fa-eye me-1"></i> Lihat ATK</a>
+        </div>
+        <div class="card-body pt-0">
+          <div class="row">
+            <div class="col-md-4 col-12 mb-3">
+              <div class="atk-monitor-stat">
+                <span>Total Item Aktif</span>
+                <strong>{{ $atk_monitoring['active_count'] ?? 0 }}</strong>
+              </div>
+            </div>
+            <div class="col-md-4 col-12 mb-3">
+              <div class="atk-monitor-stat warning">
+                <span>Stok Rendah</span>
+                <strong>{{ $atk_monitoring['low_stock_count'] ?? 0 }}</strong>
+              </div>
+            </div>
+            <div class="col-md-4 col-12 mb-3">
+              <div class="atk-monitor-stat success">
+                <span>Total Stok</span>
+                <strong>{{ rtrim(rtrim(number_format((float) ($atk_monitoring['total_stock'] ?? 0), 2, '.', ''), '0'), '.') ?: '0' }}</strong>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-lg-6 mb-3 mb-lg-0">
+              <h6 class="mb-3">Barang Terbaru</h6>
+              <div class="atk-monitor-list">
+                @forelse (($atk_monitoring['latest_items'] ?? collect()) as $atkItem)
+                  <a href="{{ url('/atk/'.$atkItem->id.'/detail') }}" class="atk-monitor-item">
+                    <div class="atk-monitor-photo">
+                      @if ($atkItem->foto_barang)
+                        <img src="{{ asset('storage/'.$atkItem->foto_barang) }}" alt="{{ $atkItem->nama_atk }}">
+                      @else
+                        <i class="fa fa-image"></i>
+                      @endif
+                    </div>
+                    <div>
+                      <strong>{{ $atkItem->nama_atk }}</strong>
+                      <span>{{ $atkItem->kode_atk }} | {{ $atkItem->formatted_stock }} {{ $atkItem->satuan }}</span>
+                    </div>
+                  </a>
+                @empty
+                  <div class="text-muted small">Belum ada data ATK.</div>
+                @endforelse
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <h6 class="mb-3">Perlu Dicek</h6>
+              <div class="atk-monitor-list">
+                @forelse (($atk_monitoring['low_stock_items'] ?? collect()) as $atkItem)
+                  <a href="{{ url('/atk/'.$atkItem->id.'/detail') }}" class="atk-monitor-item low">
+                    <div class="atk-monitor-photo">
+                      @if ($atkItem->foto_barang)
+                        <img src="{{ asset('storage/'.$atkItem->foto_barang) }}" alt="{{ $atkItem->nama_atk }}">
+                      @else
+                        <i class="fa fa-image"></i>
+                      @endif
+                    </div>
+                    <div>
+                      <strong>{{ $atkItem->nama_atk }}</strong>
+                      <span>Stok {{ $atkItem->formatted_stock }} {{ $atkItem->satuan }} | {{ $atkItem->lokasi ?? '-' }}</span>
+                    </div>
+                  </a>
+                @empty
+                  <div class="text-muted small">Tidak ada stok rendah.</div>
+                @endforelse
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="col-12">
       <div class="row">
         <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 mb-4">
@@ -1290,6 +1370,104 @@
       .kpi-empty-state-lg {
         min-height: 400px;
       }
+
+      .atk-monitor-card .card-header {
+        gap: 12px;
+      }
+
+      .atk-monitor-stat {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-radius: 8px;
+        background: #eef6ff;
+        color: #0f172a;
+      }
+
+      .atk-monitor-stat.warning {
+        background: #fff7ed;
+      }
+
+      .atk-monitor-stat.success {
+        background: #ecfdf5;
+      }
+
+      .atk-monitor-stat span {
+        font-size: 13px;
+        color: #64748b;
+      }
+
+      .atk-monitor-stat strong {
+        font-size: 24px;
+        line-height: 1;
+      }
+
+      .atk-monitor-list {
+        max-height: 260px;
+        overflow-y: auto;
+        border: 1px solid #edf2f7;
+        border-radius: 8px;
+      }
+
+      .atk-monitor-item {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 12px;
+        color: #0f172a;
+        border-bottom: 1px solid #edf2f7;
+      }
+
+      .atk-monitor-item:last-child {
+        border-bottom: 0;
+      }
+
+      .atk-monitor-item:hover {
+        color: var(--primary-color, #4361ee);
+        background: #f8fafc;
+        text-decoration: none;
+      }
+
+      .atk-monitor-item.low {
+        background: #fffdf8;
+      }
+
+      .atk-monitor-photo {
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: #f8fafc;
+        color: #94a3b8;
+        flex: 0 0 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      .atk-monitor-photo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .atk-monitor-item strong,
+      .atk-monitor-item span {
+        display: block;
+      }
+
+      .atk-monitor-item strong {
+        font-size: 13px;
+        line-height: 1.3;
+      }
+
+      .atk-monitor-item span {
+        font-size: 12px;
+        color: #64748b;
+      }
       
       /* Responsive adjustments */
       @media (max-width: 767.98px) {
@@ -1314,6 +1492,15 @@
 
         .top-performers-chart-wrap {
           overflow-x: auto;
+        }
+
+        .atk-monitor-card .card-header {
+          flex-direction: row;
+          align-items: center !important;
+        }
+
+        .atk-monitor-list {
+          max-height: 45vh;
         }
       }
     </style>

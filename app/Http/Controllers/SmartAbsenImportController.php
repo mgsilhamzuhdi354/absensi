@@ -8,11 +8,21 @@ use App\Models\MappingShift;
 use App\Models\dinasLuar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use App\Services\SmartAbsenParser;
 use App\Services\KinerjaService;
 
 class SmartAbsenImportController extends Controller
 {
+    private const FILE_FIELD = 'file_absen';
+    private const TEMP_IMPORT_DIRECTORY = 'temp_import';
+    private const TARGET_MAPPING_SHIFT = 'mapping_shifts';
+    private const TARGET_DINAS_LUAR = 'dinas_luars';
+    private const SOURCE_MACHINE_PACKAGE = 'machine_package';
+    private const SOURCE_MACHINE_SUMMARY = 'machine_package_summary';
+    private const SOURCE_SHIFT_SCHEDULE = 'shift_schedule';
+    private const DEFAULT_ATTENDANCE_STATUS = 'Tidak Masuk';
+
     private array $officeLocationCache = [];
 
     /**
@@ -28,15 +38,11 @@ class SmartAbsenImportController extends Controller
     }
 
     /**
-     * Upload & preview — parse file, kembalikan JSON preview
+     * Upload dan preview file, lalu kembalikan JSON preview.
      */
     public function preview(Request $request)
     {
-        $fileRules = is_array($request->file('file_absen'))
-            ? ['file_absen' => 'required|array|min:1', 'file_absen.*' => 'file|mimes:xlsx,xls,csv|max:10240']
-            : ['file_absen' => 'required|file|mimes:xlsx,xls,csv|max:10240'];
-
-        $request->validate(array_merge($fileRules, [
+        $request->validate(array_merge($this->uploadedFileRules($request), [
             'shift_id' => 'required|exists:shifts,id',
         ]));
 
@@ -44,19 +50,10 @@ class SmartAbsenImportController extends Controller
             $shift = Shift::findOrFail($request->shift_id);
             $parser = new SmartAbsenParser();
 
-            $uploadedFiles = $request->file('file_absen');
-            $uploadedFiles = is_array($uploadedFiles) ? $uploadedFiles : [$uploadedFiles];
+            $tempFiles = $this->storeTemporaryFiles($this->uploadedFiles($request));
+            $paths = $tempFiles['paths'];
+            $fullPaths = $tempFiles['full_paths'];
 
-            // Simpan file sementara
-            $paths = [];
-            $fullPaths = [];
-            foreach ($uploadedFiles as $uploadedFile) {
-                $path = $uploadedFile->store('temp_import', 'local');
-                $paths[] = $path;
-                $fullPaths[] = storage_path('app/' . $path);
-            }
-
-            // Parse Excel
             $rows = $parser->parseExcel($fullPaths[0]);
 
             if (count($rows) < 2) {
@@ -68,18 +65,9 @@ class SmartAbsenImportController extends Controller
 
             $users = User::orderBy('name', 'ASC')->get();
             $machineType = $parser->machineFileType($rows);
-            $workbookTypes = [];
-            foreach ($fullPaths as $fullPath) {
-                $workbookTypes = array_merge($workbookTypes, $parser->workbookFileTypes($fullPath));
-            }
-            $machineMode = count($fullPaths) > 1
-                || $machineType !== 'generic'
-                || collect($workbookTypes)->contains(fn($type) => $type !== 'generic');
-            $machineMeta = [
-                'files' => [],
-                'warnings' => [],
-                'date_range' => [],
-            ];
+            $workbookTypes = $this->workbookTypes($parser, $fullPaths);
+            $machineMode = $this->isMachineMode($fullPaths, $machineType, $workbookTypes);
+            $machineMeta = $this->emptyMachineMeta();
 
             if ($machineMode) {
                 $machineResult = $parser->processMachineFiles(
@@ -93,7 +81,7 @@ class SmartAbsenImportController extends Controller
                 $results = $machineResult['results'];
                 $rawPreview = $machineResult['raw_preview'];
                 $headerRow = $rawPreview['headers'];
-                $columnMap = ['machine_package' => true];
+                $columnMap = [self::SOURCE_MACHINE_PACKAGE => true];
                 $machineMeta = [
                     'files' => $machineResult['files'],
                     'warnings' => $machineResult['warnings'],
@@ -128,39 +116,10 @@ class SmartAbsenImportController extends Controller
                 }
             }
 
-            // Cek data existing untuk tandai update/baru
-            foreach ($results as &$row) {
-                if ($row['user_id'] && $row['tanggal']) {
-                    $existing = MappingShift::where('user_id', $row['user_id'])
-                        ->where('tanggal', $row['tanggal'])
-                        ->first();
-                    $row['existing_id'] = $existing ? $existing->id : null;
-                    $row['action'] = $existing ? 'update' : 'create';
-                } else {
-                    $row['existing_id'] = null;
-                    $row['action'] = 'skip';
-                }
-            }
+            $results = $this->markPreviewActions($results);
 
-            // Statistik
-            $stats = [
-                'total'      => count($results),
-                'valid'      => count(array_filter($results, fn($r) => $r['valid'] && in_array($r['match_type'], ['exact', 'employee_id'], true))),
-                'fuzzy'      => count(array_filter($results, fn($r) => $r['valid'] && $r['match_type'] === 'fuzzy')),
-                'invalid'    => count(array_filter($results, fn($r) => !$r['valid'])),
-                'will_create'=> count(array_filter($results, fn($r) => $r['action'] === 'create')),
-                'will_update'=> count(array_filter($results, fn($r) => $r['action'] === 'update')),
-                'raw_rows'   => $rawPreview['total_rows'],
-                'raw_columns'=> $rawPreview['total_columns'],
-                'files'      => count($paths),
-                'warnings'   => count($machineMeta['warnings']),
-            ];
-
-            // Simpan path di session untuk import nanti
-            session([
-                'smart_import_temp_path' => $paths[0],
-                'smart_import_temp_paths' => $paths,
-            ]);
+            $stats = $this->previewStats($results, $rawPreview, $paths, $machineMeta);
+            $this->rememberTemporaryFiles($paths);
 
             return response()->json([
                 'success'     => true,
@@ -187,29 +146,9 @@ class SmartAbsenImportController extends Controller
      */
     public function importData(Request $request)
     {
-        $request->validate([
-            'import_rows'   => 'required|array|min:1',
-            'import_rows.*.user_id'      => 'required|integer|exists:users,id',
-            'import_rows.*.tanggal'      => 'required|date',
-            'import_rows.*.jam_absen'    => 'nullable',
-            'import_rows.*.jam_pulang'   => 'nullable',
-            'import_rows.*.status_absen' => 'required',
-            'import_rows.*.telat'        => 'nullable|integer',
-            'import_rows.*.pulang_cepat' => 'nullable|integer',
-            'import_rows.*.shift_id'     => 'required|integer|exists:shifts,id',
-            'import_rows.*.target_table' => 'nullable|string',
-            'import_rows.*.source_priority' => 'nullable|integer',
-            'import_rows.*.special_type' => 'nullable|string',
-        ]);
-
-        $importRows = $request->import_rows;
-        $importDates = collect($importRows)->pluck('tanggal')->filter()->sort()->values();
-        $importDateRange = $importDates->isNotEmpty()
-            ? ['start' => $importDates->first(), 'end' => $importDates->last()]
-            : null;
-        $clockRows = collect($importRows)->filter(function (array $row) {
-            return !empty($row['jam_absen']) || !empty($row['jam_pulang']);
-        })->count();
+        $importRows = $this->validatedImportRows($request);
+        $importDateRange = $this->importDateRange($importRows);
+        $clockRows = $this->clockRowsCount($importRows);
         $created = 0;
         $updated = 0;
         $dinasCreated = 0;
@@ -221,47 +160,20 @@ class SmartAbsenImportController extends Controller
         try {
             foreach ($importRows as $index => $row) {
                 try {
-                    if (($row['source_format'] ?? '') === 'machine_package_summary') {
+                    if ($this->isMachineSummaryRow($row)) {
                         $errors[] = "Baris " . ($index + 1) . ": File laporan rekap tidak bisa diimport sebagai data absensi. Upload Catatan Kehadiran Karyawan.";
                         $skipped++;
                         continue;
                     }
 
-                    $targetTable = $row['target_table'] ?? 'mapping_shifts';
-                    $shouldImportMapping = $targetTable === '' || str_contains($targetTable, 'mapping_shifts');
-                    $shouldImportDinas = str_contains($targetTable, 'dinas_luars');
+                    $target = $this->targetImportFlags($row);
 
-                    if ($shouldImportMapping) {
-                        $existing = MappingShift::where('user_id', $row['user_id'])
-                            ->where('tanggal', $row['tanggal'])
-                            ->first();
-
-                        $data = $this->buildMappingShiftData($row);
-
-                        if ($existing) {
-                            // Update existing record
-                            $existing->update($this->mergeWithExistingAttendance($data, $existing, $row));
-                            // Update performance points
-                            KinerjaService::updateAttendancePoints($existing->id, $row['user_id']);
-                            $updated++;
-                        } else {
-                            // Create new record
-                            $data = $this->withDefaultSystemFields($data);
-
-                            $newShift = MappingShift::create($data);
-                            // Update performance points
-                            KinerjaService::updateAttendancePoints($newShift->id, $row['user_id']);
-                            $created++;
-                        }
+                    if ($target['mapping']) {
+                        $this->importMappingShift($row, $created, $updated);
                     }
 
-                    if ($shouldImportDinas) {
-                        $dinas = $this->upsertDinasLuar($row);
-                        if ($dinas->wasRecentlyCreated) {
-                            $dinasCreated++;
-                        } else {
-                            $dinasUpdated++;
-                        }
+                    if ($target['dinas']) {
+                        $this->importDinasLuar($row, $dinasCreated, $dinasUpdated);
                     }
                 } catch (\Exception $e) {
                     $errors[] = "Baris " . ($index + 1) . ": " . $e->getMessage();
@@ -271,19 +183,7 @@ class SmartAbsenImportController extends Controller
 
             DB::commit();
 
-            // Hapus file temp
-            $tempPaths = session('smart_import_temp_paths', []);
-            $legacyTempPath = session('smart_import_temp_path');
-            if ($legacyTempPath) {
-                $tempPaths[] = $legacyTempPath;
-            }
-
-            foreach (array_unique(array_filter($tempPaths)) as $tempPath) {
-                if (\Storage::disk('local')->exists($tempPath)) {
-                    \Storage::disk('local')->delete($tempPath);
-                }
-            }
-            session()->forget(['smart_import_temp_path', 'smart_import_temp_paths']);
+            $this->cleanupTemporaryFiles();
 
             return response()->json([
                 'success' => true,
@@ -316,6 +216,222 @@ class SmartAbsenImportController extends Controller
         }
     }
 
+    private function uploadedFileRules(Request $request): array
+    {
+        if (is_array($request->file(self::FILE_FIELD))) {
+            return [
+                self::FILE_FIELD => 'required|array|min:1',
+                self::FILE_FIELD . '.*' => 'file|mimes:xlsx,xls,csv|max:10240',
+            ];
+        }
+
+        return [
+            self::FILE_FIELD => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ];
+    }
+
+    private function uploadedFiles(Request $request): array
+    {
+        $uploadedFiles = $request->file(self::FILE_FIELD);
+
+        return is_array($uploadedFiles) ? $uploadedFiles : [$uploadedFiles];
+    }
+
+    private function storeTemporaryFiles(array $uploadedFiles): array
+    {
+        $paths = [];
+        $fullPaths = [];
+
+        foreach ($uploadedFiles as $uploadedFile) {
+            $path = $uploadedFile->store(self::TEMP_IMPORT_DIRECTORY, 'local');
+            $paths[] = $path;
+            $fullPaths[] = storage_path('app/' . $path);
+        }
+
+        return [
+            'paths' => $paths,
+            'full_paths' => $fullPaths,
+        ];
+    }
+
+    private function workbookTypes(SmartAbsenParser $parser, array $fullPaths): array
+    {
+        $types = [];
+
+        foreach ($fullPaths as $fullPath) {
+            $types = array_merge($types, $parser->workbookFileTypes($fullPath));
+        }
+
+        return $types;
+    }
+
+    private function isMachineMode(array $fullPaths, string $machineType, array $workbookTypes): bool
+    {
+        return count($fullPaths) > 1
+            || $machineType !== 'generic'
+            || collect($workbookTypes)->contains(fn($type) => $type !== 'generic');
+    }
+
+    private function emptyMachineMeta(): array
+    {
+        return [
+            'files' => [],
+            'warnings' => [],
+            'date_range' => [],
+        ];
+    }
+
+    private function markPreviewActions(array $results): array
+    {
+        return array_map(function (array $row) {
+            if ($row['user_id'] && $row['tanggal']) {
+                $existing = MappingShift::where('user_id', $row['user_id'])
+                    ->where('tanggal', $row['tanggal'])
+                    ->first();
+                $row['existing_id'] = $existing ? $existing->id : null;
+                $row['action'] = $existing ? 'update' : 'create';
+
+                return $row;
+            }
+
+            $row['existing_id'] = null;
+            $row['action'] = 'skip';
+
+            return $row;
+        }, $results);
+    }
+
+    private function previewStats(array $results, array $rawPreview, array $paths, array $machineMeta): array
+    {
+        return [
+            'total'      => count($results),
+            'valid'      => count(array_filter($results, fn($row) => $row['valid'] && in_array($row['match_type'], ['exact', 'employee_id'], true))),
+            'fuzzy'      => count(array_filter($results, fn($row) => $row['valid'] && $row['match_type'] === 'fuzzy')),
+            'invalid'    => count(array_filter($results, fn($row) => !$row['valid'])),
+            'will_create'=> count(array_filter($results, fn($row) => $row['action'] === 'create')),
+            'will_update'=> count(array_filter($results, fn($row) => $row['action'] === 'update')),
+            'raw_rows'   => $rawPreview['total_rows'],
+            'raw_columns'=> $rawPreview['total_columns'],
+            'files'      => count($paths),
+            'warnings'   => count($machineMeta['warnings']),
+        ];
+    }
+
+    private function rememberTemporaryFiles(array $paths): void
+    {
+        session([
+            'smart_import_temp_path' => $paths[0] ?? null,
+            'smart_import_temp_paths' => $paths,
+        ]);
+    }
+
+    private function validatedImportRows(Request $request): array
+    {
+        $request->validate([
+            'import_rows'   => 'required|array|min:1',
+            'import_rows.*.user_id'      => 'required|integer|exists:users,id',
+            'import_rows.*.tanggal'      => 'required|date',
+            'import_rows.*.jam_absen'    => 'nullable',
+            'import_rows.*.jam_pulang'   => 'nullable',
+            'import_rows.*.status_absen' => 'required',
+            'import_rows.*.telat'        => 'nullable|integer',
+            'import_rows.*.pulang_cepat' => 'nullable|integer',
+            'import_rows.*.shift_id'     => 'required|integer|exists:shifts,id',
+            'import_rows.*.target_table' => 'nullable|string',
+            'import_rows.*.source_priority' => 'nullable|integer',
+            'import_rows.*.special_type' => 'nullable|string',
+        ]);
+
+        return $request->import_rows;
+    }
+
+    private function importDateRange(array $importRows): ?array
+    {
+        $importDates = collect($importRows)->pluck('tanggal')->filter()->sort()->values();
+
+        if ($importDates->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'start' => $importDates->first(),
+            'end' => $importDates->last(),
+        ];
+    }
+
+    private function clockRowsCount(array $importRows): int
+    {
+        return collect($importRows)->filter(function (array $row) {
+            return !empty($row['jam_absen']) || !empty($row['jam_pulang']);
+        })->count();
+    }
+
+    private function isMachineSummaryRow(array $row): bool
+    {
+        return ($row['source_format'] ?? '') === self::SOURCE_MACHINE_SUMMARY;
+    }
+
+    private function targetImportFlags(array $row): array
+    {
+        $targetTable = $row['target_table'] ?? self::TARGET_MAPPING_SHIFT;
+
+        return [
+            'mapping' => $targetTable === '' || str_contains($targetTable, self::TARGET_MAPPING_SHIFT),
+            'dinas' => str_contains($targetTable, self::TARGET_DINAS_LUAR),
+        ];
+    }
+
+    private function importMappingShift(array $row, int &$created, int &$updated): void
+    {
+        $existing = MappingShift::where('user_id', $row['user_id'])
+            ->where('tanggal', $row['tanggal'])
+            ->first();
+
+        $data = $this->buildMappingShiftData($row);
+
+        if ($existing) {
+            $existing->update($this->mergeWithExistingAttendance($data, $existing, $row));
+            KinerjaService::updateAttendancePoints($existing->id, $row['user_id']);
+            $updated++;
+
+            return;
+        }
+
+        $newShift = MappingShift::create($this->withDefaultSystemFields($data));
+        KinerjaService::updateAttendancePoints($newShift->id, $row['user_id']);
+        $created++;
+    }
+
+    private function importDinasLuar(array $row, int &$dinasCreated, int &$dinasUpdated): void
+    {
+        $dinas = $this->upsertDinasLuar($row);
+
+        if ($dinas->wasRecentlyCreated) {
+            $dinasCreated++;
+            return;
+        }
+
+        $dinasUpdated++;
+    }
+
+    private function cleanupTemporaryFiles(): void
+    {
+        $tempPaths = session('smart_import_temp_paths', []);
+        $legacyTempPath = session('smart_import_temp_path');
+
+        if ($legacyTempPath) {
+            $tempPaths[] = $legacyTempPath;
+        }
+
+        foreach (array_unique(array_filter($tempPaths)) as $tempPath) {
+            if (Storage::disk('local')->exists($tempPath)) {
+                Storage::disk('local')->delete($tempPath);
+            }
+        }
+
+        session()->forget(['smart_import_temp_path', 'smart_import_temp_paths']);
+    }
+
     private function attachRawColumnsToResults(array $results, array $rawPreview): array
     {
         $rawRows = collect($rawPreview['rows'])->keyBy('row_index');
@@ -345,7 +461,7 @@ class SmartAbsenImportController extends Controller
                 'tanggal' => null,
                 'jam_absen' => null,
                 'jam_pulang' => null,
-                'status_absen' => 'Tidak Masuk',
+                'status_absen' => self::DEFAULT_ATTENDANCE_STATUS,
                 'telat' => 0,
                 'pulang_cepat' => 0,
                 'shift_id' => $shiftId,
@@ -360,7 +476,7 @@ class SmartAbsenImportController extends Controller
                 'source_sheet' => '',
                 'source_priority' => 0,
                 'source_confidence' => 0,
-                'target_table' => 'mapping_shifts',
+                'target_table' => self::TARGET_MAPPING_SHIFT,
                 'conflict_notes' => [],
                 'special_type' => null,
             ];
@@ -371,9 +487,9 @@ class SmartAbsenImportController extends Controller
     {
         $sourceFormat = $row['source_format'] ?? '';
         $keterangan = 'Smart Import Absensi';
-        if ($sourceFormat === 'machine_package') {
+        if ($sourceFormat === self::SOURCE_MACHINE_PACKAGE) {
             $keterangan = 'Smart Import Absensi (Scan Mesin)';
-        } elseif ($sourceFormat === 'shift_schedule') {
+        } elseif ($sourceFormat === self::SOURCE_SHIFT_SCHEDULE) {
             $keterangan = 'Smart Import Absensi (Jadwal Mesin)';
         }
 

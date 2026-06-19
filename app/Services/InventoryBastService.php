@@ -15,9 +15,15 @@ use Illuminate\Validation\ValidationException;
 
 class InventoryBastService
 {
+    private const TRANSAKSI_KELUAR = 'keluar';
+    private const PUBLIC_DISK = 'public';
+    private const PDF_DIRECTORY = 'inventory/bast';
+    private const SIGNATURE_DIRECTORY = 'inventory/bast/signatures';
+    private const USER_AGENT_LIMIT = 1000;
+
     public function createForTransaction(InventoryStockTransaction $transaction, array $data, User $admin)
     {
-        if ($transaction->jenis_transaksi !== 'keluar') {
+        if ($transaction->jenis_transaksi !== self::TRANSAKSI_KELUAR) {
             throw ValidationException::withMessages([
                 'bast' => 'Surat BAST hanya dapat dibuat untuk transaksi stok keluar.',
             ]);
@@ -65,19 +71,7 @@ class InventoryBastService
 
             $document = InventoryBastDocument::create($documentData);
 
-            $document->loadMissing('signedBy.Jabatan', 'knownBy.Jabatan', 'firstParty.Jabatan');
-            $transaction->loadMissing('inventory.jabatan', 'processedBy', 'penerima.Jabatan');
-            $pdf = Pdf::loadView('inventory.bast_pdf', [
-                'document' => $document,
-                'transaction' => $transaction,
-                'inventory' => $transaction->inventory,
-            ]);
-
-            $path = 'inventory/bast/' . $document->id . '.pdf';
-            Storage::disk('public')->put($path, $pdf->output());
-            $document->update(['file_pdf' => $path]);
-
-            return $document->fresh();
+            return $this->storePdf($document);
         });
     }
 
@@ -179,11 +173,30 @@ class InventoryBastService
             'inventory' => $document->transaction->inventory,
         ]);
 
-        $path = 'inventory/bast/' . $document->id . '.pdf';
-        Storage::disk('public')->put($path, $pdf->output());
+        $path = self::PDF_DIRECTORY . '/' . $document->id . '.pdf';
+        Storage::disk(self::PUBLIC_DISK)->put($path, $pdf->output());
         $document->update(['file_pdf' => $path]);
 
         return $document->fresh();
+    }
+
+    public function storeSignature(InventoryBastDocument $document, $role, $signatureData, User $user, $ip, $userAgent)
+    {
+        $roleConfig = $this->signatureRoleConfig($role);
+        $path = self::SIGNATURE_DIRECTORY . '/' . $document->id . '-' . $this->safeFilename($role) . '-' . time() . '.png';
+
+        Storage::disk(self::PUBLIC_DISK)->put($path, $this->decodeSignature($signatureData));
+
+        $document->forceFill([
+            $roleConfig['user_id'] => $user->id,
+            $roleConfig['name'] => $user->name,
+            $roleConfig['image'] => $path,
+            $roleConfig['signed_at'] => now(),
+            $roleConfig['ip'] => $ip,
+            $roleConfig['user_agent'] => substr((string) $userAgent, 0, self::USER_AGENT_LIMIT),
+        ])->save();
+
+        return $this->storePdf($document->fresh());
     }
 
     private function syncPartySnapshots(InventoryBastDocument $document): void
@@ -242,6 +255,33 @@ class InventoryBastService
         }
     }
 
+    private function signatureRoleConfig($role)
+    {
+        $roleConfig = InventoryBastDocument::signatureRoles()[$role] ?? null;
+
+        if ($roleConfig) {
+            return $roleConfig;
+        }
+
+        throw ValidationException::withMessages([
+            'signature_data' => 'Role tanda tangan tidak valid.',
+        ]);
+    }
+
+    private function decodeSignature($signatureData)
+    {
+        $payload = preg_replace('/^data:image\/png;base64,/', '', (string) $signatureData);
+        $binary = base64_decode($payload, true);
+
+        if ($binary !== false && strlen($binary) >= 20) {
+            return $binary;
+        }
+
+        throw ValidationException::withMessages([
+            'signature_data' => 'Tanda tangan tidak valid. Silakan hapus dan tanda tangani ulang.',
+        ]);
+    }
+
     private function resolveSenderDivision(InventoryBastDocument $document)
     {
         if ($document->firstParty) {
@@ -289,5 +329,10 @@ class InventoryBastService
         ];
 
         return $months[$month] ?? 'I';
+    }
+
+    private function safeFilename($value)
+    {
+        return trim(preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $value), '-') ?: 'inventory-bast';
     }
 }

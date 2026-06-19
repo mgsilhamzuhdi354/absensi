@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Atk;
 use App\Models\Jabatan;
 use App\Models\Lokasi;
 use App\Models\settings;
@@ -45,5 +46,43 @@ class DashboardTest extends TestCase
             ->get('/dashboard')
             ->assertOk()
             ->assertSee('Dashboard');
+    }
+
+    /** @test */
+    public function admin_dashboard_shows_quick_atk_monitoring()
+    {
+        settings::create([
+            'name' => 'Absensi',
+            'logo' => 'logo/absensi.png',
+        ]);
+
+        $jabatan = Jabatan::create([
+            'nama_jabatan' => 'Admin Office',
+        ]);
+
+        $admin = User::create([
+            'name' => 'Admin ATK',
+            'email' => 'admin-atk-dashboard@example.test',
+            'username' => 'admin-atk-dashboard',
+            'is_admin' => 'admin',
+            'jabatan_id' => $jabatan->id,
+        ]);
+
+        Atk::create([
+            'kode_atk' => 'ATK/000001',
+            'nama_atk' => 'Pulpen Gel',
+            'kategori' => 'Alat Tulis',
+            'stok' => 3,
+            'satuan' => 'Pcs',
+            'lokasi' => 'Lemari Admin',
+            'active' => 1,
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Monitoring Cepat ATK')
+            ->assertSee('Pulpen Gel')
+            ->assertSee('Stok Rendah');
     }
 }

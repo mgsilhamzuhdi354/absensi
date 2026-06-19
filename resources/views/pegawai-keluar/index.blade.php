@@ -115,65 +115,6 @@
                                                         @if (($pegawai_keluar->user && $pegawai_keluar->user->Jabatan && $pegawai_keluar->user->Jabatan->manager == auth()->user()->id) || auth()->user()->is_admin == 'admin')
                                                             <li>
                                                                 <button class="border-0" style="background-color: transparent" type="button" data-bs-toggle="modal" data-original-title="test" data-bs-target="#exitModal{{ $pegawai_keluar->id }}"><i style="color:blue" class="fa fa-check-circle"></i></button>
-                                                                <div class="modal fade" id="exitModal{{ $pegawai_keluar->id }}" tabindex="-1" role="dialog" aria-labelledby="exitModalLabel{{ $pegawai_keluar->id }}" aria-hidden="true">
-                                                                    <div class="modal-dialog" role="document">
-                                                                        <div class="modal-content">
-                                                                            <div class="modal-header">
-                                                                                <h5 class="modal-title" id="exitModalLabel{{ $pegawai_keluar->id }}">Approval - {{ $pegawai_keluar->user->name ?? 'Pegawai Keluar' }}</h5>
-                                                                                <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                                            </div>
-                                                                            <form action="{{ url('/exit/approval/'.$pegawai_keluar->id) }}" method="POST">
-                                                                                @csrf
-                                                                                <div class="modal-body">
-                                                                                    <div class="form-group">
-                                                                                        @php
-                                                                                            $status = array(
-                                                                                                [
-                                                                                                    "status" => \App\Models\PegawaiKeluar::STATUS_APPROVED,
-                                                                                                    "status_name" => "APPROVE"
-                                                                                                ],
-                                                                                                [
-                                                                                                    "status" => \App\Models\PegawaiKeluar::STATUS_REJECTED,
-                                                                                                    "status_name" => "REJECT"
-                                                                                                ]
-                                                                                            );
-                                                                                        @endphp
-                                                                                        <label for="status">Status</label>
-                                                                                        <select name="status" id="status" class="form-control selectpicker" data-live-search="true">
-                                                                                            <option value="">Pilih Status</option>
-                                                                                            @foreach ($status as $s)
-                                                                                                @if(old('status', $pegawai_keluar->status) == $s["status"])
-                                                                                                    <option value="{{ $s["status"] }}" selected>{{ $s["status_name"] }}</option>
-                                                                                                @else
-                                                                                                    <option value="{{ $s["status"] }}">{{ $s["status_name"] }}</option>
-                                                                                                @endif
-                                                                                            @endforeach
-                                                                                        </select>
-                                                                                        @error('status')
-                                                                                            <div class="invalid-feedback">
-                                                                                                {{ $message }}
-                                                                                            </div>
-                                                                                        @enderror
-                                                                                    </div>
-                                                                                    <div class="form-group">
-                                                                                        <label for="notes" class="col-form-label">Notes:</label>
-                                                                                        <textarea class="form-control" id="notes" name="notes">{{ old('notes') }}</textarea>
-                                                                                        @error('notes')
-                                                                                            <div class="invalid-feedback">
-                                                                                                {{ $message }}
-                                                                                            </div>
-                                                                                        @enderror
-                                                                                    </div>
-                                                                                    <input type="hidden" name="approved_by" value="{{ auth()->user()->id }}">
-                                                                                </div>
-                                                                                <div class="modal-footer">
-                                                                                    <button class="btn btn-primary" type="button" data-bs-dismiss="modal">Close</button>
-                                                                                    <button class="btn btn-secondary" type="submit">Save changes</button>
-                                                                                </div>
-                                                                            </form>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
                                                             </li>
                                                         @endif
                                                     @endif
@@ -194,6 +135,68 @@
             </div>
         </div>
     </div>
+
+    @if (count($pegawai_keluars) > 0)
+        @foreach ($pegawai_keluars as $pegawai_keluar)
+            @if ($pegawai_keluar->status == \App\Models\PegawaiKeluar::STATUS_PENDING && (($pegawai_keluar->user && $pegawai_keluar->user->Jabatan && $pegawai_keluar->user->Jabatan->manager == auth()->user()->id) || auth()->user()->is_admin == 'admin'))
+                <div class="modal fade" id="exitModal{{ $pegawai_keluar->id }}" tabindex="-1" role="dialog" aria-labelledby="exitModalLabel{{ $pegawai_keluar->id }}" aria-hidden="true">
+                    <div class="modal-dialog" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="exitModalLabel{{ $pegawai_keluar->id }}">Approval - {{ $pegawai_keluar->user->name ?? 'Pegawai Keluar' }}</h5>
+                                <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <form action="{{ url('/exit/approval/'.$pegawai_keluar->id) }}" method="POST" class="approval-form">
+                                @csrf
+                                <div class="modal-body">
+                                    <div class="form-group">
+                                        @php
+                                            $status = [
+                                                [
+                                                    'status' => \App\Models\PegawaiKeluar::STATUS_APPROVED,
+                                                    'status_name' => 'APPROVE',
+                                                ],
+                                                [
+                                                    'status' => \App\Models\PegawaiKeluar::STATUS_REJECTED,
+                                                    'status_name' => 'REJECT',
+                                                ],
+                                            ];
+                                        @endphp
+                                        <label for="status_exit_{{ $pegawai_keluar->id }}">Status</label>
+                                        <select name="status" id="status_exit_{{ $pegawai_keluar->id }}" class="form-control selectpicker" data-live-search="true">
+                                            <option value="">Pilih Status</option>
+                                            @foreach ($status as $s)
+                                                <option value="{{ $s['status'] }}" {{ old('status', $pegawai_keluar->status) == $s['status'] ? 'selected' : '' }}>{{ $s['status_name'] }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('status')
+                                            <div class="invalid-feedback">
+                                                {{ $message }}
+                                            </div>
+                                        @enderror
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="notes_exit_{{ $pegawai_keluar->id }}" class="col-form-label">Notes:</label>
+                                        <textarea class="form-control" id="notes_exit_{{ $pegawai_keluar->id }}" name="notes">{{ old('notes') }}</textarea>
+                                        @error('notes')
+                                            <div class="invalid-feedback">
+                                                {{ $message }}
+                                            </div>
+                                        @enderror
+                                    </div>
+                                    <input type="hidden" name="approved_by" value="{{ auth()->user()->id }}">
+                                </div>
+                                <div class="modal-footer">
+                                    <button class="btn btn-primary" type="button" data-bs-dismiss="modal">Close</button>
+                                    <button class="btn btn-secondary" type="submit">Save changes</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            @endif
+        @endforeach
+    @endif
     <br>
 
     @push('script')

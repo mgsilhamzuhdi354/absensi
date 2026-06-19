@@ -11,7 +11,7 @@
     <div class="col-md-6">
         <div class="form-group">
             <label for="kode_barang" class="float-left">Kode Barang</label>
-            <input type="text" class="form-control @error('kode_barang') is-invalid @enderror" id="kode_barang" name="kode_barang" value="{{ old('kode_barang', $inventory->kode_barang ?? $kode_barang ?? '') }}">
+            <input type="text" class="form-control @error('kode_barang') is-invalid @enderror" id="kode_barang" name="kode_barang" value="{{ $inventory->kode_barang ?? $kode_barang ?? '' }}" readonly>
             @error('kode_barang')
                 <div class="invalid-feedback">{{ $message }}</div>
             @enderror

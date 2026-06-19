@@ -20,6 +20,10 @@ class PegawaiKeluarController extends Controller
 {
     private const FILE_DISK = 'public';
     private const FILE_DIRECTORY = 'pegawai_keluar_file_path';
+    private const ROUTE_EXIT = '/exit';
+    private const ROUTE_MY_RETURN_BAST = '/my-inventory-return-bast';
+    private const ROLE_ADMIN = 'admin';
+    private const ROLE_USER = 'user';
 
     private $layananAset;
 
@@ -58,18 +62,10 @@ class PegawaiKeluarController extends Controller
                             ->paginate(10)
                             ->withQueryString();
 
-        if ($this->isAdmin()) {
-            return view('pegawai-keluar.index', compact(
-                'title',
-                'pegawai_keluars'
-            ));
-        } else {
-            return view('pegawai-keluar.indexUser', compact(
-                'title',
-                'pegawai_keluars'
-            ));
-        }
-
+        return view($this->adminOrUserView('pegawai-keluar.index', 'pegawai-keluar.indexUser'), compact(
+            'title',
+            'pegawai_keluars'
+        ));
     }
 
     public function tambah()
@@ -78,20 +74,11 @@ class PegawaiKeluarController extends Controller
         $users = User::orderBy('name')->get();
         $exitTypes = MasterLookup::getByType(MasterLookup::TYPE_EXIT);
 
-        if ($this->isAdmin()) {
-            return view('pegawai-keluar.tambah', compact(
-                'title',
-                'users',
-                'exitTypes',
-            ));
-        } else {
-            return view('pegawai-keluar.tambahUser', compact(
-                'title',
-                'users',
-                'exitTypes',
-            ));
-        }
-
+        return view($this->adminOrUserView('pegawai-keluar.tambah', 'pegawai-keluar.tambahUser'), compact(
+            'title',
+            'users',
+            'exitTypes',
+        ));
     }
 
     public function store(Request $request)
@@ -102,7 +89,7 @@ class PegawaiKeluarController extends Controller
         $pegawai_keluar = PegawaiKeluar::create($validated);
         $this->notifyApprover($pegawai_keluar);
 
-        return redirect('/exit')->with('success', 'Data Berhasil Disimpan');
+        return redirect(self::ROUTE_EXIT)->with('success', 'Data Berhasil Disimpan');
     }
 
     public function edit($id)
@@ -114,22 +101,12 @@ class PegawaiKeluarController extends Controller
 
         $exitTypes = MasterLookup::getByType(MasterLookup::TYPE_EXIT);
 
-        if ($this->isAdmin()) {
-            return view('pegawai-keluar.edit', compact(
-                'title',
-                'users',
-                'pegawai_keluar',
-                'exitTypes',
-            ));
-        } else {
-            return view('pegawai-keluar.editUser', compact(
-                'title',
-                'users',
-                'pegawai_keluar',
-                'exitTypes',
-            ));
-        }
-
+        return view($this->adminOrUserView('pegawai-keluar.edit', 'pegawai-keluar.editUser'), compact(
+            'title',
+            'users',
+            'pegawai_keluar',
+            'exitTypes',
+        ));
     }
 
     public function update(Request $request, $id)
@@ -141,7 +118,7 @@ class PegawaiKeluarController extends Controller
         $pegawai_keluar->update($validated);
         $this->notifyApprover($pegawai_keluar->fresh(['user.Jabatan.man']));
 
-        return redirect('/exit')->with('success', 'Data Berhasil Diupdate');
+        return redirect(self::ROUTE_EXIT)->with('success', 'Data Berhasil Diupdate');
     }
 
     public function approval(Request $request, $id)
@@ -149,13 +126,7 @@ class PegawaiKeluarController extends Controller
         $pegawai_keluar = PegawaiKeluar::with('user.Jabatan.man')->findOrFail($id);
         abort_unless($this->canApprove($pegawai_keluar), 403);
 
-        $validated = $request->validate([
-            'status' => ['required', Rule::in(PegawaiKeluar::approvalStatuses())],
-            'notes' => 'nullable|string',
-        ]);
-
-        $validated['approved_by'] = auth()->id();
-        $validated['tanggal_approval'] = now()->toDateString();
+        $validated = $this->validatedApprovalData($request);
 
         if ($validated['status'] === PegawaiKeluar::STATUS_APPROVED) {
             $blockedApproval = $this->rejectApprovalWhenAssetPending($pegawai_keluar);
@@ -165,17 +136,9 @@ class PegawaiKeluarController extends Controller
             }
         }
 
-        DB::transaction(function () use ($pegawai_keluar, $validated) {
-            $pegawai_keluar->update($validated);
+        $this->applyApproval($pegawai_keluar, $validated);
 
-            if ($validated['status'] === PegawaiKeluar::STATUS_APPROVED && $pegawai_keluar->user) {
-                $pegawai_keluar->user->update([
-                    'masa_berlaku' => $pegawai_keluar->tanggal
-                ]);
-            }
-        });
-
-        return redirect('/exit')->with('success', 'Data Berhasil Diupdate');
+        return redirect(self::ROUTE_EXIT)->with('success', 'Data Berhasil Diupdate');
     }
 
     public function delete($id)
@@ -188,7 +151,7 @@ class PegawaiKeluarController extends Controller
         }
 
         $pegawai_keluar->delete();
-        return redirect('/exit')->with('success', 'Data Berhasil Didelete');
+        return redirect(self::ROUTE_EXIT)->with('success', 'Data Berhasil Didelete');
     }
 
     public function assets($id)
@@ -215,7 +178,7 @@ class PegawaiKeluarController extends Controller
         $result = $this->layananAset->processReturn($pegawai_keluar, $stockTransaction, $validated, auth()->user());
         $this->notifyReturnSigners($result['document'], auth()->user());
 
-        return redirect('/exit/' . $pegawai_keluar->id . '/assets')
+        return redirect($this->assetClearanceRoute($pegawai_keluar))
             ->with('success', 'Pengembalian aset berhasil diproses dan BAST Pengembalian dibuat: ' . $result['document']->nomor_surat);
     }
 
@@ -229,7 +192,7 @@ class PegawaiKeluarController extends Controller
 
         $this->layananAset->waive($pegawai_keluar, $stockTransaction, $validated, auth()->user());
 
-        return redirect('/exit/' . $pegawai_keluar->id . '/assets')
+        return redirect($this->assetClearanceRoute($pegawai_keluar))
             ->with('success', 'Aset berhasil diberi pengecualian clearance.');
     }
 
@@ -264,11 +227,7 @@ class PegawaiKeluarController extends Controller
     public function signMyReturnBastDocument(Request $request, $id, $role)
     {
         $role = (string) $role;
-        $roleConfig = DokumenPengembalianAset::signatureRoles()[$role] ?? null;
-
-        if (!$roleConfig) {
-            abort(404);
-        }
+        $roleConfig = $this->returnBastSignatureRoleConfig($role);
 
         $document = $this->myReturnDocumentQuery(auth()->id())->findOrFail($id);
 
@@ -276,14 +235,7 @@ class PegawaiKeluarController extends Controller
             abort(404);
         }
 
-        $request->validate([
-            'agreement' => 'accepted',
-            'signature_data' => ['required', 'string', 'regex:/^data:image\/png;base64,/'],
-        ], [
-            'agreement.accepted' => 'Centang persetujuan sebelum tanda tangan.',
-            'signature_data.required' => 'Bubuhkan tanda tangan di kotak tanda tangan.',
-            'signature_data.regex' => 'Format tanda tangan tidak valid.',
-        ]);
+        $request->validate($this->signatureValidationRules(), $this->signatureValidationMessages());
 
         if (!$document->{$roleConfig['signed_at']}) {
             $this->layananAset->storeSignature(
@@ -296,7 +248,7 @@ class PegawaiKeluarController extends Controller
             );
         }
 
-        return redirect('/my-inventory-return-bast/' . $document->id)
+        return redirect(self::ROUTE_MY_RETURN_BAST . '/' . $document->id)
             ->with('success', $roleConfig['label'] . ' berhasil ditandatangani dan PDF sudah diperbarui.');
     }
 
@@ -305,6 +257,70 @@ class PegawaiKeluarController extends Controller
         $document = $this->myReturnDocumentQuery(auth()->id())->findOrFail($id);
 
         return $this->downloadReturnBast($document);
+    }
+
+    private function adminOrUserView($adminView, $userView)
+    {
+        return $this->isAdmin() ? $adminView : $userView;
+    }
+
+    private function assetClearanceRoute(PegawaiKeluar $pegawai_keluar)
+    {
+        return self::ROUTE_EXIT . '/' . $pegawai_keluar->id . '/assets';
+    }
+
+    private function validatedApprovalData(Request $request): array
+    {
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(PegawaiKeluar::approvalStatuses())],
+            'notes' => 'nullable|string',
+        ]);
+
+        $validated['approved_by'] = auth()->id();
+        $validated['tanggal_approval'] = now()->toDateString();
+
+        return $validated;
+    }
+
+    private function applyApproval(PegawaiKeluar $pegawai_keluar, array $validated): void
+    {
+        DB::transaction(function () use ($pegawai_keluar, $validated) {
+            $pegawai_keluar->update($validated);
+
+            if ($validated['status'] === PegawaiKeluar::STATUS_APPROVED && $pegawai_keluar->user) {
+                $pegawai_keluar->user->update([
+                    'masa_berlaku' => $pegawai_keluar->tanggal
+                ]);
+            }
+        });
+    }
+
+    private function returnBastSignatureRoleConfig($role)
+    {
+        $roleConfig = DokumenPengembalianAset::signatureRoles()[$role] ?? null;
+
+        if (!$roleConfig) {
+            abort(404);
+        }
+
+        return $roleConfig;
+    }
+
+    private function signatureValidationRules(): array
+    {
+        return [
+            'agreement' => 'accepted',
+            'signature_data' => ['required', 'string', 'regex:/^data:image\/png;base64,/'],
+        ];
+    }
+
+    private function signatureValidationMessages(): array
+    {
+        return [
+            'agreement.accepted' => 'Centang persetujuan sebelum tanda tangan.',
+            'signature_data.required' => 'Bubuhkan tanda tangan di kotak tanda tangan.',
+            'signature_data.regex' => 'Format tanda tangan tidak valid.',
+        ];
     }
 
     private function rejectApprovalWhenAssetPending(PegawaiKeluar $pegawai_keluar)
@@ -333,10 +349,10 @@ class PegawaiKeluarController extends Controller
     private function assetClearanceRedirect(PegawaiKeluar $pegawai_keluar)
     {
         if (!$this->isAdmin()) {
-            return '/exit';
+            return self::ROUTE_EXIT;
         }
 
-        return '/exit/' . $pegawai_keluar->id . '/assets';
+        return $this->assetClearanceRoute($pegawai_keluar);
     }
 
     private function validatedReturnAssetData(Request $request)
@@ -367,11 +383,11 @@ class PegawaiKeluarController extends Controller
     {
         $document = $this->layananAset->storePdf($document);
 
-        if (!$document->file_pdf || !Storage::disk('public')->exists($document->file_pdf)) {
+        if (!$document->file_pdf || !Storage::disk(self::FILE_DISK)->exists($document->file_pdf)) {
             abort(404);
         }
 
-        return Storage::disk('public')->download(
+        return Storage::disk(self::FILE_DISK)->download(
             $document->file_pdf,
             'bast-pengembalian-' . $this->safeFilename($document->nomor_surat) . '.pdf'
         );
@@ -418,7 +434,7 @@ class PegawaiKeluarController extends Controller
 
         $type = 'Approval';
         $notif = 'Pengajuan Pegawai Keluar Dari ' . auth()->user()->name . ' Butuh Approval Anda';
-        $action = '/exit?nama=' . urlencode($pegawaiKeluar->user->name) . '&mulai=' . $pegawaiKeluar->tanggal . '&akhir=' . $pegawaiKeluar->tanggal;
+        $action = self::ROUTE_EXIT . '?nama=' . urlencode($pegawaiKeluar->user->name) . '&mulai=' . $pegawaiKeluar->tanggal . '&akhir=' . $pegawaiKeluar->tanggal;
         $url = url($action);
 
         $approver->messages = [
@@ -448,7 +464,7 @@ class PegawaiKeluarController extends Controller
                 'user_id' => $sender->id,
                 'from' => $sender->name,
                 'message' => $message,
-                'action' => '/my-inventory-return-bast/' . $document->id,
+                'action' => self::ROUTE_MY_RETURN_BAST . '/' . $document->id,
                 'inventory_return_document_id' => $document->id,
             ];
             $signer->notify(new UserNotification);
@@ -481,13 +497,13 @@ class PegawaiKeluarController extends Controller
 
     private function isAdmin()
     {
-        return auth()->user() && auth()->user()->is_admin == 'admin';
+        return auth()->user() && auth()->user()->is_admin == self::ROLE_ADMIN;
     }
 
     private function isRegularEmployee(?User $user)
     {
         return $user
-            && $user->is_admin == 'user'
+            && $user->is_admin == self::ROLE_USER
             && $user->Jabatan
             && $user->Jabatan->manager != $user->id;
     }
@@ -495,7 +511,7 @@ class PegawaiKeluarController extends Controller
     private function isDepartmentManager(?User $user)
     {
         return $user
-            && $user->is_admin == 'user'
+            && $user->is_admin == self::ROLE_USER
             && $user->Jabatan
             && $user->Jabatan->manager == $user->id;
     }

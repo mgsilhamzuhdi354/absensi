@@ -584,10 +584,20 @@
     var pageLoadTime = Math.floor(Date.now() / 1000); // Timestamp saat page load
     var lastNotifCount = {{ auth()->user()->notifications()->whereNull('read_at')->count() }};
     var shownNotifIds = [];
+    window.appUiSubmitting = false;
+    window.isUiInteractionLocked = function () {
+      return window.appUiSubmitting
+        || document.body.classList.contains('modal-open')
+        || document.querySelector('.modal.show')
+        || document.querySelector('.modal.fade.show')
+        || document.querySelector('.modal-backdrop')
+        || document.querySelector('.swal2-container')
+        || document.querySelector('.select2-container--open');
+    };
 
     function checkNewNotifications() {
       // JANGAN polling jika ada modal yang terbuka (untuk mencegah flickering)
-      if (document.querySelector('.modal.show') || document.querySelector('.swal2-container')) {
+      if (window.isUiInteractionLocked()) {
         return; // Skip polling saat modal sedang terbuka
       }
 
@@ -595,7 +605,7 @@
         .then(response => response.json())
         .then(data => {
           // Cek lagi apakah modal sudah terbuka (setelah fetch selesai)
-          if (document.querySelector('.modal.show') || document.querySelector('.swal2-container')) {
+          if (window.isUiInteractionLocked()) {
             return;
           }
 
@@ -684,7 +694,7 @@
   <script>
     function getLocation() {
       // JANGAN update lokasi jika ada modal yang terbuka (untuk mencegah flickering)
-      if (document.querySelector('.modal.show') || document.querySelector('.swal2-container')) {
+      if (window.isUiInteractionLocked && window.isUiInteractionLocked()) {
         return;
       }
       if (navigator.geolocation) {
@@ -706,11 +716,30 @@
   <script>
     $(function () {
       $('form').on('submit', function () {
-        $(':input[type="submit"]').prop('disabled', true);
+        var $form = $(this);
+        if ($form.data('submitting') === true) {
+          return false;
+        }
+
+        window.appUiSubmitting = true;
+        $form.data('submitting', true);
+        $form.find('button[type="submit"], input[type="submit"]').prop('disabled', true);
       })
     })
     $(function () {
-      $('.selectpicker').select2();
+      $('.selectpicker').each(function () {
+        var $select = $(this);
+        var $modal = $select.closest('.modal');
+        var options = {
+          width: '100%'
+        };
+
+        if ($modal.length) {
+          options.dropdownParent = $modal;
+        }
+
+        $select.select2(options);
+      });
       $('.table').each(function () {
         var $table = $(this);
         if (!$table.closest('.table-responsive').length) {

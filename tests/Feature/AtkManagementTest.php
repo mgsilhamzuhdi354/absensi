@@ -3,10 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Atk;
+use App\Models\AtkStockTransaction;
 use App\Models\Jabatan;
 use App\Models\settings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use Tests\TestCase;
@@ -70,20 +72,26 @@ class AtkManagementTest extends TestCase
             ->assertOk()
             ->assertSee('ATK/000001');
 
+        $this->actingAs($this->admin)
+            ->get('/atk/tambah')
+            ->assertOk()
+            ->assertSee('ATK/000001');
+
         $this->assertDatabaseHas('counters', [
             'name' => 'ATK',
             'text' => 'ATK',
-            'counter' => 1,
+            'counter' => 0,
         ]);
 
         $this->actingAs($this->admin)->post('/atk/store', [
-            'kode_atk' => 'ATK/000001',
+            'kode_atk' => 'MANUAL/999999',
             'nama_atk' => 'Pulpen Gel',
             'kategori' => 'Alat Tulis',
             'stok' => '25.5',
             'satuan' => 'Pcs',
             'lokasi' => 'Lemari Admin',
             'keterangan' => 'Warna hitam',
+            'foto_barang' => UploadedFile::fake()->image('pulpen.jpg', 600, 400),
             'active' => '1',
         ])->assertRedirect('/atk/1/detail');
 
@@ -91,26 +99,36 @@ class AtkManagementTest extends TestCase
 
         $this->assertNotNull($atk);
         $this->assertSame('Pulpen Gel', $atk->nama_atk);
+        $this->assertSame('ATK/000001', $atk->kode_atk);
         $this->assertSame(25.5, $atk->stok);
         $this->assertSame(1, $atk->active);
         $this->assertNotEmpty($atk->qr_token);
         $this->assertNotEmpty($atk->qr_code_value);
         $this->assertNotEmpty($atk->qr_code_image);
+        $this->assertNotEmpty($atk->foto_barang);
         Storage::disk('public')->assertExists($atk->qr_code_image);
+        Storage::disk('public')->assertExists($atk->foto_barang);
+        $photoPath = $atk->foto_barang;
 
         $this->actingAs($this->admin)
             ->get('/atk?search=Pulpen')
             ->assertOk()
             ->assertSee('Pulpen Gel')
             ->assertSee('ATK/000001')
-            ->assertSee('Export Excel');
+            ->assertSee('Export Excel')
+            ->assertSee('storage/' . $photoPath, false)
+            ->assertSee('Ubah Stok');
 
         $this->actingAs($this->admin)
             ->get('/atk/' . $atk->id . '/detail')
             ->assertOk()
             ->assertSee('Detail ATK')
             ->assertSee('QR Code')
-            ->assertSee('Pulpen Gel');
+            ->assertSee('Pulpen Gel')
+            ->assertSee('Stok Masuk')
+            ->assertSee('Stok Keluar')
+            ->assertSee('Riwayat Stok Barang')
+            ->assertSee('storage/' . $photoPath, false);
 
         foreach ([$atk->qr_token, $atk->qr_code_value, $atk->kode_atk, url('/atk/' . $atk->id . '/detail')] as $payload) {
             $this->actingAs($this->admin)
@@ -136,6 +154,59 @@ class AtkManagementTest extends TestCase
             ->get('/atk/' . $atk->id . '/qr/download')
             ->assertOk();
 
+        $this->actingAs($this->admin)->post('/atk/' . $atk->id . '/stock-in', [
+            'tanggal_transaksi' => '2026-06-19',
+            'jumlah' => '4.5',
+            'sumber_barang' => 'Supplier A',
+            'catatan' => 'Pembelian tambahan',
+        ])->assertRedirect('/atk/' . $atk->id . '/detail');
+
+        $this->assertSame(30.0, (float) $atk->fresh()->stok);
+        $this->assertDatabaseHas('atk_stock_transactions', [
+            'atk_id' => $atk->id,
+            'jenis_transaksi' => 'masuk',
+            'stok_sebelum' => 25.5,
+            'stok_sesudah' => 30,
+            'diproses_oleh' => $this->admin->id,
+        ]);
+
+        $this->actingAs($this->admin)->post('/atk/' . $atk->id . '/stock-out', [
+            'tanggal_transaksi' => '2026-06-19',
+            'jumlah' => '6',
+            'penerima_barang' => 'Ruang Finance',
+            'catatan' => 'Dipakai divisi finance',
+        ])->assertRedirect('/atk/' . $atk->id . '/detail');
+
+        $this->assertSame(24.0, (float) $atk->fresh()->stok);
+        $stockOutTransaction = AtkStockTransaction::where('jenis_transaksi', 'keluar')->first();
+        $this->assertNotNull($stockOutTransaction);
+        $this->assertDatabaseHas('atk_stock_transactions', [
+            'id' => $stockOutTransaction->id,
+            'atk_id' => $atk->id,
+            'jumlah' => 6,
+            'penerima_barang' => 'Ruang Finance',
+            'stok_sebelum' => 30,
+            'stok_sesudah' => 24,
+        ]);
+
+        $this->actingAs($this->admin)->post('/atk/' . $atk->id . '/stock-out', [
+            'tanggal_transaksi' => '2026-06-19',
+            'jumlah' => '99',
+            'penerima_barang' => 'Ruang Finance',
+        ])->assertSessionHasErrors('jumlah');
+
+        $this->assertSame(24.0, (float) $atk->fresh()->stok);
+
+        $this->actingAs($this->admin)
+            ->delete('/atk/transactions/' . $stockOutTransaction->id)
+            ->assertRedirect('/atk/' . $atk->id . '/detail');
+
+        $this->assertSame(30.0, (float) $atk->fresh()->stok);
+        $this->assertSoftDeleted('atk_stock_transactions', [
+            'id' => $stockOutTransaction->id,
+            'deleted_by' => $this->admin->id,
+        ]);
+
         Excel::fake();
 
         $this->actingAs($this->admin)
@@ -145,7 +216,7 @@ class AtkManagementTest extends TestCase
         Excel::assertDownloaded('Report ATK.xlsx');
 
         $this->actingAs($this->admin)->put('/atk/update/' . $atk->id, [
-            'kode_atk' => 'ATK/000001',
+            'kode_atk' => 'MANUAL/000123',
             'nama_atk' => 'Pulpen Gel Hitam',
             'kategori' => 'Alat Tulis',
             'stok' => '12',
@@ -157,10 +228,12 @@ class AtkManagementTest extends TestCase
 
         $this->assertDatabaseHas('atks', [
             'id' => $atk->id,
+            'kode_atk' => 'ATK/000001',
             'nama_atk' => 'Pulpen Gel Hitam',
             'stok' => 12,
             'lokasi' => 'Gudang ATK',
             'active' => 0,
+            'foto_barang' => $photoPath,
         ]);
 
         $this->actingAs($this->admin)
@@ -169,5 +242,6 @@ class AtkManagementTest extends TestCase
 
         $this->assertSame(0, Atk::count());
         Storage::disk('public')->assertMissing($atk->qr_code_image);
+        Storage::disk('public')->assertMissing($photoPath);
     }
 }

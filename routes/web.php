@@ -496,7 +496,10 @@ Route::get('/atk/tambah', [AtkController::class, 'tambah'])->middleware('admin')
 Route::post('/atk/store', [AtkController::class, 'store'])->middleware('admin');
 Route::get('/atk/scan', [AtkController::class, 'scan'])->middleware('admin');
 Route::get('/atk/scan/lookup', [AtkController::class, 'scanLookup'])->middleware('admin');
+Route::delete('/atk/transactions/{id}', [AtkController::class, 'deleteStockTransaction'])->middleware('admin');
 Route::get('/atk/{id}/detail', [AtkController::class, 'detail'])->middleware('admin');
+Route::post('/atk/{id}/stock-in', [AtkController::class, 'stockIn'])->middleware('admin');
+Route::post('/atk/{id}/stock-out', [AtkController::class, 'stockOut'])->middleware('admin');
 Route::get('/atk/{id}/qr/print', [AtkController::class, 'printQr'])->middleware('admin');
 Route::get('/atk/{id}/qr/download', [AtkController::class, 'downloadQr'])->middleware('admin');
 Route::get('/atk/edit/{id}', [AtkController::class, 'edit'])->middleware('admin');
@@ -593,9 +596,10 @@ Route::get('/informasi-user/show/{id}', [BeritaController::class, 'informasiUser
 Route::get('/switch/{id}', [authController::class, 'switch'])->middleware('auth');
 
 Route::get('/reset', function () {
-    Artisan::call('optimize');
-    Artisan::call('config:cache');
-    Artisan::call('route:clear');
-    Artisan::call('migrate:fresh --seed');
+    abort_unless(app()->environment('local'), 403);
+
+    Artisan::call('optimize:clear');
     Artisan::call('storage:link');
-});
+
+    return response('Maintenance cache berhasil dibersihkan.');
+})->middleware('admin');

@@ -22,4 +22,16 @@ class Atk extends Model
 
         return rtrim(rtrim($formatted, '0'), '.') ?: '0';
     }
+
+    public function stockTransactions()
+    {
+        return $this->hasMany(AtkStockTransaction::class)->latest('tanggal_transaksi')->latest('id');
+    }
+
+    public function formatStockValue($value): string
+    {
+        $formatted = number_format((float) ($value ?? 0), 2, '.', '');
+
+        return rtrim(rtrim($formatted, '0'), '.') ?: '0';
+    }
 }

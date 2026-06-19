@@ -22,6 +22,9 @@ use Illuminate\Validation\ValidationException;
 
 class InventoryController extends Controller
 {
+    private const PUBLIC_DISK = 'public';
+    private const TRANSAKSI_KELUAR = 'keluar';
+
     private $qrService;
     private $stockService;
     private $bastService;
@@ -64,14 +67,7 @@ class InventoryController extends Controller
         $title = 'Aset Kantor';
         $lokasi = Lokasi::orderBy('nama_lokasi')->get();
         $jabatan = Jabatan::orderBy('nama_jabatan')->get();
-        $counter = Counter::firstOrCreate(
-            ['name' => 'Inventory'],
-            ['text' => 'INV', 'counter' => 0]
-        );
-        $counter->increment('counter');
-        $counter->refresh();
-        $next_number = str_pad($counter->counter, 6, '0', STR_PAD_LEFT);
-        $kode_barang = $counter->text . '/' . $next_number;
+        $kode_barang = $this->previewKodeBarang();
 
         return view(auth()->user()->is_admin == 'admin' ? 'inventory.tambah' : 'inventory.tambahUser', compact(
             'title',
@@ -85,6 +81,7 @@ class InventoryController extends Controller
     {
         $validated = $this->validatedInventoryData($request);
         $inventory = DB::transaction(function () use ($validated) {
+            $validated['kode_barang'] = $this->generateKodeBarang();
             $inventory = Inventory::create($validated);
 
             try {
@@ -143,10 +140,10 @@ class InventoryController extends Controller
         }
 
         if ($inventory->foto_barang) {
-            Storage::disk('public')->delete($inventory->foto_barang);
+            Storage::disk(self::PUBLIC_DISK)->delete($inventory->foto_barang);
         }
         if ($inventory->qr_code_image) {
-            Storage::disk('public')->delete($inventory->qr_code_image);
+            Storage::disk(self::PUBLIC_DISK)->delete($inventory->qr_code_image);
         }
         $inventory->delete();
         return redirect('/inventory')->with('success', 'Data Berhasil Dihapus');
@@ -162,40 +159,10 @@ class InventoryController extends Controller
 
         $inventory = $this->qrService->ensure($inventory);
         $inventoryReturnTablesReady = $this->inventoryReturnTablesReady();
-        $stockTransactionRelations = [
-            'lokasi',
-            'jabatan',
-            'stockTransactions.lokasi',
-            'stockTransactions.penerima.Jabatan',
-            'stockTransactions.processedBy',
-            'stockTransactions.bastDocument.signedBy',
-            'stockTransactions.bastDocument.knownBy',
-            'stockTransactions.bastDocument.firstParty',
-        ];
-        if ($inventoryReturnTablesReady) {
-            $stockTransactionRelations[] = 'stockTransactions.returnDocument';
-        }
-        $inventory->load($stockTransactionRelations);
+        $inventory->load($this->stockTransactionRelations($inventoryReturnTablesReady));
 
-        $deletedStockTransactionRelations = ['processedBy', 'deletedBy', 'bastDocument.signedBy', 'bastDocument.knownBy', 'bastDocument.firstParty'];
-        if ($inventoryReturnTablesReady) {
-            $deletedStockTransactionRelations[] = 'returnDocument';
-        }
-        $deletedStockTransactions = InventoryStockTransaction::onlyTrashed()
-            ->with($deletedStockTransactionRelations)
-            ->where('inventory_id', $inventory->id)
-            ->latest('deleted_at')
-            ->latest('id')
-            ->get();
-        $latestActiveStockTransaction = InventoryStockTransaction::with(['penerima.Jabatan', 'processedBy'])
-            ->where('inventory_id', $inventory->id)
-            ->latest('tanggal_transaksi')
-            ->latest('id')
-            ->first();
-        $isCurrentlyHeld = $latestActiveStockTransaction
-            && $latestActiveStockTransaction->jenis_transaksi === 'keluar'
-            && ($latestActiveStockTransaction->penerima_barang || $latestActiveStockTransaction->penerima_user_id);
-        $currentHolderTransaction = $isCurrentlyHeld ? $latestActiveStockTransaction : null;
+        $deletedStockTransactions = $this->deletedStockTransactions($inventory, $inventoryReturnTablesReady);
+        $currentHolderTransaction = $this->currentHolderTransaction($inventory);
         $lokasi = Lokasi::orderBy('nama_lokasi')->get();
         $users = User::with('Jabatan')->orderBy('name')->get();
 
@@ -216,7 +183,7 @@ class InventoryController extends Controller
             $code = reset($code);
         }
         $code = trim((string) $code);
-        $inventory = $this->findInventoryByQrInput($code);
+        $inventory = $this->qrService->findByInput($code);
 
         if (!$inventory) {
             if ($request->expectsJson() || $request->ajax()) {
@@ -261,51 +228,11 @@ class InventoryController extends Controller
     public function stockOut(Request $request, $id)
     {
         $inventory = Inventory::findOrFail($id);
-        $minimumQuantity = $inventory->usesWholeStock() ? 1 : 0.01;
-        $validated = $request->validate([
-            'tanggal_transaksi' => 'required|date',
-            'jumlah' => 'required|numeric|min:' . $minimumQuantity,
-            'penerima_user_id' => 'nullable|exists:users,id',
-            'penerima_barang' => 'required_without:penerima_user_id|nullable|string|max:255',
-            'jabatan_penerima' => 'nullable|string|max:255',
-            'departemen_penerima' => 'nullable|string|max:255',
-            'keperluan' => 'nullable|string|max:255',
-            'kondisi_barang' => 'nullable|string|max:255',
-            'catatan' => 'nullable|string',
-            'buat_bast_otomatis' => 'nullable|boolean',
-            'nama_mengetahui' => 'nullable|string|max:255',
-            'known_by_user_id' => 'nullable|exists:users,id',
-            'first_party_user_id' => 'nullable|exists:users,id',
-        ]);
-
-        if (!empty($validated['penerima_user_id'])) {
-            $receiver = User::with('Jabatan')->findOrFail($validated['penerima_user_id']);
-            $receiverDivision = $receiver->Jabatan->nama_jabatan ?? null;
-            $validated['penerima_barang'] = $receiver->name;
-            $validated['jabatan_penerima'] = $receiverDivision;
-            $validated['departemen_penerima'] = $receiverDivision;
-        }
+        $validated = $this->validatedStockOutData($request, $inventory);
+        $validated = $this->fillReceiverSnapshot($validated);
 
         $transaction = $this->stockService->stockOut($inventory, $validated, auth()->user());
-        $shouldCreateBast = (bool) ($validated['buat_bast_otomatis'] ?? true);
-        $hasReceiver = !empty($validated['penerima_barang']) || !empty($validated['penerima_user_id']);
-        $bastMessage = null;
-
-        if ($shouldCreateBast && $hasReceiver) {
-            try {
-                $document = $this->bastService->createForTransaction($transaction, [
-                    'tanggal_surat' => $validated['tanggal_transaksi'],
-                    'nama_mengetahui' => $validated['nama_mengetahui'] ?? null,
-                    'known_by_user_id' => $validated['known_by_user_id'] ?? null,
-                    'first_party_user_id' => $validated['first_party_user_id'] ?? null,
-                ], auth()->user());
-                $this->notifyBastSigners($document, auth()->user());
-                $bastMessage = ' dan Surat BAST otomatis dibuat (' . $document->nomor_surat . ')';
-            } catch (\Throwable $e) {
-                \Log::error('Auto BAST creation failed for transaction ' . $transaction->id . ': ' . $e->getMessage());
-                $bastMessage = '. Transaksi tersimpan, namun pembuatan BAST otomatis gagal';
-            }
-        }
+        $bastMessage = $this->createAutomaticBastForStockOut($transaction, $validated);
 
         return redirect('/inventory/' . $inventory->id . '/detail')
             ->with('success', 'Stok keluar / pindah tangan berhasil disimpan' . ($bastMessage ?? ''));
@@ -313,46 +240,17 @@ class InventoryController extends Controller
 
     public function deleteStockTransaction($id)
     {
-        $relations = ['inventory'];
         $inventoryReturnTablesReady = $this->inventoryReturnTablesReady();
-        if ($inventoryReturnTablesReady) {
-            $relations[] = 'returnDocument';
-        }
-
-        $transaction = InventoryStockTransaction::with($relations)->findOrFail($id);
+        $transaction = InventoryStockTransaction::with($this->stockTransactionDeleteRelations($inventoryReturnTablesReady))->findOrFail($id);
         $inventoryId = $transaction->inventory_id;
 
-        if ($inventoryReturnTablesReady && ($transaction->return_for_transaction_id || $transaction->returnDocument)) {
+        if ($this->isProtectedReturnTransaction($transaction, $inventoryReturnTablesReady)) {
             return redirect('/inventory/' . $inventoryId . '/detail')
                 ->with('error', 'Transaksi pengembalian aset pegawai keluar tidak bisa dihapus dari riwayat stok.');
         }
 
         DB::transaction(function () use ($transaction) {
-            $lockedInventory = Inventory::whereKey($transaction->inventory_id)->lockForUpdate()->firstOrFail();
-            $currentStock = $lockedInventory->usesWholeStock()
-                ? (float) max(0, round((float) ($lockedInventory->stok ?? 0)))
-                : round(max(0, (float) ($lockedInventory->stok ?? 0)), 2);
-            $quantity = (float) ($transaction->jumlah ?? 0);
-
-            if ($transaction->jenis_transaksi === 'keluar') {
-                $newStock = $currentStock + $quantity;
-            } else {
-                $newStock = $currentStock - $quantity;
-                if ($newStock < 0) {
-                    throw ValidationException::withMessages([
-                        'transaction' => 'Transaksi stok masuk ini belum bisa dihapus karena stok saat ini tidak cukup untuk dibalik.',
-                    ]);
-                }
-            }
-
-            $lockedInventory->update([
-                'stok' => max(0, $newStock),
-            ]);
-
-            $transaction->forceFill([
-                'deleted_by' => auth()->id(),
-            ])->save();
-            $transaction->delete();
+            $this->reverseStockTransaction($transaction);
         });
 
         return redirect('/inventory/' . $inventoryId . '/detail')
@@ -380,11 +278,11 @@ class InventoryController extends Controller
 
         $inventory = $this->qrService->ensure($inventory);
 
-        if (!$inventory->qr_code_image || !Storage::disk('public')->exists($inventory->qr_code_image)) {
+        if (!$inventory->qr_code_image || !Storage::disk(self::PUBLIC_DISK)->exists($inventory->qr_code_image)) {
             abort(404);
         }
 
-        return Storage::disk('public')->download(
+        return Storage::disk(self::PUBLIC_DISK)->download(
             $inventory->qr_code_image,
             'qr-' . $this->safeFilename($inventory->kode_barang ?: $inventory->id) . '.png'
         );
@@ -451,11 +349,11 @@ class InventoryController extends Controller
         $document = InventoryBastDocument::with('transaction.inventory')->findOrFail($id);
         $document = $this->bastService->storePdf($document);
 
-        if (!$document->file_pdf || !Storage::disk('public')->exists($document->file_pdf)) {
+        if (!$document->file_pdf || !Storage::disk(self::PUBLIC_DISK)->exists($document->file_pdf)) {
             abort(404);
         }
 
-        return Storage::disk('public')->download(
+        return Storage::disk(self::PUBLIC_DISK)->download(
             $document->file_pdf,
             'bast-' . $this->safeFilename($document->nomor_surat) . '.pdf'
         );
@@ -517,27 +415,17 @@ class InventoryController extends Controller
             abort(404);
         }
 
-        $request->validate([
-            'agreement' => 'accepted',
-            'signature_data' => ['required', 'string', 'regex:/^data:image\/png;base64,/'],
-        ], [
-            'agreement.accepted' => 'Centang persetujuan sebelum tanda tangan.',
-            'signature_data.required' => 'Bubuhkan tanda tangan di kotak tanda tangan.',
-            'signature_data.regex' => 'Format tanda tangan tidak valid.',
-        ]);
+        $request->validate($this->signatureValidationRules(), $this->signatureValidationMessages());
 
         if (!$document->{$roleConfig['signed_at']}) {
-            $signaturePath = $this->storeBastSignatureImage($document, $role, $request->input('signature_data'));
-            $document->forceFill([
-                $roleConfig['user_id'] => auth()->id(),
-                $roleConfig['name'] => auth()->user()->name,
-                $roleConfig['image'] => $signaturePath,
-                $roleConfig['signed_at'] => now(),
-                $roleConfig['ip'] => $request->ip(),
-                $roleConfig['user_agent'] => substr((string) $request->userAgent(), 0, 1000),
-            ])->save();
-
-            $this->bastService->storePdf($document->fresh());
+            $this->bastService->storeSignature(
+                $document,
+                $role,
+                $request->input('signature_data'),
+                auth()->user(),
+                $request->ip(),
+                $request->userAgent()
+            );
         }
 
         return redirect('/my-inventory-bast/' . $document->id)
@@ -553,20 +441,230 @@ class InventoryController extends Controller
         $document = $this->myBastDocumentQuery(auth()->id())->findOrFail($id);
         $document = $this->bastService->storePdf($document);
 
-        if (!$document->file_pdf || !Storage::disk('public')->exists($document->file_pdf)) {
+        if (!$document->file_pdf || !Storage::disk(self::PUBLIC_DISK)->exists($document->file_pdf)) {
             abort(404);
         }
 
-        return Storage::disk('public')->download(
+        return Storage::disk(self::PUBLIC_DISK)->download(
             $document->file_pdf,
             'bast-' . $this->safeFilename($document->nomor_surat) . '.pdf'
         );
     }
 
+    private function stockTransactionRelations(bool $includeReturnDocuments): array
+    {
+        $relations = [
+            'lokasi',
+            'jabatan',
+            'stockTransactions.lokasi',
+            'stockTransactions.penerima.Jabatan',
+            'stockTransactions.processedBy',
+            'stockTransactions.bastDocument.signedBy',
+            'stockTransactions.bastDocument.knownBy',
+            'stockTransactions.bastDocument.firstParty',
+        ];
+
+        if ($includeReturnDocuments) {
+            $relations[] = 'stockTransactions.returnDocument';
+        }
+
+        return $relations;
+    }
+
+    private function deletedStockTransactions(Inventory $inventory, bool $includeReturnDocuments)
+    {
+        return InventoryStockTransaction::onlyTrashed()
+            ->with($this->deletedStockTransactionRelations($includeReturnDocuments))
+            ->where('inventory_id', $inventory->id)
+            ->latest('deleted_at')
+            ->latest('id')
+            ->get();
+    }
+
+    private function deletedStockTransactionRelations(bool $includeReturnDocuments): array
+    {
+        $relations = [
+            'processedBy',
+            'deletedBy',
+            'bastDocument.signedBy',
+            'bastDocument.knownBy',
+            'bastDocument.firstParty',
+        ];
+
+        if ($includeReturnDocuments) {
+            $relations[] = 'returnDocument';
+        }
+
+        return $relations;
+    }
+
+    private function currentHolderTransaction(Inventory $inventory)
+    {
+        $transaction = InventoryStockTransaction::with(['penerima.Jabatan', 'processedBy'])
+            ->where('inventory_id', $inventory->id)
+            ->latest('tanggal_transaksi')
+            ->latest('id')
+            ->first();
+
+        if (!$transaction || $transaction->jenis_transaksi !== self::TRANSAKSI_KELUAR) {
+            return null;
+        }
+
+        return ($transaction->penerima_barang || $transaction->penerima_user_id) ? $transaction : null;
+    }
+
+    private function validatedStockOutData(Request $request, Inventory $inventory): array
+    {
+        $minimumQuantity = $inventory->usesWholeStock() ? 1 : 0.01;
+
+        return $request->validate([
+            'tanggal_transaksi' => 'required|date',
+            'jumlah' => 'required|numeric|min:' . $minimumQuantity,
+            'penerima_user_id' => 'nullable|exists:users,id',
+            'penerima_barang' => 'required_without:penerima_user_id|nullable|string|max:255',
+            'jabatan_penerima' => 'nullable|string|max:255',
+            'departemen_penerima' => 'nullable|string|max:255',
+            'keperluan' => 'nullable|string|max:255',
+            'kondisi_barang' => 'nullable|string|max:255',
+            'catatan' => 'nullable|string',
+            'buat_bast_otomatis' => 'nullable|boolean',
+            'nama_mengetahui' => 'nullable|string|max:255',
+            'known_by_user_id' => 'nullable|exists:users,id',
+            'first_party_user_id' => 'nullable|exists:users,id',
+        ]);
+    }
+
+    private function fillReceiverSnapshot(array $data): array
+    {
+        if (empty($data['penerima_user_id'])) {
+            return $data;
+        }
+
+        $receiver = User::with('Jabatan')->findOrFail($data['penerima_user_id']);
+        $receiverDivision = $receiver->Jabatan->nama_jabatan ?? null;
+
+        $data['penerima_barang'] = $receiver->name;
+        $data['jabatan_penerima'] = $receiverDivision;
+        $data['departemen_penerima'] = $receiverDivision;
+
+        return $data;
+    }
+
+    private function createAutomaticBastForStockOut(InventoryStockTransaction $transaction, array $data)
+    {
+        if (!$this->shouldCreateAutomaticBast($data)) {
+            return null;
+        }
+
+        try {
+            $document = $this->bastService->createForTransaction($transaction, [
+                'tanggal_surat' => $data['tanggal_transaksi'],
+                'nama_mengetahui' => $data['nama_mengetahui'] ?? null,
+                'known_by_user_id' => $data['known_by_user_id'] ?? null,
+                'first_party_user_id' => $data['first_party_user_id'] ?? null,
+            ], auth()->user());
+
+            $this->notifyBastSigners($document, auth()->user());
+
+            return ' dan Surat BAST otomatis dibuat (' . $document->nomor_surat . ')';
+        } catch (\Throwable $e) {
+            \Log::error('Auto BAST creation failed for transaction ' . $transaction->id . ': ' . $e->getMessage());
+
+            return '. Transaksi tersimpan, namun pembuatan BAST otomatis gagal';
+        }
+    }
+
+    private function shouldCreateAutomaticBast(array $data): bool
+    {
+        $shouldCreateBast = (bool) ($data['buat_bast_otomatis'] ?? true);
+        $hasReceiver = !empty($data['penerima_barang']) || !empty($data['penerima_user_id']);
+
+        return $shouldCreateBast && $hasReceiver;
+    }
+
+    private function stockTransactionDeleteRelations(bool $includeReturnDocuments): array
+    {
+        $relations = ['inventory'];
+
+        if ($includeReturnDocuments) {
+            $relations[] = 'returnDocument';
+        }
+
+        return $relations;
+    }
+
+    private function isProtectedReturnTransaction(InventoryStockTransaction $transaction, bool $returnTablesReady): bool
+    {
+        return $returnTablesReady
+            && ($transaction->return_for_transaction_id || $transaction->returnDocument);
+    }
+
+    private function reverseStockTransaction(InventoryStockTransaction $transaction): void
+    {
+        $lockedInventory = Inventory::whereKey($transaction->inventory_id)->lockForUpdate()->firstOrFail();
+        $newStock = $this->stockAfterDeletingTransaction(
+            $this->currentStock($lockedInventory),
+            $transaction
+        );
+
+        $lockedInventory->update([
+            'stok' => max(0, $newStock),
+        ]);
+
+        $transaction->forceFill([
+            'deleted_by' => auth()->id(),
+        ])->save();
+        $transaction->delete();
+    }
+
+    private function currentStock(Inventory $inventory): float
+    {
+        if ($inventory->usesWholeStock()) {
+            return (float) max(0, round((float) ($inventory->stok ?? 0)));
+        }
+
+        return round(max(0, (float) ($inventory->stok ?? 0)), 2);
+    }
+
+    private function stockAfterDeletingTransaction(float $currentStock, InventoryStockTransaction $transaction): float
+    {
+        $quantity = (float) ($transaction->jumlah ?? 0);
+
+        if ($transaction->jenis_transaksi === self::TRANSAKSI_KELUAR) {
+            return $currentStock + $quantity;
+        }
+
+        $newStock = $currentStock - $quantity;
+        if ($newStock < 0) {
+            throw ValidationException::withMessages([
+                'transaction' => 'Transaksi stok masuk ini belum bisa dihapus karena stok saat ini tidak cukup untuk dibalik.',
+            ]);
+        }
+
+        return $newStock;
+    }
+
+    private function signatureValidationRules(): array
+    {
+        return [
+            'agreement' => 'accepted',
+            'signature_data' => ['required', 'string', 'regex:/^data:image\/png;base64,/'],
+        ];
+    }
+
+    private function signatureValidationMessages(): array
+    {
+        return [
+            'agreement.accepted' => 'Centang persetujuan sebelum tanda tangan.',
+            'signature_data.required' => 'Bubuhkan tanda tangan di kotak tanda tangan.',
+            'signature_data.regex' => 'Format tanda tangan tidak valid.',
+        ];
+    }
+
     private function validatedInventoryData(Request $request, Inventory $inventory = null)
     {
         $validated = $request->validate([
-            'kode_barang' => 'required|string|max:255',
+            'kode_barang' => 'nullable|string|max:255',
             'nama_barang' => 'required|string|max:255',
             'jenis_barang' => 'nullable|string|max:255',
             'merk_tipe' => 'nullable|string|max:255',
@@ -595,16 +693,55 @@ class InventoryController extends Controller
             ? (int) round((float) $validated['stok'])
             : round((float) $validated['stok'], 2);
 
+        if ($inventory) {
+            $validated['kode_barang'] = $inventory->kode_barang;
+        } else {
+            unset($validated['kode_barang']);
+        }
         unset($validated['foto_barang']);
 
         if ($request->hasFile('foto_barang')) {
             if ($inventory && $inventory->foto_barang) {
-                Storage::disk('public')->delete($inventory->foto_barang);
+                Storage::disk(self::PUBLIC_DISK)->delete($inventory->foto_barang);
             }
-            $validated['foto_barang'] = $request->file('foto_barang')->store('inventory/photos', 'public');
+            $validated['foto_barang'] = $request->file('foto_barang')->store('inventory/photos', self::PUBLIC_DISK);
         }
 
         return $validated;
+    }
+
+    private function generateKodeBarang(): string
+    {
+        $counter = $this->lockedCounter('Inventory', 'INV');
+        $nextCounter = (int) $counter->counter + 1;
+        $counter->update(['counter' => $nextCounter]);
+
+        return $this->formatCounterCode($counter->text ?: 'INV', $nextCounter);
+    }
+
+    private function previewKodeBarang(): string
+    {
+        $counter = Counter::firstOrCreate(
+            ['name' => 'Inventory'],
+            ['text' => 'INV', 'counter' => 0]
+        );
+
+        return $this->formatCounterCode($counter->text ?: 'INV', (int) $counter->counter + 1);
+    }
+
+    private function lockedCounter(string $name, string $prefix): Counter
+    {
+        Counter::firstOrCreate(
+            ['name' => $name],
+            ['text' => $prefix, 'counter' => 0]
+        );
+
+        return Counter::where('name', $name)->lockForUpdate()->firstOrFail();
+    }
+
+    private function formatCounterCode(string $prefix, int $counter): string
+    {
+        return $prefix . '/' . str_pad($counter, 6, '0', STR_PAD_LEFT);
     }
 
     private function isWholeNumber($value): bool
@@ -702,130 +839,6 @@ class InventoryController extends Controller
             && Schema::hasTable('pegawai_keluar_asset_clearances')
             && Schema::hasColumn('inventory_stock_transactions', 'return_for_transaction_id')
             && Schema::hasColumn('inventory_stock_transactions', 'pegawai_keluar_id');
-    }
-
-    private function storeBastSignatureImage(InventoryBastDocument $document, $role, $signatureData)
-    {
-        $payload = preg_replace('/^data:image\/png;base64,/', '', (string) $signatureData);
-        $binary = base64_decode($payload, true);
-
-        if ($binary === false || strlen($binary) < 20) {
-            throw ValidationException::withMessages([
-                'signature_data' => 'Tanda tangan tidak valid. Silakan hapus dan tanda tangani ulang.',
-            ]);
-        }
-
-        $path = 'inventory/bast/signatures/' . $document->id . '-' . $this->safeFilename($role) . '-' . time() . '.png';
-        Storage::disk('public')->put($path, $binary);
-
-        return $path;
-    }
-
-    private function findInventoryByQrInput($value)
-    {
-        $candidates = $this->extractInventoryCandidates($value);
-        if (empty($candidates)) {
-            return null;
-        }
-
-        foreach ($candidates as $candidate) {
-            if (preg_match('/^id:([0-9]+)$/', $candidate, $matches)) {
-                $byId = Inventory::find((int) $matches[1]);
-                if ($byId) {
-                    return $byId;
-                }
-            }
-
-            $inventory = Inventory::where('qr_token', $candidate)
-                ->orWhere('qr_code_value', $candidate)
-                ->orWhere('kode_barang', $candidate)
-                ->first();
-
-            if ($inventory) {
-                return $inventory;
-            }
-        }
-
-        return null;
-    }
-
-    private function extractInventoryCandidates($value)
-    {
-        $raw = trim((string) $value);
-        if ($raw === '') {
-            return [];
-        }
-
-        $raw = preg_replace('/[\x00-\x1F\x7F\x{200B}-\x{200D}\x{FEFF}]/u', '', $raw);
-        $candidates = [$raw];
-        if (ctype_digit($raw)) {
-            $candidates[] = 'id:' . $raw;
-        }
-
-        for ($i = 0; $i < 2; $i++) {
-            $decoded = urldecode($raw);
-            if ($decoded !== $raw) {
-                $candidates[] = trim($decoded);
-                $raw = $decoded;
-                continue;
-            }
-            break;
-        }
-
-        if (filter_var($raw, FILTER_VALIDATE_URL)) {
-            $path = parse_url($raw, PHP_URL_PATH);
-            $query = parse_url($raw, PHP_URL_QUERY);
-
-            if ($path && preg_match('#/inventory/([0-9]+)/detail#i', $path, $matches)) {
-                $candidates[] = 'id:' . $matches[1];
-            }
-
-            if ($path && preg_match('~/assets/detail/([^/?#]+)~i', $path, $matches)) {
-                $candidates[] = trim(urldecode($matches[1]));
-            }
-
-            if ($path) {
-                $segments = array_values(array_filter(explode('/', trim($path, '/'))));
-                if (!empty($segments)) {
-                    $candidates[] = trim(urldecode((string) end($segments)));
-                }
-            }
-
-            if ($query) {
-                parse_str($query, $params);
-                foreach (['code', 'token', 'qr', 'asset', 'kode', 'kode_barang', 'id'] as $key) {
-                    if (!empty($params[$key])) {
-                        $valueParam = trim((string) $params[$key]);
-                        $candidates[] = ctype_digit($valueParam) ? 'id:' . $valueParam : $valueParam;
-                    }
-                }
-            }
-        }
-
-        foreach ($candidates as $candidate) {
-            if (preg_match('/([a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})/i', $candidate, $uuidMatch)) {
-                $candidates[] = strtolower($uuidMatch[1]);
-            }
-
-            if (preg_match('/^(?:INV-ASSET:|ASSET-|INV-QR:|QR:)\s*(.+)$/i', $candidate, $prefixed)) {
-                $candidates[] = trim($prefixed[1]);
-            }
-
-            if (preg_match('/^[A-Za-z]+-\d+$/', $candidate)) {
-                $candidates[] = str_replace('-', '/', $candidate);
-            }
-        }
-
-        $normalized = [];
-        foreach ($candidates as $candidate) {
-            $candidate = trim((string) $candidate);
-            if ($candidate === '') {
-                continue;
-            }
-            $normalized[$candidate] = true;
-        }
-
-        return array_keys($normalized);
     }
 
     private function safeFilename($value)

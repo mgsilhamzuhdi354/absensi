@@ -597,10 +597,20 @@
         var pageLoadTime = Math.floor(Date.now() / 1000); // Timestamp saat page load
         var lastNotifCount = {{ auth()->user()->notifications()->whereNull('read_at')->count() }};
         var shownNotifIds = [];
+        window.appUiSubmitting = false;
+        window.isUiInteractionLocked = function () {
+            return window.appUiSubmitting
+                || document.body.classList.contains('modal-open')
+                || document.querySelector('.modal.show')
+                || document.querySelector('.modal.fade.show')
+                || document.querySelector('.modal-backdrop')
+                || document.querySelector('.swal2-container')
+                || document.querySelector('.select2-container--open');
+        };
 
         function checkNewNotifications() {
             // JANGAN polling jika ada modal yang terbuka (untuk mencegah flickering)
-            if (document.querySelector('.modal.show') || document.querySelector('.swal2-container')) {
+            if (window.isUiInteractionLocked()) {
                 return; // Skip polling saat modal sedang terbuka
             }
 
@@ -608,7 +618,7 @@
                 .then(response => response.json())
                 .then(data => {
                     // Cek lagi apakah modal sudah terbuka (setelah fetch selesai)
-                    if (document.querySelector('.modal.show') || document.querySelector('.swal2-container')) {
+                    if (window.isUiInteractionLocked()) {
                         return;
                     }
 

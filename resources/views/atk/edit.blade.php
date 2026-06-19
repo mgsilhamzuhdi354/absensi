@@ -15,7 +15,7 @@
         </div>
         <div class="col-md-12">
             <div class="card">
-                <form method="post" class="p-4" action="{{ url('/atk/update/'.$atk->id) }}">
+                <form method="post" class="p-4" action="{{ url('/atk/update/'.$atk->id) }}" enctype="multipart/form-data">
                     @method('PUT')
                     @csrf
                     @include('atk._form', ['submitLabel' => 'Update'])

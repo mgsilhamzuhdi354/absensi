@@ -86,14 +86,41 @@ class InventoryQrStockTest extends TestCase
     {
         Storage::fake('public');
 
-        $response = $this->actingAs($this->admin)->post('/inventory/store', $this->inventoryPayload());
+        $this->actingAs($this->admin)
+            ->get('/inventory/tambah')
+            ->assertOk()
+            ->assertSee('INV/000001');
+
+        $this->actingAs($this->admin)
+            ->get('/inventory/tambah')
+            ->assertOk()
+            ->assertSee('INV/000001');
+
+        $this->assertDatabaseHas('counters', [
+            'name' => 'Inventory',
+            'text' => 'INV',
+            'counter' => 0,
+        ]);
+
+        $response = $this->actingAs($this->admin)->post('/inventory/store', $this->inventoryPayload([
+            'kode_barang' => 'MANUAL/999999',
+        ]));
 
         $inventory = Inventory::first();
 
         $response->assertRedirect('/inventory/' . $inventory->id . '/detail');
+        $this->assertSame('INV/000001', $inventory->kode_barang);
         $this->assertNotNull($inventory->qr_token);
         $this->assertStringContainsString('/inventory/scan/lookup?code=', $inventory->qr_code_value);
         Storage::disk('public')->assertExists($inventory->qr_code_image);
+
+        $this->actingAs($this->admin)->post('/inventory/store', $this->inventoryPayload([
+            'kode_barang' => 'MANUAL/888888',
+            'nama_barang' => 'Laptop Dell Cadangan',
+            'serial_number' => 'SN124',
+        ]))->assertRedirect('/inventory/2/detail');
+
+        $this->assertSame('INV/000002', Inventory::find(2)->kode_barang);
     }
 
     /** @test */

@@ -19,6 +19,7 @@ class LayananAsetPegawaiKeluar
     private const TRANSAKSI_MASUK = 'masuk';
     private const TRANSAKSI_KELUAR = 'keluar';
     private const STATUS_BARANG_TERSEDIA = 'Tersedia';
+    private const PUBLIC_DISK = 'public';
     private const PDF_DIRECTORY = 'inventory/return-bast';
     private const SIGNATURE_DIRECTORY = 'inventory/return-bast/signatures';
     private const USER_AGENT_LIMIT = 1000;
@@ -133,27 +134,11 @@ class LayananAsetPegawaiKeluar
 
     public function storePdf(DokumenPengembalianAset $document)
     {
-        $document->loadMissing(
-            'inventory.lokasi',
-            'inventory.jabatan',
-            'pegawaiKeluar.user.Jabatan',
-            'employee.Jabatan',
-            'itReceiver.Jabatan',
-            'knownBy.Jabatan',
-            'originalTransaction',
-            'returnTransaction'
-        );
-
-        $pdf = Pdf::loadView('inventory.pdf_bast_pengembalian', [
-            'document' => $document,
-            'inventory' => $document->inventory,
-            'pegawaiKeluar' => $document->pegawaiKeluar,
-            'originalTransaction' => $document->originalTransaction,
-            'returnTransaction' => $document->returnTransaction,
-        ]);
+        $document->loadMissing($this->returnDocumentRelations());
+        $pdf = Pdf::loadView('inventory.pdf_bast_pengembalian', $this->returnDocumentPdfData($document));
 
         $path = self::PDF_DIRECTORY . '/' . $document->id . '.pdf';
-        Storage::disk('public')->put($path, $pdf->output());
+        Storage::disk(self::PUBLIC_DISK)->put($path, $pdf->output());
         $document->update(['file_pdf' => $path]);
 
         return $document->fresh();
@@ -164,7 +149,7 @@ class LayananAsetPegawaiKeluar
         $roleConfig = $this->signatureRoleConfig($role);
         $binary = $this->decodeSignature($signatureData);
         $path = self::SIGNATURE_DIRECTORY . '/' . $document->id . '-' . $this->safeFilename($role) . '-' . time() . '.png';
-        Storage::disk('public')->put($path, $binary);
+        Storage::disk(self::PUBLIC_DISK)->put($path, $binary);
 
         $document->forceFill([
             $roleConfig['user_id'] => $user->id,
@@ -324,16 +309,47 @@ class LayananAsetPegawaiKeluar
     private function createReturnDocument(PenyelesaianAsetPegawaiKeluar $clearance, InventoryStockTransaction $returnTransaction, InventoryStockTransaction $originalTransaction, array $data, User $admin)
     {
         $date = Carbon::parse($data['tanggal_kembali'] ?? now());
-        $pegawaiKeluar = $clearance->pegawaiKeluar()->with('user.Jabatan')->first();
-        $employee = $pegawaiKeluar ? $pegawaiKeluar->user : null;
-        $itReceiver = !empty($data['it_receiver_user_id'])
-            ? User::with('Jabatan')->find($data['it_receiver_user_id'])
-            : $admin->loadMissing('Jabatan');
-        $knownBy = !empty($data['known_by_user_id'])
-            ? User::with('Jabatan')->find($data['known_by_user_id'])
-            : null;
+        $participants = $this->returnDocumentParticipants($clearance, $data, $admin);
+        $document = DokumenPengembalianAset::create(
+            $this->returnDocumentData($clearance, $returnTransaction, $originalTransaction, $data, $admin, $date, $participants)
+        );
 
-        $document = DokumenPengembalianAset::create([
+        return $this->storePdf($document);
+    }
+
+    private function returnDocumentParticipants(PenyelesaianAsetPegawaiKeluar $clearance, array $data, User $admin): array
+    {
+        $pegawaiKeluar = $clearance->pegawaiKeluar()->with('user.Jabatan')->first();
+
+        return [
+            'pegawai_keluar' => $pegawaiKeluar,
+            'employee' => $pegawaiKeluar ? $pegawaiKeluar->user : null,
+            'it_receiver' => !empty($data['it_receiver_user_id'])
+                ? User::with('Jabatan')->find($data['it_receiver_user_id'])
+                : $admin->loadMissing('Jabatan'),
+            'known_by' => !empty($data['known_by_user_id'])
+                ? User::with('Jabatan')->find($data['known_by_user_id'])
+                : null,
+        ];
+    }
+
+    private function returnDocumentData(
+        PenyelesaianAsetPegawaiKeluar $clearance,
+        InventoryStockTransaction $returnTransaction,
+        InventoryStockTransaction $originalTransaction,
+        array $data,
+        User $admin,
+        Carbon $date,
+        array $participants
+    ): array {
+        $pegawaiKeluar = $participants['pegawai_keluar'];
+        $employee = $participants['employee'];
+        $itReceiver = $participants['it_receiver'];
+        $knownBy = $participants['known_by'];
+        $employeePosition = optional(optional($employee)->Jabatan)->nama_jabatan;
+        $receiverPosition = optional(optional($itReceiver)->Jabatan)->nama_jabatan;
+
+        return [
             'pegawai_keluar_asset_clearance_id' => $clearance->id,
             'return_inventory_stock_transaction_id' => $returnTransaction->id,
             'original_inventory_stock_transaction_id' => $originalTransaction->id,
@@ -345,18 +361,41 @@ class LayananAsetPegawaiKeluar
             'it_receiver_user_id' => $itReceiver->id ?? null,
             'known_by_user_id' => $knownBy->id ?? null,
             'nama_pengembali' => $employee->name ?? $originalTransaction->penerima_barang,
-            'jabatan_pengembali' => optional(optional($employee)->Jabatan)->nama_jabatan ?: $originalTransaction->jabatan_penerima,
-            'departemen_pengembali' => optional(optional($employee)->Jabatan)->nama_jabatan ?: $originalTransaction->departemen_penerima,
+            'jabatan_pengembali' => $employeePosition ?: $originalTransaction->jabatan_penerima,
+            'departemen_pengembali' => $employeePosition ?: $originalTransaction->departemen_penerima,
             'nama_penerima' => $itReceiver->name ?? $admin->name,
-            'jabatan_penerima' => optional(optional($itReceiver)->Jabatan)->nama_jabatan ?: 'IT',
-            'departemen_penerima' => optional(optional($itReceiver)->Jabatan)->nama_jabatan ?: 'IT',
+            'jabatan_penerima' => $receiverPosition ?: 'IT',
+            'departemen_penerima' => $receiverPosition ?: 'IT',
             'nama_mengetahui' => $knownBy->name ?? null,
             'kondisi_kembali' => $data['kondisi_barang'] ?? null,
             'kelengkapan' => $data['kelengkapan'] ?? null,
             'catatan' => $data['catatan'] ?? null,
-        ]);
+        ];
+    }
 
-        return $this->storePdf($document);
+    private function returnDocumentRelations(): array
+    {
+        return [
+            'inventory.lokasi',
+            'inventory.jabatan',
+            'pegawaiKeluar.user.Jabatan',
+            'employee.Jabatan',
+            'itReceiver.Jabatan',
+            'knownBy.Jabatan',
+            'originalTransaction',
+            'returnTransaction',
+        ];
+    }
+
+    private function returnDocumentPdfData(DokumenPengembalianAset $document): array
+    {
+        return [
+            'document' => $document,
+            'inventory' => $document->inventory,
+            'pegawaiKeluar' => $document->pegawaiKeluar,
+            'originalTransaction' => $document->originalTransaction,
+            'returnTransaction' => $document->returnTransaction,
+        ];
     }
 
     private function ensureTransactionBelongsToExitUser(PegawaiKeluar $pegawaiKeluar, InventoryStockTransaction $transaction): void

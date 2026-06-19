@@ -8,7 +8,7 @@
     <div class="col-md-6">
         <div class="form-group">
             <label for="kode_atk" class="float-left">Kode ATK</label>
-            <input type="text" class="form-control @error('kode_atk') is-invalid @enderror" id="kode_atk" name="kode_atk" value="{{ old('kode_atk', $atk->kode_atk ?? $kode_atk ?? '') }}">
+            <input type="text" class="form-control @error('kode_atk') is-invalid @enderror" id="kode_atk" name="kode_atk" value="{{ $atk->kode_atk ?? $kode_atk ?? '' }}" readonly>
             @error('kode_atk')
                 <div class="invalid-feedback">{{ $message }}</div>
             @enderror
@@ -76,6 +76,19 @@
     <label for="keterangan" class="form-label">Keterangan</label>
     <textarea name="keterangan" id="keterangan" class="form-control @error('keterangan') is-invalid @enderror" rows="4">{{ old('keterangan', $atk->keterangan ?? '') }}</textarea>
     @error('keterangan')
+        <div class="invalid-feedback">{{ $message }}</div>
+    @enderror
+</div>
+
+<div class="form-group">
+    <label for="foto_barang" class="float-left">Foto Barang</label>
+    @if ($atk && $atk->foto_barang)
+        <div class="mb-2">
+            <img src="{{ asset('storage/'.$atk->foto_barang) }}" alt="{{ $atk->nama_atk }}" class="img-fluid rounded" style="max-width: 180px; max-height: 140px; object-fit: cover;">
+        </div>
+    @endif
+    <input type="file" class="form-control @error('foto_barang') is-invalid @enderror" id="foto_barang" name="foto_barang" accept="image/jpeg,image/png,image/webp">
+    @error('foto_barang')
         <div class="invalid-feedback">{{ $message }}</div>
     @enderror
 </div>

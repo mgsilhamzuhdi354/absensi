@@ -170,6 +170,24 @@ class PegawaiKeluarTest extends TestCase
     }
 
     /** @test */
+    public function exit_approval_modal_renders_with_stable_ui_guards()
+    {
+        $pegawaiKeluar = $this->createExitRequest();
+
+        $this->actingAs($this->admin)
+            ->get('/exit')
+            ->assertOk()
+            ->assertSee('window.isUiInteractionLocked', false)
+            ->assertSee('select2-container--open', false)
+            ->assertSee('appUiSubmitting', false)
+            ->assertSee('id="exitModal' . $pegawaiKeluar->id . '"', false)
+            ->assertSee('class="approval-form"', false)
+            ->assertSee('status_exit_' . $pegawaiKeluar->id, false)
+            ->assertSee('notes_exit_' . $pegawaiKeluar->id, false)
+            ->assertSee('/exit/approval/' . $pegawaiKeluar->id, false);
+    }
+
+    /** @test */
     public function approval_is_blocked_while_employee_asset_is_not_clear()
     {
         $inventory = $this->createInventory(['stok' => 0]);

@@ -8,7 +8,7 @@
                         @csrf
                         <div class="group-input">
                             <label for="kode_barang" class="float-left">Kode Barang</label>
-                            <input type="text" class="@error('kode_barang') is-invalid @enderror" id="kode_barang" name="kode_barang" value="{{ old('kode_barang', $inventory->kode_barang) }}">
+                            <input type="text" class="@error('kode_barang') is-invalid @enderror" id="kode_barang" name="kode_barang" value="{{ $inventory->kode_barang }}" readonly>
                             @error('kode_barang')
                             <div class="invalid-feedback">
                                 {{ $message }}

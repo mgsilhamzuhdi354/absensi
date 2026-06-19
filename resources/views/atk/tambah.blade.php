@@ -15,7 +15,7 @@
         </div>
         <div class="col-md-12">
             <div class="card">
-                <form method="post" class="p-4" action="{{ url('/atk/store') }}">
+                <form method="post" class="p-4" action="{{ url('/atk/store') }}" enctype="multipart/form-data">
                     @csrf
                     @include('atk._form', ['submitLabel' => 'Submit'])
                 </form>

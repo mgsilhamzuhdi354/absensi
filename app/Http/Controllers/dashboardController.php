@@ -9,6 +9,7 @@ use App\Models\Lembur;
 use App\Models\Payroll;
 use App\Models\ResetCuti;
 use App\Models\MappingShift;
+use App\Models\Atk;
 use Illuminate\Http\Request;
 use App\Models\Reimbursement;
 use App\Models\LaporanKinerja;
@@ -124,6 +125,7 @@ class dashboardController extends Controller
                 ->selectRaw('jenis_kinerjas.nama AS nama, COALESCE(SUM(laporan_kinerjas.nilai), 0) AS total')
                 ->groupBy('jenis_kinerjas.id', 'jenis_kinerjas.nama')
                 ->get();
+            $atk_monitoring = $this->atkMonitoringData();
 
             return view('dashboard.index', [
                 'title' => 'Dashboard',
@@ -153,6 +155,7 @@ class dashboardController extends Controller
                 'kpi_period_label' => $kpi_period_label,
                 'kpi_tgl_mulai' => $kpi_tgl_mulai,
                 'kpi_tgl_akhir' => $kpi_tgl_akhir,
+                'atk_monitoring' => $atk_monitoring,
             ]);
         } else {
             $user_login = auth()->user()->id;
@@ -235,6 +238,27 @@ class dashboardController extends Controller
                     });
             })
             ->count();
+    }
+
+    private function atkMonitoringData()
+    {
+        if (!Schema::hasTable('atks')) {
+            return [
+                'active_count' => 0,
+                'low_stock_count' => 0,
+                'total_stock' => 0,
+                'latest_items' => collect(),
+                'low_stock_items' => collect(),
+            ];
+        }
+
+        return [
+            'active_count' => Atk::where('active', 1)->count(),
+            'low_stock_count' => Atk::where('active', 1)->where('stok', '<=', 5)->count(),
+            'total_stock' => round((float) Atk::where('active', 1)->sum('stok'), 2),
+            'latest_items' => Atk::where('active', 1)->latest('updated_at')->latest('id')->limit(5)->get(),
+            'low_stock_items' => Atk::where('active', 1)->where('stok', '<=', 5)->orderBy('stok')->limit(5)->get(),
+        ];
     }
 
     /**
