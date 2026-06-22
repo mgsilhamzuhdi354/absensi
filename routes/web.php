@@ -38,6 +38,7 @@ use App\Http\Controllers\StatusPtkpController;
 use App\Http\Controllers\JenisKinerjaController;
 use App\Http\Controllers\LaporanKerjaController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PwaPushController;
 use App\Http\Controllers\PegawaiKeluarController;
 use App\Http\Controllers\ReimbursementController;
 use App\Http\Controllers\TargetKinerjaController;
@@ -217,6 +218,9 @@ Route::get('/notifications/check-new', [NotificationController::class, 'checkNew
 Route::delete('/notifications/delete/{id}', [NotificationController::class, 'delete'])->middleware('auth');
 Route::delete('/notifications/delete-all', [NotificationController::class, 'deleteAll'])->middleware('auth');
 Route::delete('/notifications/delete-read', [NotificationController::class, 'deleteRead'])->middleware('auth');
+Route::get('/pwa-push/public-key', [PwaPushController::class, 'publicKey'])->middleware('auth');
+Route::post('/pwa-push/subscribe', [PwaPushController::class, 'subscribe'])->middleware('auth');
+Route::delete('/pwa-push/unsubscribe', [PwaPushController::class, 'unsubscribe'])->middleware('auth');
 
 Route::get('/menu', [dashboardController::class, 'menu'])->middleware('auth');
 

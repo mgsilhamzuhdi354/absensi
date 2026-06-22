@@ -86,6 +86,7 @@ class NotificationController extends Controller
     public function checkNew()
     {
         $since = request()->input('since');
+        $includeExistingStockAlerts = request()->boolean('include_existing_stock_alerts');
         
         $query = auth()->user()->notifications()
             ->whereNull('read_at')
@@ -98,6 +99,22 @@ class NotificationController extends Controller
         }
         
         $unreadNotifications = $query->take(5)->get();
+
+        if ($includeExistingStockAlerts) {
+            $existingStockAlerts = auth()->user()->notifications()
+                ->whereNull('read_at')
+                ->get()
+                ->filter(function ($notif) {
+                    return (bool) ($notif->data['stock_alert'] ?? false);
+                });
+
+            $unreadNotifications = $unreadNotifications
+                ->concat($existingStockAlerts)
+                ->unique('id')
+                ->sortByDesc('created_at')
+                ->take(5)
+                ->values();
+        }
         
         $notifications = $unreadNotifications->map(function($notif) {
             return [
@@ -105,6 +122,8 @@ class NotificationController extends Controller
                 'message' => $notif->data['message'] ?? '',
                 'from' => $notif->data['from'] ?? '',
                 'action' => $notif->data['action'] ?? '/notifications',
+                'is_stock_alert' => (bool) ($notif->data['stock_alert'] ?? false),
+                'severity' => $notif->data['stock_alert_status'] ?? null,
                 'created_at' => $notif->created_at->diffForHumans(),
                 'timestamp' => $notif->created_at->timestamp,
             ];

@@ -15,6 +15,7 @@ use App\Models\Reimbursement;
 use App\Models\LaporanKinerja;
 use App\Models\JenisKinerja;
 use App\Models\InventoryBastDocument;
+use App\Services\StockAlertService;
 use Illuminate\Support\Facades\Schema;
 
 class dashboardController extends Controller
@@ -125,6 +126,8 @@ class dashboardController extends Controller
                 ->selectRaw('jenis_kinerjas.nama AS nama, COALESCE(SUM(laporan_kinerjas.nilai), 0) AS total')
                 ->groupBy('jenis_kinerjas.id', 'jenis_kinerjas.nama')
                 ->get();
+
+            app(StockAlertService::class)->checkAll();
             $atk_monitoring = $this->atkMonitoringData();
 
             return view('dashboard.index', [

@@ -46,12 +46,17 @@
 
                     @foreach ($inboxs as $inbox)
                         @php
-                            $user = App\Models\User::find($inbox->data['user_id']);
+                            $data = $inbox->data ?? [];
+                            $user = App\Models\User::find($data['user_id'] ?? null);
+                            $fromName = $data['from'] ?? optional($user)->name ?? 'Sistem';
+                            $message = $data['message'] ?? '';
+                            $action = $data['action'] ?? '/notifications';
+                            $isStockAlert = (bool) ($data['stock_alert'] ?? false);
                         @endphp
                         <li class="list-card-invoice tf-topbar d-flex justify-content-between align-iteinbox-center p-2"
                             style="{{ !$inbox->read_at ? 'background-color: rgb(231, 231, 231)' : 'background-color: rgb(251, 251, 251)' }}">
                             <div class="user-info">
-                                @if($user->foto_karyawan == null)
+                                @if(!$user || $user->foto_karyawan == null)
                                     <img src="{{ url('/assets/img/foto_default.jpg') }}" alt="image">
                                 @else
                                     <img src="{{ url('/storage/' . $user->foto_karyawan) }}" alt="image">
@@ -59,13 +64,13 @@
                             </div>
                             <div class="content-right">
                                 <h4><a
-                                        href="{!! !$inbox->read_at ? url('/notifications/read-message/' . $inbox->id) : url($inbox->data['action']) !!}">{{ $user->name }}
-                                        <span>{{ $inbox->status_pengajuan }}</span></a></h4>
+                                        href="{!! !$inbox->read_at ? url('/notifications/read-message/' . $inbox->id) : url($action) !!}">{{ $fromName }}
+                                        <span>{{ $isStockAlert ? 'Stok' : $inbox->status_pengajuan }}</span></a></h4>
                                 <p><a style="color: rgb(141, 141, 141)"
-                                        href="{!! !$inbox->read_at ? url('/notifications/read-message/' . $inbox->id) : url($inbox->data['action']) !!}">{{ $inbox->data['message'] }}
+                                        href="{!! !$inbox->read_at ? url('/notifications/read-message/' . $inbox->id) : url($action) !!}">{{ $message }}
                                         <span>{{ date('d M Y H:i:s', strtotime($inbox->created_at)) }}</span></a></p>
                                 <p><a style="color: rgb(141, 141, 141)"
-                                        href="{!! !$inbox->read_at ? url('/notifications/read-message/' . $inbox->id) : url($inbox->data['action']) !!}">{{ $inbox->deskripsi }}</a>
+                                        href="{!! !$inbox->read_at ? url('/notifications/read-message/' . $inbox->id) : url($action) !!}">{{ $inbox->deskripsi }}</a>
                                 </p>
                             </div>
                         </li>

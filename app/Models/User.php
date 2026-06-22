@@ -111,4 +111,9 @@ class User extends Authenticatable
     {
         return $this->morphMany(DatabaseNotification::class, 'notifiable')->orderBy('created_at', 'desc');
     }
+
+    public function pwaPushSubscriptions()
+    {
+        return $this->hasMany(PwaPushSubscription::class);
+    }
 }

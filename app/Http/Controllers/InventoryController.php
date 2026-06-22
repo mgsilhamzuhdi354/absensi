@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\InventoryBastService;
 use App\Services\InventoryQrService;
 use App\Services\InventoryStockService;
+use App\Services\StockAlertService;
 use App\Notifications\UserNotification;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -28,12 +29,14 @@ class InventoryController extends Controller
     private $qrService;
     private $stockService;
     private $bastService;
+    private $stockAlertService;
 
-    public function __construct(InventoryQrService $qrService, InventoryStockService $stockService, InventoryBastService $bastService)
+    public function __construct(InventoryQrService $qrService, InventoryStockService $stockService, InventoryBastService $bastService, StockAlertService $stockAlertService)
     {
         $this->qrService = $qrService;
         $this->stockService = $stockService;
         $this->bastService = $bastService;
+        $this->stockAlertService = $stockAlertService;
     }
 
     public function index()
@@ -96,6 +99,8 @@ class InventoryController extends Controller
             }
         });
 
+        $this->stockAlertService->checkInventory($inventory->fresh());
+
         return redirect('/inventory/' . $inventory->id . '/detail')->with('success', 'Data Berhasil Disimpan');
     }
 
@@ -128,6 +133,7 @@ class InventoryController extends Controller
         $inventory->refresh();
         $this->syncInventoryChangesToStockHistory($inventory, $oldCondition);
         $this->bastService->refreshFilesForInventory($inventory);
+        $this->stockAlertService->checkInventory($inventory);
 
         return redirect('/inventory/' . $inventory->id . '/detail')->with('success', 'Data Berhasil Diupdate');
     }
@@ -145,6 +151,7 @@ class InventoryController extends Controller
         if ($inventory->qr_code_image) {
             Storage::disk(self::PUBLIC_DISK)->delete($inventory->qr_code_image);
         }
+        $this->stockAlertService->resolve($inventory);
         $inventory->delete();
         return redirect('/inventory')->with('success', 'Data Berhasil Dihapus');
     }
@@ -221,6 +228,7 @@ class InventoryController extends Controller
         ]);
 
         $this->stockService->stockIn($inventory, $validated, auth()->user());
+        $this->stockAlertService->checkInventory($inventory->fresh());
 
         return redirect('/inventory/' . $inventory->id . '/detail')->with('success', 'Stok masuk berhasil disimpan');
     }
@@ -233,6 +241,7 @@ class InventoryController extends Controller
 
         $transaction = $this->stockService->stockOut($inventory, $validated, auth()->user());
         $bastMessage = $this->createAutomaticBastForStockOut($transaction, $validated);
+        $this->stockAlertService->checkInventory($inventory->fresh());
 
         return redirect('/inventory/' . $inventory->id . '/detail')
             ->with('success', 'Stok keluar / pindah tangan berhasil disimpan' . ($bastMessage ?? ''));
@@ -252,6 +261,10 @@ class InventoryController extends Controller
         DB::transaction(function () use ($transaction) {
             $this->reverseStockTransaction($transaction);
         });
+
+        if ($inventory = Inventory::find($inventoryId)) {
+            $this->stockAlertService->checkInventory($inventory);
+        }
 
         return redirect('/inventory/' . $inventoryId . '/detail')
             ->with('success', 'Riwayat stok berhasil dihapus dan tercatat siapa yang menghapus.');

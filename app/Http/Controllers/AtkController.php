@@ -7,6 +7,7 @@ use App\Models\Atk;
 use App\Models\AtkStockTransaction;
 use App\Models\Counter;
 use App\Services\AtkQrService;
+use App\Services\StockAlertService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -17,10 +18,12 @@ class AtkController extends Controller
     private const PUBLIC_DISK = 'public';
 
     private $qrService;
+    private $stockAlertService;
 
-    public function __construct(AtkQrService $qrService)
+    public function __construct(AtkQrService $qrService, StockAlertService $stockAlertService)
     {
         $this->qrService = $qrService;
+        $this->stockAlertService = $stockAlertService;
     }
 
     public function index()
@@ -73,6 +76,8 @@ class AtkController extends Controller
             }
         });
 
+        $this->stockAlertService->checkAtk($atk->fresh());
+
         return redirect('/atk/' . $atk->id . '/detail')->with('success', 'Data Berhasil Disimpan');
     }
 
@@ -108,6 +113,7 @@ class AtkController extends Controller
         $validated = $this->validatedAtkData($request, $atk);
         $atk->update($validated);
         $this->qrService->ensure($atk, true);
+        $this->stockAlertService->checkAtk($atk->fresh());
 
         return redirect('/atk/' . $atk->id . '/detail')->with('success', 'Data Berhasil Diupdate');
     }
@@ -125,6 +131,7 @@ class AtkController extends Controller
         if ($atk->foto_barang) {
             Storage::disk(self::PUBLIC_DISK)->delete($atk->foto_barang);
         }
+        $this->stockAlertService->resolve($atk);
         $atk->delete();
 
         return redirect('/atk')->with('success', 'Data Berhasil Dihapus');
@@ -141,6 +148,7 @@ class AtkController extends Controller
         ]);
 
         $this->recordStockTransaction($atk, 'masuk', $validated);
+        $this->stockAlertService->checkAtk($atk->fresh());
 
         return redirect('/atk/' . $atk->id . '/detail')->with('success', 'Stok masuk ATK berhasil disimpan');
     }
@@ -156,6 +164,7 @@ class AtkController extends Controller
         ]);
 
         $this->recordStockTransaction($atk, 'keluar', $validated);
+        $this->stockAlertService->checkAtk($atk->fresh());
 
         return redirect('/atk/' . $atk->id . '/detail')->with('success', 'Stok keluar ATK berhasil disimpan');
     }
@@ -189,6 +198,10 @@ class AtkController extends Controller
             ])->save();
             $transaction->delete();
         });
+
+        if ($atk = Atk::find($atkId)) {
+            $this->stockAlertService->checkAtk($atk);
+        }
 
         return redirect('/atk/' . $atkId . '/detail')
             ->with('success', 'Riwayat stok ATK berhasil dihapus dan stok sudah disesuaikan.');

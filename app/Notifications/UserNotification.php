@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\PwaPushChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -29,7 +30,7 @@ class UserNotification extends Notification
      */
     public function via($notifiable)
     {
-        return ['database'];
+        return ['database', PwaPushChannel::class];
     }
 
     /**

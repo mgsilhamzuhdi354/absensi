@@ -12,6 +12,7 @@
   <meta name="author" content="pixelstrap">
   <link rel="shortcut icon" href="{{ url('/storage/' . $settings->logo) }}" />
   <link rel="apple-touch-icon-precomposed" href="{{ url('/storage/' . $settings->logo) }}" />
+  <link rel="manifest" href="{{ url('/manifest.json') }}" data-pwa-version="set_in_manifest_and_pwa_js">
   <title>{{ $title }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -536,6 +537,7 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="{{ url('/push/bin/push.js') }}"></script>
   <script src="{{ url('/js/app.js') }}"></script>
+  @include('partials.pwa-push-registration')
   <script>
     // Konfigurasi Push.js dengan scope dan serviceWorker spesifik
     Push.config({
@@ -601,7 +603,7 @@
         return; // Skip polling saat modal sedang terbuka
       }
 
-      fetch('/notifications/check-new?since=' + pageLoadTime)
+      fetch('/notifications/check-new?since=' + pageLoadTime + '&include_existing_stock_alerts=1')
         .then(response => response.json())
         .then(data => {
           // Cek lagi apakah modal sudah terbuka (setelah fetch selesai)
@@ -614,9 +616,13 @@
             data.notifications.forEach(notif => {
               if (!shownNotifIds.includes(notif.id)) {
                 shownNotifIds.push(notif.id);
+                var isStockAlert = !!notif.is_stock_alert;
+                var alertIcon = isStockAlert && notif.severity === 'empty' ? 'error' : (isStockAlert ? 'warning' : 'info');
 
                 Swal.fire({
+                  icon: alertIcon,
                   title: '<span style="color: #1e293b; font-weight: 700;">🔔 Notifikasi Baru</span>',
+                  title: '<span style="color: #1e293b; font-weight: 700;">' + (isStockAlert ? 'Peringatan Stok' : 'Notifikasi Baru') + '</span>',
                   html: `
                                         <div style="padding: 15px;">
                                             <div style="width: 80px; height: 80px; margin: 0 auto 20px; background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: pulseNotif 1.5s ease-in-out infinite;">

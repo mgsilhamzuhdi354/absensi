@@ -59,23 +59,28 @@
                 <div class="inbox">
                   @foreach ($inboxs as $inbox)
                     @php
-                      $user = App\Models\User::find($inbox->data['user_id']);
+                      $data = $inbox->data ?? [];
+                      $user = App\Models\User::find($data['user_id'] ?? null);
+                      $fromName = $data['from'] ?? optional($user)->name ?? 'Sistem';
+                      $message = $data['message'] ?? '';
+                      $action = $data['action'] ?? '/notifications';
+                      $isStockAlert = (bool) ($data['stock_alert'] ?? false);
                     @endphp
                     <div class="d-flex align-items-center"
                       style="{{ !$inbox->read_at ? 'background-color: rgb(241, 241, 241)' : '' }}">
-                      <a href="{!! !$inbox->read_at ? url('/notifications/read-message/' . $inbox->id) : url($inbox->data['action']) !!}"
+                      <a href="{!! !$inbox->read_at ? url('/notifications/read-message/' . $inbox->id) : url($action) !!}"
                         class="d-flex flex-grow-1" style="text-decoration: none; color: inherit;">
                         <div class="d-flex-size-email">
                           <label class="d-block mb-0">
-                            @if ($user->foto_karyawan == null)
+                            @if (!$user || $user->foto_karyawan == null)
                               <img class="me-3 rounded-circle" src="{{ url('assets/img/foto_default.jpg') }}" alt="image">
                             @else
                               <img class="me-3 rounded-circle" src="{{ url('/storage/' . $user->foto_karyawan) }}" alt="">
                             @endif
                         </div>
                         <div class="flex-grow-1">
-                          <h6>{{ $user->name }} </h6>
-                          <p>{{ $inbox->data['message'] }}</p>
+                          <h6>{{ $fromName }} @if($isStockAlert)<span class="badge badge-warning ms-2">Stok</span>@endif</h6>
+                          <p>{{ $message }}</p>
                           <span>{{ date('d M Y H:i:s', strtotime($inbox->created_at)) }}</span>
                         </div>
                       </a>
