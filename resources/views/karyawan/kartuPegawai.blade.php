@@ -1,64 +1,99 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <!-- Mobile Specific Metas -->
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, viewport-fit=cover">
     <title>{{ $title }}</title>
-    <!-- Favicon and Touch Icons  -->
     <link rel="shortcut icon" href="{{ url('/myhr/images/logo.png') }}" />
     <link rel="apple-touch-icon-precomposed" href="{{ url('/myhr/images/logo.png') }}" />
-    <!-- Font -->
     <link rel="stylesheet" href="{{ url('/myhr/fonts/fonts.css') }}" />
-    <!-- Icons -->
     <link rel="stylesheet" href="{{ url('/myhr/fonts/icons-alipay.css') }}">
     <link rel="stylesheet" href="{{ url('/myhr/styles/bootstrap.css') }}">
     <link rel="stylesheet" href="{{ url('adminlte/plugins/fontawesome-free/css/all.min.css') }}">
-
     <link rel="stylesheet" type="text/css" href="{{ url('/myhr/styles/styles.css') }}" />
     <link rel="manifest" href="{{ url('/myhr/_manifest.json') }}" data-pwa-version="set_in_manifest_and_pwa_js">
     <link rel="apple-touch-icon" sizes="192x192" href="{{ url('/myhr/app/icons/icon-192x192.png') }}">
     <style>
-        .kartu {
-            width: 300px;
-            background-color: #e9e9e9;
-            border-radius: 30px;
-            padding: 20px;
+        .id-card-shell {
+            background: #fff;
+            border-radius: 16px;
+            padding: 18px;
             text-align: center;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 6px 22px rgba(15, 23, 42, 0.1);
         }
 
-        .barcode {
-            width: 100%;
-            height: 200px;
-            background-color: #000;
-            border-radius: 30px;
-            margin-bottom: 70px;
-        }
-
-        .member-name {
-            font-size: 24px;
+        .id-photo {
+            width: 86px;
+            height: 86px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 3px solid #e5e7eb;
             margin-bottom: 10px;
         }
 
-        .membership-type {
-            font-size: 18px;
-            color: #666;
+        .id-name {
+            font-size: 22px;
+            font-weight: 800;
+            margin: 0 0 3px;
+            color: #172033;
+        }
+
+        .id-meta {
+            margin: 0;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .qr-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .qr-box {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px 8px;
+            background: #f8fafc;
+        }
+
+        .qr-box img {
+            width: 140px;
+            height: 140px;
+            object-fit: contain;
+        }
+
+        .qr-box strong {
+            display: block;
+            font-size: 12px;
+            color: #334155;
+            margin-top: 6px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 18px;
+        }
+
+        .actions .btn {
+            border-radius: 12px;
         }
     </style>
 </head>
 
 <body class="bg_surface_color">
-     <!-- preloade -->
      <div class="preload preload-container">
         <div class="preload-logo">
           <div class="spinner"></div>
         </div>
       </div>
-    <!-- /preload -->
+
     <div class="header is-fixed">
         <div class="tf-container">
             <div class="tf-statusbar d-flex justify-content-center align-items-center">
@@ -70,54 +105,47 @@
     <div id="app-wrap">
         <div class="bill-payment-content">
             <div class="tf-container">
-
                 <div class="wrapper-bill">
-                    <div class="archive-bottom ">
-                        <center>
-                            @php
-                                $result = Endroid\QrCode\Builder\Builder::create()
-                               ->writer(new Endroid\QrCode\Writer\PngWriter())
-                               ->writerOptions([])
-                               ->data(auth()->user()->username)
-                               ->encoding(new Endroid\QrCode\Encoding\Encoding('UTF-8'))
-                               ->errorCorrectionLevel(new Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelHigh())
-                               ->size(300)
-                               ->margin(10)
-                               ->roundBlockSizeMode(new Endroid\QrCode\RoundBlockSizeMode\RoundBlockSizeModeMargin())
-                               ->validateResult(false)
-                               ->build();
+                    <div class="archive-bottom">
+                        <div class="id-card-shell">
+                            @if($user->foto_karyawan)
+                                <img class="id-photo" src="{{ asset('storage/'.$user->foto_karyawan) }}" alt="{{ $user->name }}">
+                            @else
+                                <img class="id-photo" src="{{ asset('assets/img/foto_default.jpg') }}" alt="{{ $user->name }}">
+                            @endif
 
-                               $result->saveToFile(public_path('/assets/qrcode/'.auth()->user()->username.'.png'));
-                               $dataUri = $result->getDataUri();
-                           @endphp
+                            <h2 class="id-name">{{ $user->name }}</h2>
+                            <p class="id-meta">{{ $user->employee_id ?? $user->username ?? '-' }}</p>
+                            <p class="id-meta">{{ $user->Jabatan->nama_jabatan ?? '-' }}</p>
 
-                           <div class="kartu mb-4">
-                                <div class="barcode">
-                                    <img src="{{ url('/assets/qrcode/'.auth()->user()->username.'.png') }}" alt="{{ auth()->user()->username }}.png" class="mt-3" style="width: 160px">
+                            <div class="qr-tabs">
+                                <div class="qr-box">
+                                    <img src="{{ asset('storage/'.$user->employee_qr_profile_image) }}" alt="QR Profil">
+                                    <strong>Profil</strong>
                                 </div>
-                               <h2 class="member-name">{{ auth()->user()->name }}</h2>
-                                <p class="membership-type">{{ auth()->user()->Jabatan->nama_jabatan ?? '-' }}</p>
-                           </div>
+                                <div class="qr-box">
+                                    <img src="{{ asset('storage/'.$user->employee_qr_vcard_image) }}" alt="QR Simpan Kontak">
+                                    <strong>Kontak</strong>
+                                </div>
+                            </div>
 
-                           <a href="{{ url('/pegawai/print/'.auth()->user()->id) }}" target="_blank" class="btn btn-primary"  style="border-radius: 15px"><i class="fa fa-download me-2"></i>Download</a>
-                           <br><br><br>
-
-                        </center>
+                            <div class="actions">
+                                <a href="{{ $user->employee_qr_profile_value }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                    <i class="fa fa-eye me-1"></i> Preview
+                                </a>
+                                <a href="{{ url('/pegawai/print/'.$user->id.'?mode=profile') }}" target="_blank" class="btn btn-primary btn-sm">
+                                    <i class="fa fa-print me-1"></i> Cetak Profil
+                                </a>
+                                <a href="{{ url('/pegawai/print/'.$user->id.'?mode=vcard') }}" target="_blank" class="btn btn-secondary btn-sm">
+                                    <i class="fa fa-address-card me-1"></i> Cetak Kontak
+                                </a>
+                            </div>
+                        </div>
                     </div>
-
                  </div>
-
-
             </div>
-
          </div>
     </div>
-
-
-
-
-
-
 
     <script type="text/javascript" src="{{ url('/myhr/javascript/jquery.min.js') }}"></script>
     <script type="text/javascript" src="{{ url('/myhr/javascript/bootstrap.min.js') }}"></script>

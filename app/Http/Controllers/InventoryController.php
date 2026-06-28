@@ -55,6 +55,9 @@ class InventoryController extends Controller
                                 ->when(auth()->user()->is_admin !== 'admin', function ($query) {
                                     $query->where('jabatan_id', auth()->user()->jabatan_id);
                                 })
+                                ->when(Schema::hasTable('inventory_stock_variants'), function ($query) {
+                                    $query->with('stockVariants');
+                                })
                                 ->orderBy('id', 'DESC')
                                 ->paginate(10)
                                 ->withQueryString();
@@ -83,9 +86,11 @@ class InventoryController extends Controller
     public function store(Request $request)
     {
         $validated = $this->validatedInventoryData($request);
-        $inventory = DB::transaction(function () use ($validated) {
+        $initialColor = $request->input('warna_barang');
+        $inventory = DB::transaction(function () use ($validated, $initialColor) {
             $validated['kode_barang'] = $this->generateKodeBarang();
             $inventory = Inventory::create($validated);
+            $this->stockService->syncVariantTotal($inventory, $initialColor);
 
             try {
                 return $this->qrService->ensure($inventory, true);
@@ -113,6 +118,9 @@ class InventoryController extends Controller
         if (!$inventory) {
             return redirect('/inventory')->with('error', 'Data inventory sudah tidak tersedia.');
         }
+        if (Schema::hasTable('inventory_stock_variants')) {
+            $inventory->load('stockVariants');
+        }
 
         return view(auth()->user()->is_admin == 'admin' ? 'inventory.edit' : 'inventory.editUser', compact(
             'title',
@@ -129,6 +137,7 @@ class InventoryController extends Controller
         $validated = $this->validatedInventoryData($request, $inventory);
 
         $inventory->update($validated);
+        $this->stockService->syncVariantTotal($inventory->fresh(), $request->input('warna_barang'));
         $this->qrService->ensure($inventory, true);
         $inventory->refresh();
         $this->syncInventoryChangesToStockHistory($inventory, $oldCondition);
@@ -167,6 +176,9 @@ class InventoryController extends Controller
         $inventory = $this->qrService->ensure($inventory);
         $inventoryReturnTablesReady = $this->inventoryReturnTablesReady();
         $inventory->load($this->stockTransactionRelations($inventoryReturnTablesReady));
+        if (Schema::hasTable('inventory_stock_variants')) {
+            $inventory->load('stockVariants');
+        }
 
         $deletedStockTransactions = $this->deletedStockTransactions($inventory, $inventoryReturnTablesReady);
         $currentHolderTransaction = $this->currentHolderTransaction($inventory);
@@ -221,6 +233,7 @@ class InventoryController extends Controller
         $validated = $request->validate([
             'tanggal_transaksi' => 'required|date',
             'jumlah' => 'required|numeric|min:0.01',
+            'warna_barang' => 'nullable|string|max:80',
             'sumber_barang' => 'nullable|string|max:255',
             'kondisi_barang' => 'nullable|string|max:255',
             'lokasi_id' => 'nullable|exists:lokasis,id',
@@ -245,6 +258,27 @@ class InventoryController extends Controller
 
         return redirect('/inventory/' . $inventory->id . '/detail')
             ->with('success', 'Stok keluar / pindah tangan berhasil disimpan' . ($bastMessage ?? ''));
+    }
+
+    public function updateStockAlert(Request $request, $id)
+    {
+        $inventory = Inventory::findOrFail($id);
+        $request->validate([
+            'stock_alert_enabled' => 'nullable|boolean',
+        ]);
+
+        $inventory->forceFill([
+            'stock_alert_enabled' => $request->boolean('stock_alert_enabled') ? 1 : 0,
+        ])->save();
+
+        $this->stockAlertService->checkInventory($inventory->fresh());
+
+        return back()->with(
+            'success',
+            $inventory->stock_alert_enabled
+                ? 'Notifikasi stok aset berhasil diaktifkan.'
+                : 'Notifikasi stok aset berhasil dinonaktifkan.'
+        );
     }
 
     public function deleteStockTransaction($id)
@@ -533,6 +567,7 @@ class InventoryController extends Controller
         return $request->validate([
             'tanggal_transaksi' => 'required|date',
             'jumlah' => 'required|numeric|min:' . $minimumQuantity,
+            'warna_barang' => 'nullable|string|max:80',
             'penerima_user_id' => 'nullable|exists:users,id',
             'penerima_barang' => 'required_without:penerima_user_id|nullable|string|max:255',
             'jabatan_penerima' => 'nullable|string|max:255',
@@ -623,6 +658,7 @@ class InventoryController extends Controller
         $lockedInventory->update([
             'stok' => max(0, $newStock),
         ]);
+        $this->stockService->reverseVariantForDeletedTransaction($lockedInventory, $transaction);
 
         $transaction->forceFill([
             'deleted_by' => auth()->id(),
@@ -692,6 +728,8 @@ class InventoryController extends Controller
             'lokasi_id' => 'required|exists:lokasis,id',
             'jabatan_id' => 'required|exists:jabatans,id',
             'foto_barang' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'stock_alert_enabled' => 'nullable|boolean',
+            'warna_barang' => 'nullable|string|max:80',
         ], [
             'uom.not_regex' => 'UoM harus berupa nama satuan, contoh Unit, Pcs, Set, Box, bukan angka stok.',
         ]);
@@ -705,6 +743,10 @@ class InventoryController extends Controller
         $validated['stok'] = Inventory::isWholeStockUom($validated['uom'])
             ? (int) round((float) $validated['stok'])
             : round((float) $validated['stok'], 2);
+        $defaultStockAlertEnabled = $inventory ? (bool) $inventory->stock_alert_enabled : true;
+        $validated['stock_alert_enabled'] = $request->has('stock_alert_enabled')
+            ? ($request->boolean('stock_alert_enabled') ? 1 : 0)
+            : ($defaultStockAlertEnabled ? 1 : 0);
 
         if ($inventory) {
             $validated['kode_barang'] = $inventory->kode_barang;
@@ -712,6 +754,7 @@ class InventoryController extends Controller
             unset($validated['kode_barang']);
         }
         unset($validated['foto_barang']);
+        unset($validated['warna_barang']);
 
         if ($request->hasFile('foto_barang')) {
             if ($inventory && $inventory->foto_barang) {

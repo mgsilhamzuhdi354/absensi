@@ -13,6 +13,7 @@ class Inventory extends Model
     protected $casts = [
         'stok' => 'float',
         'tanggal_masuk' => 'date',
+        'stock_alert_enabled' => 'boolean',
     ];
 
     public function lokasi()
@@ -28,6 +29,11 @@ class Inventory extends Model
     public function stockTransactions()
     {
         return $this->hasMany(InventoryStockTransaction::class)->latest('tanggal_transaksi')->latest('id');
+    }
+
+    public function stockVariants()
+    {
+        return $this->hasMany(InventoryStockVariant::class)->orderBy('warna_barang');
     }
 
     public function getStockQuantityAttribute(): float

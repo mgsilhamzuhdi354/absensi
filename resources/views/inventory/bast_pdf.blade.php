@@ -313,6 +313,7 @@
                 <td>
                     Merk/Tipe: {{ $inventory->merk_tipe ?: '-' }}<br>
                     SN: {{ $inventory->serial_number ?: '-' }}<br>
+                    Warna: {{ $transaction->warna_barang ?: 'Umum' }}<br>
                     Spesifikasi: {{ $inventory->spesifikasi ?: $inventory->desc ?: '-' }}
                 </td>
                 <td class="center">{{ $inventory->formatStockValue($transaction->jumlah) }} {{ $inventory->display_uom }}</td>

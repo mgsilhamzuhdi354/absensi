@@ -5,12 +5,14 @@ namespace App\Services;
 use App\Models\Inventory;
 use App\Models\DokumenPengembalianAset;
 use App\Models\InventoryStockTransaction;
+use App\Models\InventoryStockVariant;
 use App\Models\PegawaiKeluar;
 use App\Models\PenyelesaianAsetPegawaiKeluar;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -65,6 +67,7 @@ class LayananAsetPegawaiKeluar
                     ->from('inventory_stock_transactions as newer')
                     ->whereColumn('newer.inventory_id', 'inventory_stock_transactions.inventory_id')
                     ->whereNull('newer.deleted_at')
+                    ->whereRaw("COALESCE(newer.warna_barang, 'Umum') = COALESCE(inventory_stock_transactions.warna_barang, 'Umum')")
                     ->where(function ($latest) {
                         $latest->whereColumn('newer.tanggal_transaksi', '>', 'inventory_stock_transactions.tanggal_transaksi')
                             ->orWhere(function ($sameDate) {
@@ -95,6 +98,7 @@ class LayananAsetPegawaiKeluar
             $returnData = $this->returnData($lockedInventory, $originalTransaction, $data);
 
             $this->updateInventoryAfterReturn($lockedInventory, $returnData);
+            $this->increaseVariantAfterReturn($lockedInventory, $returnData);
             $returnTransaction = $this->createReturnTransaction($pegawaiKeluar, $originalTransaction, $returnData, $data, $admin);
             $this->markClearanceReturned($clearance, $returnTransaction);
 
@@ -215,6 +219,7 @@ class LayananAsetPegawaiKeluar
 
         return [
             'quantity' => $quantity,
+            'warna_barang' => $this->normalizeColor($originalTransaction->warna_barang ?? null),
             'stok_sebelum' => $stokSebelum,
             'stok_sesudah' => $stokSesudah,
             'stok_akhir' => $inventory->usesWholeStock() ? (int) round($stokSesudah) : round($stokSesudah, 2),
@@ -234,6 +239,30 @@ class LayananAsetPegawaiKeluar
         ]);
     }
 
+    private function increaseVariantAfterReturn(Inventory $inventory, array $returnData): void
+    {
+        if (!Schema::hasTable('inventory_stock_variants')) {
+            return;
+        }
+
+        $variant = InventoryStockVariant::where('inventory_id', $inventory->id)
+            ->where('warna_barang', $returnData['warna_barang'])
+            ->lockForUpdate()
+            ->first();
+
+        if (!$variant) {
+            $variant = InventoryStockVariant::create([
+                'inventory_id' => $inventory->id,
+                'warna_barang' => $returnData['warna_barang'],
+                'stok' => 0,
+            ]);
+        }
+
+        $variant->update([
+            'stok' => round(max(0, (float) $variant->stok) + (float) $returnData['quantity'], 2),
+        ]);
+    }
+
     private function createReturnTransaction(PegawaiKeluar $pegawaiKeluar, InventoryStockTransaction $originalTransaction, array $returnData, array $data, User $admin)
     {
         return InventoryStockTransaction::create([
@@ -242,6 +271,7 @@ class LayananAsetPegawaiKeluar
             'pegawai_keluar_id' => $pegawaiKeluar->id,
             'jenis_transaksi' => self::TRANSAKSI_MASUK,
             'jumlah' => $returnData['quantity'],
+            'warna_barang' => $returnData['warna_barang'],
             'stok_sebelum' => $returnData['stok_sebelum'],
             'stok_sesudah' => $returnData['stok_sesudah'],
             'tanggal_transaksi' => $data['tanggal_kembali'],
@@ -466,6 +496,13 @@ class LayananAsetPegawaiKeluar
         }
 
         return $quantity;
+    }
+
+    private function normalizeColor($value): string
+    {
+        $color = trim(preg_replace('/\s+/', ' ', (string) $value));
+
+        return $color !== '' ? mb_substr($color, 0, 80) : 'Umum';
     }
 
     private function stockBeforeTransaction(Inventory $inventory): float

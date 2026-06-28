@@ -2,6 +2,8 @@
     $atk = $atk ?? null;
     $submitLabel = $submitLabel ?? 'Submit';
     $isActive = old('active', $atk ? $atk->active : 1);
+    $stockAlertEnabled = old('stock_alert_enabled', $atk ? (int) ($atk->stock_alert_enabled ?? true) : 1);
+    $warnaOptions = $atk && $atk->relationLoaded('stockVariants') ? $atk->stockVariants : collect();
 @endphp
 
 <div class="row">
@@ -65,6 +67,25 @@
 </div>
 
 <div class="form-group">
+    <label for="warna_barang" class="float-left">Warna Stok Awal / Penyesuaian</label>
+    <input type="text" class="form-control @error('warna_barang') is-invalid @enderror" id="warna_barang" name="warna_barang" list="warna_atk_options" value="{{ old('warna_barang', 'Umum') }}" placeholder="Contoh: Merah, Biru, Hitam">
+    <datalist id="warna_atk_options">
+        <option value="Umum">
+        <option value="Merah">
+        <option value="Hitam">
+        <option value="Biru">
+        <option value="Putih">
+        <option value="Hijau">
+        @foreach ($warnaOptions as $variant)
+            <option value="{{ $variant->warna_barang }}">
+        @endforeach
+    </datalist>
+    @error('warna_barang')
+        <div class="invalid-feedback">{{ $message }}</div>
+    @enderror
+</div>
+
+<div class="form-group">
     <label for="lokasi" class="float-left">Lokasi</label>
     <input type="text" class="form-control @error('lokasi') is-invalid @enderror" id="lokasi" name="lokasi" value="{{ old('lokasi', $atk->lokasi ?? '') }}">
     @error('lokasi')
@@ -97,6 +118,12 @@
     <input type="hidden" name="active" value="0">
     <input name="active" class="form-check-input" type="checkbox" value="1" id="active" {{ (string) $isActive === '1' ? 'checked' : '' }}>
     <label class="form-check-label" for="active">Aktif</label>
+</div>
+
+<div class="form-group">
+    <input type="hidden" name="stock_alert_enabled" value="0">
+    <input name="stock_alert_enabled" class="form-check-input" type="checkbox" value="1" id="stock_alert_enabled" {{ (string) $stockAlertEnabled === '1' ? 'checked' : '' }}>
+    <label class="form-check-label" for="stock_alert_enabled">Notifikasi stok menipis/habis</label>
 </div>
 
 <button type="submit" class="btn btn-primary float-right">{{ $submitLabel }}</button>

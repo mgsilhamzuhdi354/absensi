@@ -616,6 +616,7 @@ class SmartAbsenParser
     public function matchEmployee(string $rawName, Collection $users, ?string $rawEmployeeId = null): array
     {
         $rawNameClean = $this->normalizeText($rawName);
+        $rawNameAliases = $this->nameAliasesForMatching($rawNameClean);
         $rawEmployeeIdClean = $this->normalizeText((string) $rawEmployeeId);
 
         if ($rawEmployeeIdClean !== '') {
@@ -634,7 +635,7 @@ class SmartAbsenParser
             }
         }
 
-        if (empty($rawNameClean)) {
+        if (empty($rawNameAliases)) {
             return ['user' => null, 'confidence' => 0, 'match_type' => 'empty'];
         }
 
@@ -644,26 +645,28 @@ class SmartAbsenParser
         foreach ($users as $user) {
             $userName = $this->normalizeText($user->name);
 
-            // Exact match (case-insensitive)
-            if ($userName === $rawNameClean) {
-                return ['user' => $user, 'confidence' => 100, 'match_type' => 'exact'];
-            }
+            foreach ($rawNameAliases as $rawNameAlias) {
+                // Exact match (case-insensitive)
+                if ($userName === $rawNameAlias) {
+                    return ['user' => $user, 'confidence' => 100, 'match_type' => 'exact'];
+                }
 
-            // Contains match
-            if (str_contains($userName, $rawNameClean) || str_contains($rawNameClean, $userName)) {
-                $score = 90;
-                if ($score > $bestScore) {
-                    $bestScore = $score;
+                // Contains match
+                if (str_contains($userName, $rawNameAlias) || str_contains($rawNameAlias, $userName)) {
+                    $score = 90;
+                    if ($score > $bestScore) {
+                        $bestScore = $score;
+                        $bestMatch = $user;
+                    }
+                    continue;
+                }
+
+                // Fuzzy match via similar_text
+                similar_text($rawNameAlias, $userName, $percent);
+                if ($percent > $bestScore) {
+                    $bestScore = $percent;
                     $bestMatch = $user;
                 }
-                continue;
-            }
-
-            // Fuzzy match via similar_text
-            similar_text($rawNameClean, $userName, $percent);
-            if ($percent > $bestScore) {
-                $bestScore = $percent;
-                $bestMatch = $user;
             }
         }
 
@@ -674,6 +677,18 @@ class SmartAbsenParser
         } else {
             return ['user' => null, 'confidence' => round($bestScore, 1), 'match_type' => 'not_found'];
         }
+    }
+
+    private function nameAliasesForMatching(string $normalizedName): array
+    {
+        $aliases = [$normalizedName];
+        $withoutMachineNumber = preg_replace('/^\d+\s*[\.\-\)]?\s+/', '', $normalizedName);
+
+        if ($withoutMachineNumber !== null) {
+            $aliases[] = $this->normalizeText($withoutMachineNumber);
+        }
+
+        return array_values(array_unique(array_filter($aliases)));
     }
 
     /**
@@ -1060,11 +1075,10 @@ class SmartAbsenParser
                 'user_name'    => $matchResult['user'] ? $matchResult['user']->name : null,
                 'confidence'   => $matchResult['confidence'],
                 'match_type'   => $matchResult['match_type'],
-                'valid'        => !in_array($matchResult['match_type'], ['not_found', 'empty'], true) && $tanggal !== null && $jamMasuk !== null,
+                'valid'        => !in_array($matchResult['match_type'], ['not_found', 'empty'], true) && $tanggal !== null,
                 'errors'       => array_filter([
                     in_array($matchResult['match_type'], ['not_found', 'empty'], true) ? 'Karyawan tidak ditemukan: "' . trim($group['raw_employee_id'] . ' ' . $group['raw_nama']) . '"' : null,
                     $tanggal === null ? 'Tanggal tidak dikenali' : null,
-                    $jamMasuk === null ? 'Jam scan tidak dikenali' : null,
                 ]),
             ]);
         }

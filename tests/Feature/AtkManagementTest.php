@@ -93,6 +93,7 @@ class AtkManagementTest extends TestCase
             'keterangan' => 'Warna hitam',
             'foto_barang' => UploadedFile::fake()->image('pulpen.jpg', 600, 400),
             'active' => '1',
+            'warna_barang' => 'Hitam',
         ])->assertRedirect('/atk/1/detail');
 
         $atk = Atk::first();
@@ -102,6 +103,12 @@ class AtkManagementTest extends TestCase
         $this->assertSame('ATK/000001', $atk->kode_atk);
         $this->assertSame(25.5, $atk->stok);
         $this->assertSame(1, $atk->active);
+        $this->assertTrue((bool) $atk->stock_alert_enabled);
+        $this->assertDatabaseHas('atk_stock_variants', [
+            'atk_id' => $atk->id,
+            'warna_barang' => 'Hitam',
+            'stok' => 25.5,
+        ]);
         $this->assertNotEmpty($atk->qr_token);
         $this->assertNotEmpty($atk->qr_code_value);
         $this->assertNotEmpty($atk->qr_code_image);
@@ -117,6 +124,8 @@ class AtkManagementTest extends TestCase
             ->assertSee('ATK/000001')
             ->assertSee('Export Excel')
             ->assertSee('storage/' . $photoPath, false)
+            ->assertSee('Hitam')
+            ->assertSee('Notif aktif')
             ->assertSee('Ubah Stok');
 
         $this->actingAs($this->admin)
@@ -127,6 +136,9 @@ class AtkManagementTest extends TestCase
             ->assertSee('Pulpen Gel')
             ->assertSee('Stok Masuk')
             ->assertSee('Stok Keluar')
+            ->assertSee('Stok Per Warna')
+            ->assertSee('Hitam')
+            ->assertSee('Notifikasi Stok')
             ->assertSee('Riwayat Stok Barang')
             ->assertSee('storage/' . $photoPath, false);
 
@@ -157,6 +169,7 @@ class AtkManagementTest extends TestCase
         $this->actingAs($this->admin)->post('/atk/' . $atk->id . '/stock-in', [
             'tanggal_transaksi' => '2026-06-19',
             'jumlah' => '4.5',
+            'warna_barang' => 'Biru',
             'sumber_barang' => 'Supplier A',
             'catatan' => 'Pembelian tambahan',
         ])->assertRedirect('/atk/' . $atk->id . '/detail');
@@ -165,14 +178,21 @@ class AtkManagementTest extends TestCase
         $this->assertDatabaseHas('atk_stock_transactions', [
             'atk_id' => $atk->id,
             'jenis_transaksi' => 'masuk',
+            'warna_barang' => 'Biru',
             'stok_sebelum' => 25.5,
             'stok_sesudah' => 30,
             'diproses_oleh' => $this->admin->id,
+        ]);
+        $this->assertDatabaseHas('atk_stock_variants', [
+            'atk_id' => $atk->id,
+            'warna_barang' => 'Biru',
+            'stok' => 4.5,
         ]);
 
         $this->actingAs($this->admin)->post('/atk/' . $atk->id . '/stock-out', [
             'tanggal_transaksi' => '2026-06-19',
             'jumlah' => '6',
+            'warna_barang' => 'Hitam',
             'penerima_barang' => 'Ruang Finance',
             'catatan' => 'Dipakai divisi finance',
         ])->assertRedirect('/atk/' . $atk->id . '/detail');
@@ -184,14 +204,30 @@ class AtkManagementTest extends TestCase
             'id' => $stockOutTransaction->id,
             'atk_id' => $atk->id,
             'jumlah' => 6,
+            'warna_barang' => 'Hitam',
             'penerima_barang' => 'Ruang Finance',
             'stok_sebelum' => 30,
             'stok_sesudah' => 24,
         ]);
+        $this->assertDatabaseHas('atk_stock_variants', [
+            'atk_id' => $atk->id,
+            'warna_barang' => 'Hitam',
+            'stok' => 19.5,
+        ]);
+
+        $this->actingAs($this->admin)->post('/atk/' . $atk->id . '/stock-out', [
+            'tanggal_transaksi' => '2026-06-19',
+            'jumlah' => '6',
+            'warna_barang' => 'Biru',
+            'penerima_barang' => 'Ruang Finance',
+        ])->assertSessionHasErrors('warna_barang');
+
+        $this->assertSame(24.0, (float) $atk->fresh()->stok);
 
         $this->actingAs($this->admin)->post('/atk/' . $atk->id . '/stock-out', [
             'tanggal_transaksi' => '2026-06-19',
             'jumlah' => '99',
+            'warna_barang' => 'Hitam',
             'penerima_barang' => 'Ruang Finance',
         ])->assertSessionHasErrors('jumlah');
 
@@ -202,6 +238,11 @@ class AtkManagementTest extends TestCase
             ->assertRedirect('/atk/' . $atk->id . '/detail');
 
         $this->assertSame(30.0, (float) $atk->fresh()->stok);
+        $this->assertDatabaseHas('atk_stock_variants', [
+            'atk_id' => $atk->id,
+            'warna_barang' => 'Hitam',
+            'stok' => 25.5,
+        ]);
         $this->assertSoftDeleted('atk_stock_transactions', [
             'id' => $stockOutTransaction->id,
             'deleted_by' => $this->admin->id,
@@ -224,6 +265,7 @@ class AtkManagementTest extends TestCase
             'lokasi' => 'Gudang ATK',
             'keterangan' => 'Stok tersisa',
             'active' => '0',
+            'stock_alert_enabled' => '0',
         ])->assertRedirect('/atk/' . $atk->id . '/detail');
 
         $this->assertDatabaseHas('atks', [
@@ -233,6 +275,7 @@ class AtkManagementTest extends TestCase
             'stok' => 12,
             'lokasi' => 'Gudang ATK',
             'active' => 0,
+            'stock_alert_enabled' => 0,
             'foto_barang' => $photoPath,
         ]);
 

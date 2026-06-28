@@ -557,12 +557,21 @@ class AbsenController extends Controller
     public function dataAbsen()
     {
         date_default_timezone_set('Asia/Jakarta');
+        $pegawaiStatus = MappingShift::normalizedPegawaiStatus(request('pegawai_status'));
         /** @var \Illuminate\Pagination\LengthAwarePaginator $data_absen */
         $data_absen = MappingShift::dataAbsen()->paginate(10)->withQueryString();
+        $userQuery = User::select('id', 'name')->orderBy('name');
+
+        if ($pegawaiStatus === MappingShift::PEGAWAI_STATUS_KELUAR) {
+            $userQuery->whereIn('id', MappingShift::activePegawaiKeluarUserIds());
+        } else {
+            $userQuery->whereNotIn('id', MappingShift::activePegawaiKeluarUserIds());
+        }
 
         return view('absen.dataabsen', [
-            'title' => 'Data Absen',
-            'user' => User::select('id', 'name')->get(),
+            'title' => $pegawaiStatus === MappingShift::PEGAWAI_STATUS_KELUAR ? 'Data Absen PHK' : 'Data Absen Aktif',
+            'pegawaiStatus' => $pegawaiStatus,
+            'user' => $userQuery->get(),
             'data_absen' => $data_absen
         ]);
     }

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\settings;
+use App\Services\EmployeeQrService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class SettingsController extends Controller
 {
@@ -45,10 +47,12 @@ class SettingsController extends Controller
             // Face Verification Fallback
             'face_match_threshold' => 'nullable|numeric|min:50|max:100',
             'face_verification_message' => 'nullable|string|max:500',
+            'employee_qr_visible_fields' => 'nullable|array',
+            'employee_qr_visible_fields.*' => ['string', Rule::in(array_keys(EmployeeQrService::allowedFields()))],
         ]);
 
         if ($request->file('logo')) {
-            $validated['logo'] = $request->file('logo')->store('logo');
+            $validated['logo'] = $request->file('logo')->store('logo', 'public');
         }
 
         // Handle boolean fields
@@ -63,6 +67,19 @@ class SettingsController extends Controller
             });
             $validated['allowed_ip_addresses'] = json_encode(array_values($ipAddresses));
         }
+
+        $selectedQrFields = $validated['employee_qr_visible_fields'] ?? EmployeeQrService::defaultVisibleFields();
+        unset($validated['employee_qr_visible_fields']);
+        $selectedQrFields = array_values(array_intersect(
+            $selectedQrFields,
+            array_keys(EmployeeQrService::allowedFields())
+        ));
+
+        if (empty($selectedQrFields)) {
+            $selectedQrFields = EmployeeQrService::defaultVisibleFields();
+        }
+
+        $validated['employee_qr_visible_fields'] = json_encode($selectedQrFields);
 
         $settings->update($validated);
         return back()->with('success', 'Data Berhasil Ditambahkan');

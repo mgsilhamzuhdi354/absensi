@@ -104,23 +104,43 @@ class InventoryQrStockTest extends TestCase
 
         $response = $this->actingAs($this->admin)->post('/inventory/store', $this->inventoryPayload([
             'kode_barang' => 'MANUAL/999999',
+            'warna_barang' => 'Hitam',
         ]));
 
         $inventory = Inventory::first();
 
         $response->assertRedirect('/inventory/' . $inventory->id . '/detail');
         $this->assertSame('INV/000001', $inventory->kode_barang);
+        $this->assertTrue((bool) $inventory->stock_alert_enabled);
+        $this->assertDatabaseHas('inventory_stock_variants', [
+            'inventory_id' => $inventory->id,
+            'warna_barang' => 'Hitam',
+            'stok' => 1,
+        ]);
         $this->assertNotNull($inventory->qr_token);
         $this->assertStringContainsString('/inventory/scan/lookup?code=', $inventory->qr_code_value);
         Storage::disk('public')->assertExists($inventory->qr_code_image);
+
+        $this->actingAs($this->admin)
+            ->get('/inventory')
+            ->assertOk()
+            ->assertSee('Hitam')
+            ->assertSee('Notif aktif');
+
+        $this->actingAs($this->admin)
+            ->get('/inventory/' . $inventory->id . '/detail')
+            ->assertOk()
+            ->assertSee('Notifikasi Stok');
 
         $this->actingAs($this->admin)->post('/inventory/store', $this->inventoryPayload([
             'kode_barang' => 'MANUAL/888888',
             'nama_barang' => 'Laptop Dell Cadangan',
             'serial_number' => 'SN124',
+            'stock_alert_enabled' => 0,
         ]))->assertRedirect('/inventory/2/detail');
 
         $this->assertSame('INV/000002', Inventory::find(2)->kode_barang);
+        $this->assertFalse((bool) Inventory::find(2)->stock_alert_enabled);
     }
 
     /** @test */
@@ -255,6 +275,7 @@ class InventoryQrStockTest extends TestCase
         $response = $this->actingAs($this->admin)->post('/inventory/' . $inventory->id . '/stock-in', [
             'tanggal_transaksi' => '2026-05-29',
             'jumlah' => 2.5,
+            'warna_barang' => 'Biru',
             'sumber_barang' => 'Supplier A',
             'kondisi_barang' => 'Baik',
             'lokasi_id' => $this->lokasi->id,
@@ -266,9 +287,20 @@ class InventoryQrStockTest extends TestCase
         $this->assertDatabaseHas('inventory_stock_transactions', [
             'inventory_id' => $inventory->id,
             'jenis_transaksi' => 'masuk',
+            'warna_barang' => 'Biru',
             'stok_sebelum' => 10,
             'stok_sesudah' => 12.5,
             'diproses_oleh' => $this->admin->id,
+        ]);
+        $this->assertDatabaseHas('inventory_stock_variants', [
+            'inventory_id' => $inventory->id,
+            'warna_barang' => 'Umum',
+            'stok' => 10,
+        ]);
+        $this->assertDatabaseHas('inventory_stock_variants', [
+            'inventory_id' => $inventory->id,
+            'warna_barang' => 'Biru',
+            'stok' => 2.5,
         ]);
     }
 
@@ -324,6 +356,67 @@ class InventoryQrStockTest extends TestCase
             'penerima_user_id' => $this->employee->id,
             'penerima_barang' => $this->employee->name,
             'diproses_oleh' => $this->admin->id,
+        ]);
+    }
+
+    /** @test */
+    public function inventory_stock_out_respects_selected_color_variant()
+    {
+        $inventory = Inventory::create($this->inventoryPayload([
+            'stok' => 0,
+            'uom' => 'Unit',
+        ]));
+
+        $this->actingAs($this->admin)->post('/inventory/' . $inventory->id . '/stock-in', [
+            'tanggal_transaksi' => '2026-05-29',
+            'jumlah' => 2,
+            'warna_barang' => 'Hitam',
+            'sumber_barang' => 'Supplier A',
+            'kondisi_barang' => 'Baik',
+        ])->assertRedirect('/inventory/' . $inventory->id . '/detail');
+
+        $this->actingAs($this->admin)->post('/inventory/' . $inventory->id . '/stock-in', [
+            'tanggal_transaksi' => '2026-05-29',
+            'jumlah' => 1,
+            'warna_barang' => 'Putih',
+            'sumber_barang' => 'Supplier A',
+            'kondisi_barang' => 'Baik',
+        ])->assertRedirect('/inventory/' . $inventory->id . '/detail');
+
+        $this->assertSame(3.0, (float) $inventory->fresh()->stok);
+
+        $this->actingAs($this->admin)->post('/inventory/' . $inventory->id . '/stock-out', [
+            'tanggal_transaksi' => '2026-05-29',
+            'jumlah' => 2,
+            'warna_barang' => 'Putih',
+            'penerima_user_id' => $this->employee->id,
+            'buat_bast_otomatis' => 0,
+        ])->assertSessionHasErrors('warna_barang');
+
+        $this->actingAs($this->admin)->post('/inventory/' . $inventory->id . '/stock-out', [
+            'tanggal_transaksi' => '2026-05-29',
+            'jumlah' => 1,
+            'warna_barang' => 'Putih',
+            'penerima_user_id' => $this->employee->id,
+            'buat_bast_otomatis' => 0,
+        ])->assertRedirect('/inventory/' . $inventory->id . '/detail');
+
+        $this->assertSame(2.0, (float) $inventory->fresh()->stok);
+        $this->assertDatabaseHas('inventory_stock_variants', [
+            'inventory_id' => $inventory->id,
+            'warna_barang' => 'Hitam',
+            'stok' => 2,
+        ]);
+        $this->assertDatabaseHas('inventory_stock_variants', [
+            'inventory_id' => $inventory->id,
+            'warna_barang' => 'Putih',
+            'stok' => 0,
+        ]);
+        $this->assertDatabaseHas('inventory_stock_transactions', [
+            'inventory_id' => $inventory->id,
+            'jenis_transaksi' => 'keluar',
+            'warna_barang' => 'Putih',
+            'jumlah' => 1,
         ]);
     }
 
@@ -724,7 +817,13 @@ class InventoryQrStockTest extends TestCase
             'kondisi' => 'Maintenance',
             'stok' => 0,
             'jabatan_id' => $newJabatan->id,
+            'stock_alert_enabled' => 0,
         ]))->assertRedirect('/inventory/' . $inventory->id . '/detail');
+
+        $this->assertDatabaseHas('inventories', [
+            'id' => $inventory->id,
+            'stock_alert_enabled' => 0,
+        ]);
 
         $this->assertDatabaseHas('inventory_stock_transactions', [
             'id' => $transaction->id,

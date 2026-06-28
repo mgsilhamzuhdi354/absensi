@@ -351,7 +351,8 @@
                       <ul class="sidebar-submenu">
                         <li><a href="{{ url('/absen') }}">Absen</a></li>
                         @if (auth()->user()->hasRole('admin') || auth()->user()->hasRole('hrd') || auth()->user()->hasRole('kepala_cabang') || auth()->user()->hasRole('general_manager'))
-                          <li><a href="{{ url('/data-absen') }}">Data Absen</a></li>
+                          <li><a href="{{ url('/data-absen?pegawai_status=aktif') }}">Data Absen Aktif</a></li>
+                          <li><a href="{{ url('/data-absen?pegawai_status=keluar') }}">Data Absen PHK</a></li>
                         @endif
                         <li><a href="{{ url('/dinas-luar') }}">Absen Dinas Luar</a></li>
                         @if (auth()->user()->hasRole('admin') || auth()->user()->hasRole('hrd') || auth()->user()->hasRole('kepala_cabang') || auth()->user()->hasRole('general_manager'))

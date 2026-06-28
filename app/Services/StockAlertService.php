@@ -23,6 +23,12 @@ class StockAlertService
             return;
         }
 
+        if (!$this->stockAlertEnabled($atk)) {
+            $this->resolve($atk);
+            $this->markUnreadStockNotificationsAsRead($atk);
+            return;
+        }
+
         if ((int) ($atk->active ?? 1) !== 1) {
             $this->resolve($atk);
             return;
@@ -46,6 +52,12 @@ class StockAlertService
             return;
         }
 
+        if (!$this->stockAlertEnabled($inventory)) {
+            $this->resolve($inventory);
+            $this->markUnreadStockNotificationsAsRead($inventory);
+            return;
+        }
+
         $this->checkItem(
             $inventory,
             'inventory',
@@ -66,6 +78,9 @@ class StockAlertService
 
         if (Schema::hasTable('atks')) {
             Atk::where('active', 1)
+                ->when(Schema::hasColumn('atks', 'stock_alert_enabled'), function ($query) {
+                    $query->where('stock_alert_enabled', true);
+                })
                 ->where('stok', '<=', self::LOW_STOCK_THRESHOLD)
                 ->chunkById(100, function ($items) {
                     foreach ($items as $item) {
@@ -76,6 +91,9 @@ class StockAlertService
 
         if (Schema::hasTable('inventories')) {
             Inventory::where('stok', '<=', self::LOW_STOCK_THRESHOLD)
+                ->when(Schema::hasColumn('inventories', 'stock_alert_enabled'), function ($query) {
+                    $query->where('stock_alert_enabled', true);
+                })
                 ->chunkById(100, function ($items) {
                     foreach ($items as $item) {
                         $this->checkInventory($item);
@@ -162,6 +180,31 @@ class StockAlertService
         }
 
         return self::STATUS_NORMAL;
+    }
+
+    private function stockAlertEnabled(Model $item): bool
+    {
+        if (!array_key_exists('stock_alert_enabled', $item->getAttributes())) {
+            return true;
+        }
+
+        return (bool) $item->getAttribute('stock_alert_enabled');
+    }
+
+    private function markUnreadStockNotificationsAsRead(Model $item): void
+    {
+        $alertKey = get_class($item) . ':' . $item->getKey();
+
+        User::where('is_admin', 'admin')->get()->each(function (User $admin) use ($alertKey) {
+            $admin->unreadNotifications()
+                ->get()
+                ->filter(function ($notification) use ($alertKey) {
+                    return (bool) ($notification->data['stock_alert'] ?? false)
+                        && ($notification->data['stock_alert_key'] ?? null) === $alertKey;
+                })
+                ->each
+                ->markAsRead();
+        });
     }
 
     private function message(string $status, string $label, ?string $name, ?string $code, float $stock, string $unit): string

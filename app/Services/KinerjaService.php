@@ -10,6 +10,11 @@ use App\Models\Rapat;
 
 class KinerjaService
 {
+    private const REFERENCE_MAPPING_SHIFT = 'App\Models\MappingShift';
+    private const KPI_CLOCK_IN_NAMES = ['Presensi Kehadiran Ontime', 'Telat Presensi Masuk'];
+    private const KPI_CLOCK_OUT_NAMES = ['Pulang tepat waktu', 'Pulang Sebelum waktunya'];
+    private const KPI_INCOMPLETE_ATTENDANCE = 'Absensi Tidak Lengkap';
+
     /**
      * Update attendance points when attendance data is edited
      * This will update (or create) the performance point based on new telat/pulang_cepat status
@@ -23,17 +28,24 @@ class KinerjaService
             return;
         }
 
-        // Handle clock-in points (Ontime vs Telat)
         if ($mappingShift->jam_absen) {
             self::updateClockInPoints($mappingShift, $userId);
+        } else {
+            self::deleteClockInPoints($mappingShift->id);
         }
 
-        // Handle clock-out points (Tepat Waktu vs Pulang Cepat)
         if ($mappingShift->jam_pulang) {
             self::updateClockOutPoints($mappingShift, $userId);
+        } else {
+            self::deleteClockOutPoints($mappingShift->id);
         }
 
-        // Recalculate running totals
+        if (!$mappingShift->jam_absen && !$mappingShift->jam_pulang) {
+            self::updateIncompleteAttendancePoint($mappingShift, $userId);
+        } else {
+            self::deleteIncompleteAttendancePoint($mappingShift->id);
+        }
+
         self::recalculateUserPoints($userId);
     }
 
@@ -51,7 +63,7 @@ class KinerjaService
         }
 
         // Find existing clock-in point for this shift
-        $existingPoint = LaporanKinerja::where('reference', 'App\Models\MappingShift')
+        $existingPoint = LaporanKinerja::where('reference', self::REFERENCE_MAPPING_SHIFT)
             ->where('reference_id', $mappingShift->id)
             ->whereIn('jenis_kinerja_id', [$jenisOntime->id, $jenisTelat->id])
             ->first();
@@ -75,7 +87,7 @@ class KinerjaService
                 'jenis_kinerja_id' => $correctJenis->id,
                 'nilai' => $correctJenis->bobot,
                 'penilaian_berjalan' => 0, // Will be recalculated
-                'reference' => 'App\Models\MappingShift',
+                'reference' => self::REFERENCE_MAPPING_SHIFT,
                 'reference_id' => $mappingShift->id,
             ]);
         }
@@ -95,7 +107,7 @@ class KinerjaService
         }
 
         // Find existing clock-out point for this shift
-        $existingPoint = LaporanKinerja::where('reference', 'App\Models\MappingShift')
+        $existingPoint = LaporanKinerja::where('reference', self::REFERENCE_MAPPING_SHIFT)
             ->where('reference_id', $mappingShift->id)
             ->whereIn('jenis_kinerja_id', [$jenisTepat->id, $jenisCepat->id])
             ->first();
@@ -119,10 +131,83 @@ class KinerjaService
                 'jenis_kinerja_id' => $correctJenis->id,
                 'nilai' => $correctJenis->bobot,
                 'penilaian_berjalan' => 0, // Will be recalculated
-                'reference' => 'App\Models\MappingShift',
+                'reference' => self::REFERENCE_MAPPING_SHIFT,
                 'reference_id' => $mappingShift->id,
             ]);
         }
+    }
+
+    private static function updateIncompleteAttendancePoint($mappingShift, $userId): void
+    {
+        $jenisIncomplete = JenisKinerja::firstOrCreate(
+            ['nama' => self::KPI_INCOMPLETE_ATTENDANCE],
+            [
+                'bobot' => 0,
+                'detail' => 'Jejak KPI netral untuk data absensi smart import yang belum memiliki jam masuk dan jam pulang.',
+            ]
+        );
+
+        $existingPoint = LaporanKinerja::where('reference', self::REFERENCE_MAPPING_SHIFT)
+            ->where('reference_id', $mappingShift->id)
+            ->where('jenis_kinerja_id', $jenisIncomplete->id)
+            ->first();
+
+        $payload = [
+            'user_id' => $userId,
+            'tanggal' => $mappingShift->tanggal,
+            'jenis_kinerja_id' => $jenisIncomplete->id,
+            'nilai' => 0,
+            'penilaian_berjalan' => 0,
+            'reference' => self::REFERENCE_MAPPING_SHIFT,
+            'reference_id' => $mappingShift->id,
+            'keterangan' => 'Smart Import Absensi: data masuk/pulang belum lengkap.',
+        ];
+
+        if ($existingPoint) {
+            $existingPoint->update($payload);
+            return;
+        }
+
+        LaporanKinerja::create($payload);
+    }
+
+    private static function deleteClockInPoints($mappingShiftId): void
+    {
+        $jenisIds = JenisKinerja::whereIn('nama', self::KPI_CLOCK_IN_NAMES)->pluck('id');
+        if ($jenisIds->isEmpty()) {
+            return;
+        }
+
+        LaporanKinerja::where('reference', self::REFERENCE_MAPPING_SHIFT)
+            ->where('reference_id', $mappingShiftId)
+            ->whereIn('jenis_kinerja_id', $jenisIds)
+            ->delete();
+    }
+
+    private static function deleteClockOutPoints($mappingShiftId): void
+    {
+        $jenisIds = JenisKinerja::whereIn('nama', self::KPI_CLOCK_OUT_NAMES)->pluck('id');
+        if ($jenisIds->isEmpty()) {
+            return;
+        }
+
+        LaporanKinerja::where('reference', self::REFERENCE_MAPPING_SHIFT)
+            ->where('reference_id', $mappingShiftId)
+            ->whereIn('jenis_kinerja_id', $jenisIds)
+            ->delete();
+    }
+
+    private static function deleteIncompleteAttendancePoint($mappingShiftId): void
+    {
+        $jenisIncomplete = JenisKinerja::where('nama', self::KPI_INCOMPLETE_ATTENDANCE)->first();
+        if (!$jenisIncomplete) {
+            return;
+        }
+
+        LaporanKinerja::where('reference', self::REFERENCE_MAPPING_SHIFT)
+            ->where('reference_id', $mappingShiftId)
+            ->where('jenis_kinerja_id', $jenisIncomplete->id)
+            ->delete();
     }
 
     /**
@@ -133,7 +218,7 @@ class KinerjaService
     {
         // RESET points to 0 instead of deleting
         // This keeps the user visible in charts with 0 points
-        LaporanKinerja::where('reference', 'App\Models\MappingShift')
+        LaporanKinerja::where('reference', self::REFERENCE_MAPPING_SHIFT)
             ->where('reference_id', $mappingShiftId)
             ->update([
                 'nilai' => 0,

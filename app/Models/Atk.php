@@ -14,6 +14,7 @@ class Atk extends Model
     protected $casts = [
         'stok' => 'float',
         'active' => 'integer',
+        'stock_alert_enabled' => 'boolean',
     ];
 
     public function getFormattedStockAttribute(): string
@@ -26,6 +27,11 @@ class Atk extends Model
     public function stockTransactions()
     {
         return $this->hasMany(AtkStockTransaction::class)->latest('tanggal_transaksi')->latest('id');
+    }
+
+    public function stockVariants()
+    {
+        return $this->hasMany(AtkStockVariant::class)->orderBy('warna_barang');
     }
 
     public function formatStockValue($value): string

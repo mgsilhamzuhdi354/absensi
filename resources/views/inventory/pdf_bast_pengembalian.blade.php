@@ -138,6 +138,7 @@
                     Kode: {{ $inventory->kode_barang ?: '-' }}<br>
                     Merk/Tipe: {{ $inventory->merk_tipe ?: '-' }}<br>
                     SN: {{ $inventory->serial_number ?: '-' }}<br>
+                    Warna: {{ ($returnTransaction ? $returnTransaction->warna_barang : $originalTransaction->warna_barang) ?: 'Umum' }}<br>
                     Spesifikasi: {{ $inventory->spesifikasi ?: $inventory->desc ?: '-' }}
                 </td>
                 <td class="center">{{ $inventory->formatStockValue($returnTransaction ? $returnTransaction->jumlah : $originalTransaction->jumlah) }} {{ $inventory->display_uom }}</td>

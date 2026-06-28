@@ -170,6 +170,10 @@
                                 <td>{{ $inventory->serial_number ?? '-' }}</td>
                             </tr>
                             <tr>
+                                <th>Warna</th>
+                                <td>{{ optional($document->returnTransaction)->warna_barang ?? optional($document->originalTransaction)->warna_barang ?? 'Umum' }}</td>
+                            </tr>
+                            <tr>
                                 <th>Kondisi Kembali</th>
                                 <td>{{ $document->kondisi_kembali ?? '-' }}</td>
                             </tr>

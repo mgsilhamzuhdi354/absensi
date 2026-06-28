@@ -67,6 +67,25 @@
                                             </td>
                                         </tr>
                                         <tr>
+                                            <th>Stok Per Warna</th>
+                                            <td>
+                                                @include('partials.stock-color-summary', [
+                                                    'variants' => $atk->stockVariants,
+                                                    'unit' => $atk->satuan,
+                                                ])
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Notifikasi Stok</th>
+                                            <td>
+                                                @include('partials.stock-alert-toggle', [
+                                                    'action' => url('/atk/'.$atk->id.'/stock-alert'),
+                                                    'enabled' => $atk->stock_alert_enabled ?? true,
+                                                    'id' => 'atk_stock_alert_detail_'.$atk->id,
+                                                ])
+                                            </td>
+                                        </tr>
+                                        <tr>
                                             <th>Lokasi</th>
                                             <td>{{ $atk->lokasi ?? '-' }}</td>
                                         </tr>
@@ -139,6 +158,10 @@
                             </div>
                         </div>
                         <div class="form-group">
+                            <label>Warna Barang</label>
+                            <input type="text" name="warna_barang" class="form-control" list="atk_detail_color_options" value="{{ old('warna_barang', 'Umum') }}" placeholder="Contoh: Merah, Hitam, Biru">
+                        </div>
+                        <div class="form-group">
                             <label>Sumber Barang / Supplier</label>
                             <input type="text" name="sumber_barang" class="form-control" value="{{ old('sumber_barang') }}">
                         </div>
@@ -174,6 +197,10 @@
                             </div>
                         </div>
                         <div class="form-group">
+                            <label>Warna Barang</label>
+                            <input type="text" name="warna_barang" class="form-control" list="atk_detail_color_options" value="{{ old('warna_barang', optional($atk->stockVariants->firstWhere('stok', '>', 0))->warna_barang ?? 'Umum') }}" placeholder="Pilih warna yang tersedia" {{ !$canStockOut ? 'disabled' : '' }}>
+                        </div>
+                        <div class="form-group">
                             <label>Penerima Barang</label>
                             <input type="text" name="penerima_barang" class="form-control" value="{{ old('penerima_barang') }}" {{ !$canStockOut ? 'disabled' : '' }}>
                         </div>
@@ -187,6 +214,18 @@
             </div>
         </div>
 
+        <datalist id="atk_detail_color_options">
+            <option value="Umum">
+            <option value="Merah">
+            <option value="Hitam">
+            <option value="Biru">
+            <option value="Putih">
+            <option value="Hijau">
+            @foreach ($atk->stockVariants as $variant)
+                <option value="{{ $variant->warna_barang }}">
+            @endforeach
+        </datalist>
+
         <div class="col-md-12">
             <div class="card">
                 <div class="card-header">
@@ -199,6 +238,7 @@
                                 <tr>
                                     <th>Tanggal</th>
                                     <th>Jenis</th>
+                                    <th>Warna</th>
                                     <th>Jumlah</th>
                                     <th>Stok Sebelum</th>
                                     <th>Stok Sesudah</th>
@@ -213,6 +253,7 @@
                                     <tr>
                                         <td>{{ optional($transaction->tanggal_transaksi)->format('d/m/Y') }}</td>
                                         <td>{{ $transaction->jenis_transaksi === 'keluar' ? 'Keluar' : 'Masuk' }}</td>
+                                        <td>{{ $transaction->warna_barang ?? 'Umum' }}</td>
                                         <td>{{ $atk->formatStockValue($transaction->jumlah) }} {{ $atk->satuan }}</td>
                                         <td>{{ $atk->formatStockValue($transaction->stok_sebelum) }}</td>
                                         <td>{{ $atk->formatStockValue($transaction->stok_sesudah) }}</td>
@@ -235,7 +276,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="9" class="text-center">Belum ada riwayat stok.</td>
+                                        <td colspan="10" class="text-center">Belum ada riwayat stok.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -257,6 +298,7 @@
                                 <tr>
                                     <th>Tanggal Transaksi</th>
                                     <th>Jenis</th>
+                                    <th>Warna</th>
                                     <th>Jumlah</th>
                                     <th>Diproses Oleh</th>
                                     <th>Penerima / Sumber</th>
@@ -269,6 +311,7 @@
                                     <tr>
                                         <td>{{ optional($transaction->tanggal_transaksi)->format('d/m/Y') }}</td>
                                         <td>{{ $transaction->jenis_transaksi === 'keluar' ? 'Keluar' : 'Masuk' }}</td>
+                                        <td>{{ $transaction->warna_barang ?? 'Umum' }}</td>
                                         <td>{{ $atk->formatStockValue($transaction->jumlah) }} {{ $atk->satuan }}</td>
                                         <td>{{ $transaction->processedBy->name ?? '-' }}</td>
                                         <td>
@@ -283,7 +326,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="text-center">Belum ada riwayat stok yang dihapus.</td>
+                                        <td colspan="8" class="text-center">Belum ada riwayat stok yang dihapus.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -355,6 +398,18 @@
                         button.disabled = true;
                         button.textContent = 'Menghapus...';
                     });
+                });
+            });
+
+            document.querySelectorAll('.stock-alert-toggle-form').forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (form.dataset.submitting === '1') {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    form.dataset.submitting = '1';
+                    form.style.pointerEvents = 'none';
                 });
             });
         });

@@ -7,6 +7,7 @@ use App\Services\KinerjaService;
 use App\Models\User;
 use App\Models\MappingShift;
 use App\Models\LaporanKinerja;
+use App\Models\JenisKinerja;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class KinerjaServiceTest extends TestCase
@@ -41,6 +42,31 @@ class KinerjaServiceTest extends TestCase
             'reference_id' => $mappingShift->id,
             'nilai' => 0,
             'keterangan' => 'Shift dihapus oleh admin - Poin direset ke 0',
+        ]);
+    }
+
+    /** @test */
+    public function update_attendance_points_creates_zero_point_for_incomplete_attendance()
+    {
+        $user = User::factory()->create();
+        $mappingShift = MappingShift::factory()->create([
+            'user_id' => $user->id,
+            'jam_absen' => null,
+            'jam_pulang' => null,
+            'status_absen' => 'Tidak Masuk',
+            'tanggal' => '2026-06-22',
+        ]);
+
+        KinerjaService::updateAttendancePoints($mappingShift->id, $user->id);
+
+        $jenisIncomplete = JenisKinerja::where('nama', 'Absensi Tidak Lengkap')->firstOrFail();
+
+        $this->assertDatabaseHas('laporan_kinerjas', [
+            'user_id' => $user->id,
+            'reference' => 'App\Models\MappingShift',
+            'reference_id' => $mappingShift->id,
+            'jenis_kinerja_id' => $jenisIncomplete->id,
+            'nilai' => 0,
         ]);
     }
 

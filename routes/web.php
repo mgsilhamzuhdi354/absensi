@@ -49,6 +49,7 @@ use App\Http\Controllers\MasterLookupController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\PengajuanDinasLuarController;
 use App\Http\Controllers\SmartAbsenImportController;
+use App\Http\Controllers\EmployeeQrController;
 
 /*
 |--------------------------------------------------------------------------
@@ -79,6 +80,14 @@ Route::post('/attendance/face/auto', [authController::class, 'faceAttendanceAuto
 Route::get('/attendance/face/status/{username}', [authController::class, 'faceAttendanceStatus']);
 Route::post('/attendance/qr/masuk', [authController::class, 'qrMasukStore']);
 Route::post('/attendance/qr/pulang', [authController::class, 'qrPulangStore']);
+
+// Public Employee ID Card QR Routes (tanpa login)
+Route::get('/i/{token}', [EmployeeQrController::class, 'show'])->name('employee.id-card.short');
+Route::get('/i/{token}/v', [EmployeeQrController::class, 'vcard'])->name('employee.id-card.vcard.short');
+Route::get('/e/{token}', [EmployeeQrController::class, 'show'])->name('employee.id-card.shorter');
+Route::get('/e/{token}/v', [EmployeeQrController::class, 'vcard'])->name('employee.id-card.vcard.shorter');
+Route::get('/id-card/{token}', [EmployeeQrController::class, 'show'])->name('employee.id-card.public');
+Route::get('/id-card/{token}/vcard', [EmployeeQrController::class, 'vcard'])->name('employee.id-card.vcard');
 
 // Face Recognition Data Route (untuk auto-detect)
 Route::get('/face-descriptors-all', [authController::class, 'getFaceDescriptors']);
@@ -153,6 +162,9 @@ Route::delete('/pegawai/delete/{id}', [karyawanController::class, 'deleteKaryawa
 Route::get('/pegawai/edit-password/{id}', [karyawanController::class, 'editPassword'])->middleware('admin');
 Route::put('/pegawai/edit-password-proses/{id}', [karyawanController::class, 'editPasswordProses'])->middleware('admin');
 Route::get('/pegawai/qrcode/{id}', [karyawanController::class, 'qrcode'])->middleware('admin');
+Route::get('/pegawai/{id}/qr/{mode}/download', [karyawanController::class, 'downloadEmployeeQr'])->where('mode', 'profile|vcard')->middleware('admin');
+Route::post('/pegawai/{id}/qr/info', [karyawanController::class, 'updateEmployeeQrInfo'])->middleware('admin');
+Route::post('/pegawai/{id}/qr/regenerate', [karyawanController::class, 'regenerateEmployeeQr'])->middleware('admin');
 Route::get('/pegawai/print/{id}', [karyawanController::class, 'print'])->middleware('auth');
 Route::get('/kartu-pegawai', [karyawanController::class, 'kartuPegawai'])->middleware('auth');
 
@@ -504,6 +516,7 @@ Route::delete('/atk/transactions/{id}', [AtkController::class, 'deleteStockTrans
 Route::get('/atk/{id}/detail', [AtkController::class, 'detail'])->middleware('admin');
 Route::post('/atk/{id}/stock-in', [AtkController::class, 'stockIn'])->middleware('admin');
 Route::post('/atk/{id}/stock-out', [AtkController::class, 'stockOut'])->middleware('admin');
+Route::put('/atk/{id}/stock-alert', [AtkController::class, 'updateStockAlert'])->middleware('admin');
 Route::get('/atk/{id}/qr/print', [AtkController::class, 'printQr'])->middleware('admin');
 Route::get('/atk/{id}/qr/download', [AtkController::class, 'downloadQr'])->middleware('admin');
 Route::get('/atk/edit/{id}', [AtkController::class, 'edit'])->middleware('admin');
@@ -531,6 +544,7 @@ Route::get('/inventory/bast/{id}/download', [InventoryController::class, 'downlo
 Route::get('/inventory/{id}/detail', [InventoryController::class, 'detail'])->middleware('admin');
 Route::post('/inventory/{id}/stock-in', [InventoryController::class, 'stockIn'])->middleware('admin');
 Route::post('/inventory/{id}/stock-out', [InventoryController::class, 'stockOut'])->middleware('admin');
+Route::put('/inventory/{id}/stock-alert', [InventoryController::class, 'updateStockAlert'])->middleware('admin');
 Route::get('/inventory/{id}/qr/print', [InventoryController::class, 'printQr'])->middleware('admin');
 Route::get('/inventory/{id}/qr/download', [InventoryController::class, 'downloadQr'])->middleware('admin');
 Route::get('/inventory/edit/{id}', [InventoryController::class, 'edit'])->middleware('admin');

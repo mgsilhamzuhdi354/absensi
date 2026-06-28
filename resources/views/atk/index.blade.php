@@ -58,9 +58,11 @@
                                     <th style="min-width: 240px;" class="text-center">Nama ATK</th>
                                     <th style="min-width: 160px;" class="text-center">Kategori</th>
                                     <th style="min-width: 100px;" class="text-center">Stok</th>
+                                    <th style="min-width: 180px;" class="text-center">Warna</th>
                                     <th style="min-width: 120px;" class="text-center">Satuan</th>
                                     <th style="min-width: 180px;" class="text-center">Lokasi</th>
                                     <th style="min-width: 240px;" class="text-center">Keterangan</th>
+                                    <th style="min-width: 150px;" class="text-center">Notif Stok</th>
                                     <th style="min-width: 100px;" class="text-center">Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -68,26 +70,45 @@
                             <tbody>
                                 @if (count($atks) <= 0)
                                     <tr>
-                                        <td colspan="11" class="text-center">Tidak Ada Data</td>
+                                        <td colspan="13" class="text-center">Tidak Ada Data</td>
                                     </tr>
                                 @else
                                     @foreach ($atks as $key => $atk)
+                                        @php
+                                            $atkColorOptions = $atk->stockVariants->map(fn ($variant) => [
+                                                'warna' => $variant->warna_barang,
+                                                'stok' => $variant->formatted_stock,
+                                            ])->values();
+                                        @endphp
                                         <tr>
                                             <td>{{ ($atks->currentpage() - 1) * $atks->perpage() + $key + 1 }}.</td>
                                             <td class="text-center">
                                                 @if ($atk->foto_barang)
-                                                    <img src="{{ asset('storage/'.$atk->foto_barang) }}" alt="{{ $atk->nama_atk }}" class="atk-table-photo js-atk-photo" data-id="{{ $atk->id }}" data-name="{{ $atk->nama_atk }}" data-code="{{ $atk->kode_atk }}" data-stock="{{ $atk->formatted_stock }}" data-unit="{{ $atk->satuan }}" data-photo="{{ asset('storage/'.$atk->foto_barang) }}" data-detail-url="{{ url('/atk/'.$atk->id.'/detail') }}" data-stock-in-url="{{ url('/atk/'.$atk->id.'/stock-in') }}" data-stock-out-url="{{ url('/atk/'.$atk->id.'/stock-out') }}">
+                                                    <img src="{{ asset('storage/'.$atk->foto_barang) }}" alt="{{ $atk->nama_atk }}" class="atk-table-photo js-atk-photo" data-id="{{ $atk->id }}" data-name="{{ $atk->nama_atk }}" data-code="{{ $atk->kode_atk }}" data-stock="{{ $atk->formatted_stock }}" data-unit="{{ $atk->satuan }}" data-colors='@json($atkColorOptions)' data-photo="{{ asset('storage/'.$atk->foto_barang) }}" data-detail-url="{{ url('/atk/'.$atk->id.'/detail') }}" data-stock-in-url="{{ url('/atk/'.$atk->id.'/stock-in') }}" data-stock-out-url="{{ url('/atk/'.$atk->id.'/stock-out') }}">
                                                 @else
-                                                    <button type="button" class="atk-photo-placeholder js-atk-photo" data-id="{{ $atk->id }}" data-name="{{ $atk->nama_atk }}" data-code="{{ $atk->kode_atk }}" data-stock="{{ $atk->formatted_stock }}" data-unit="{{ $atk->satuan }}" data-photo="" data-detail-url="{{ url('/atk/'.$atk->id.'/detail') }}" data-stock-in-url="{{ url('/atk/'.$atk->id.'/stock-in') }}" data-stock-out-url="{{ url('/atk/'.$atk->id.'/stock-out') }}"><i class="fa fa-image"></i></button>
+                                                    <button type="button" class="atk-photo-placeholder js-atk-photo" data-id="{{ $atk->id }}" data-name="{{ $atk->nama_atk }}" data-code="{{ $atk->kode_atk }}" data-stock="{{ $atk->formatted_stock }}" data-unit="{{ $atk->satuan }}" data-colors='@json($atkColorOptions)' data-photo="" data-detail-url="{{ url('/atk/'.$atk->id.'/detail') }}" data-stock-in-url="{{ url('/atk/'.$atk->id.'/stock-in') }}" data-stock-out-url="{{ url('/atk/'.$atk->id.'/stock-out') }}"><i class="fa fa-image"></i></button>
                                                 @endif
                                             </td>
                                             <td class="text-center">{{ $atk->kode_atk }}</td>
                                             <td>{{ $atk->nama_atk }}</td>
                                             <td class="text-center">{{ $atk->kategori ?? '-' }}</td>
                                             <td class="text-center">{{ $atk->formatted_stock }}</td>
+                                            <td class="text-center">
+                                                @include('partials.stock-color-summary', [
+                                                    'variants' => $atk->stockVariants,
+                                                    'unit' => $atk->satuan,
+                                                ])
+                                            </td>
                                             <td class="text-center">{{ $atk->satuan }}</td>
                                             <td class="text-center">{{ $atk->lokasi ?? '-' }}</td>
                                             <td>{!! $atk->keterangan ? nl2br(e($atk->keterangan)) : '-' !!}</td>
+                                            <td class="text-center">
+                                                @include('partials.stock-alert-toggle', [
+                                                    'action' => url('/atk/'.$atk->id.'/stock-alert'),
+                                                    'enabled' => $atk->stock_alert_enabled ?? true,
+                                                    'id' => 'atk_stock_alert_table_'.$atk->id,
+                                                ])
+                                            </td>
                                             <td class="text-center">
                                                 @if ($atk->active == 1)
                                                     <span class="badge badge-success">Aktif</span>
@@ -124,8 +145,14 @@
 
                     <div class="d-md-none atk-mobile-list">
                         @forelse ($atks as $atk)
+                            @php
+                                $atkColorOptions = $atk->stockVariants->map(fn ($variant) => [
+                                    'warna' => $variant->warna_barang,
+                                    'stok' => $variant->formatted_stock,
+                                ])->values();
+                            @endphp
                             <div class="atk-mobile-card">
-                                <button type="button" class="atk-mobile-photo js-atk-photo" data-id="{{ $atk->id }}" data-name="{{ $atk->nama_atk }}" data-code="{{ $atk->kode_atk }}" data-stock="{{ $atk->formatted_stock }}" data-unit="{{ $atk->satuan }}" data-photo="{{ $atk->foto_barang ? asset('storage/'.$atk->foto_barang) : '' }}" data-detail-url="{{ url('/atk/'.$atk->id.'/detail') }}" data-stock-in-url="{{ url('/atk/'.$atk->id.'/stock-in') }}" data-stock-out-url="{{ url('/atk/'.$atk->id.'/stock-out') }}">
+                                <button type="button" class="atk-mobile-photo js-atk-photo" data-id="{{ $atk->id }}" data-name="{{ $atk->nama_atk }}" data-code="{{ $atk->kode_atk }}" data-stock="{{ $atk->formatted_stock }}" data-unit="{{ $atk->satuan }}" data-colors='@json($atkColorOptions)' data-photo="{{ $atk->foto_barang ? asset('storage/'.$atk->foto_barang) : '' }}" data-detail-url="{{ url('/atk/'.$atk->id.'/detail') }}" data-stock-in-url="{{ url('/atk/'.$atk->id.'/stock-in') }}" data-stock-out-url="{{ url('/atk/'.$atk->id.'/stock-out') }}">
                                     @if ($atk->foto_barang)
                                         <img src="{{ asset('storage/'.$atk->foto_barang) }}" alt="{{ $atk->nama_atk }}">
                                     @else
@@ -152,9 +179,22 @@
                                         <strong>{{ $atk->formatted_stock }}</strong>
                                         <span>{{ $atk->satuan }}</span>
                                     </div>
+                                    <div class="mt-2">
+                                        @include('partials.stock-color-summary', [
+                                            'variants' => $atk->stockVariants,
+                                            'unit' => $atk->satuan,
+                                        ])
+                                    </div>
+                                    <div class="mt-2">
+                                        @include('partials.stock-alert-toggle', [
+                                            'action' => url('/atk/'.$atk->id.'/stock-alert'),
+                                            'enabled' => $atk->stock_alert_enabled ?? true,
+                                            'id' => 'atk_stock_alert_mobile_'.$atk->id,
+                                        ])
+                                    </div>
                                     <div class="atk-mobile-actions">
                                         <a href="{{ url('/atk/'.$atk->id.'/detail') }}" class="btn btn-primary btn-sm">Detail</a>
-                                        <button type="button" class="btn btn-success btn-sm js-atk-open-stock" data-name="{{ $atk->nama_atk }}" data-stock="{{ $atk->formatted_stock }}" data-unit="{{ $atk->satuan }}" data-stock-in-url="{{ url('/atk/'.$atk->id.'/stock-in') }}" data-stock-out-url="{{ url('/atk/'.$atk->id.'/stock-out') }}">Ubah Stok</button>
+                                        <button type="button" class="btn btn-success btn-sm js-atk-open-stock" data-name="{{ $atk->nama_atk }}" data-stock="{{ $atk->formatted_stock }}" data-unit="{{ $atk->satuan }}" data-colors='@json($atkColorOptions)' data-stock-in-url="{{ url('/atk/'.$atk->id.'/stock-in') }}" data-stock-out-url="{{ url('/atk/'.$atk->id.'/stock-out') }}">Ubah Stok</button>
                                         <a href="{{ url('/atk/edit/'.$atk->id) }}" class="btn btn-warning btn-sm">Edit</a>
                                     </div>
                                 </div>
@@ -192,6 +232,13 @@
                                 <option value="masuk">Stok Masuk</option>
                                 <option value="keluar">Stok Keluar</option>
                             </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Warna Barang</label>
+                            <input type="text" name="warna_barang" class="form-control" list="atkQuickColorOptions" placeholder="Contoh: Merah, Hitam, Biru" value="Umum">
+                            <datalist id="atkQuickColorOptions">
+                                <option value="Umum">
+                            </datalist>
                         </div>
                         <div class="row">
                             <div class="col-6 form-group">
@@ -356,6 +403,7 @@
             var quickStockModalElement = document.getElementById('atkQuickStockModal');
             var quickStockModal = window.bootstrap && quickStockModalElement ? new bootstrap.Modal(quickStockModalElement) : null;
             var quickStockUrls = { masuk: '', keluar: '' };
+            var quickColorOptions = document.getElementById('atkQuickColorOptions');
 
             function escapeHtml(value) {
                 return String(value || '').replace(/[&<>"']/g, function (char) {
@@ -370,13 +418,41 @@
                 document.getElementById('atkQuickStockReceiverGroup').classList.toggle('d-none', type !== 'keluar');
             }
 
+            function parseColors(trigger) {
+                try {
+                    return JSON.parse(trigger.getAttribute('data-colors') || '[]');
+                } catch (error) {
+                    return [];
+                }
+            }
+
+            function fillColorOptions(colors) {
+                if (!quickColorOptions) {
+                    return;
+                }
+
+                var optionValues = ['Umum'];
+                colors.forEach(function (color) {
+                    if (color && color.warna && optionValues.indexOf(color.warna) === -1) {
+                        optionValues.push(color.warna);
+                    }
+                });
+
+                quickColorOptions.innerHTML = optionValues.map(function (color) {
+                    return '<option value="' + escapeHtml(color) + '">';
+                }).join('');
+            }
+
             function openQuickStock(trigger) {
+                var colors = parseColors(trigger);
                 quickStockUrls.masuk = trigger.getAttribute('data-stock-in-url') || '';
                 quickStockUrls.keluar = trigger.getAttribute('data-stock-out-url') || '';
                 document.getElementById('atkQuickStockName').textContent = trigger.getAttribute('data-name') || '-';
                 document.getElementById('atkQuickStockCurrent').textContent = (trigger.getAttribute('data-stock') || '0') + ' ' + (trigger.getAttribute('data-unit') || '');
+                fillColorOptions(colors);
                 quickStockForm.reset();
                 quickStockForm.querySelector('[name="tanggal_transaksi"]').value = '{{ date('Y-m-d') }}';
+                quickStockForm.querySelector('[name="warna_barang"]').value = colors[0] && colors[0].warna ? colors[0].warna : 'Umum';
                 quickStockType.value = 'masuk';
                 syncQuickStockForm();
 
@@ -402,6 +478,12 @@
                     var code = trigger.getAttribute('data-code') || '-';
                     var stock = trigger.getAttribute('data-stock') || '0';
                     var unit = trigger.getAttribute('data-unit') || '';
+                    var colors = parseColors(trigger);
+                    var colorHtml = colors.length
+                        ? '<div class="mt-2">' + colors.map(function (color) {
+                            return '<span class="badge bg-light text-dark border me-1">' + escapeHtml(color.warna + ': ' + color.stok + ' ' + unit) + '</span>';
+                        }).join('') + '</div>'
+                        : '<div class="mt-2 text-muted">Belum ada stok warna.</div>';
                     var imageHtml = photo
                         ? '<img src="' + escapeHtml(photo) + '" class="atk-swal-photo" alt="' + escapeHtml(name) + '">'
                         : '<div class="atk-swal-photo d-flex align-items-center justify-content-center text-muted" style="height:180px;"><i class="fa fa-image fa-2x"></i></div>';
@@ -413,7 +495,7 @@
 
                     Swal.fire({
                         title: escapeHtml(name),
-                        html: imageHtml + '<div class="mt-3 text-start"><div><strong>Kode:</strong> ' + escapeHtml(code) + '</div><div><strong>Stok:</strong> ' + escapeHtml(stock + ' ' + unit) + '</div></div>',
+                        html: imageHtml + '<div class="mt-3 text-start"><div><strong>Kode:</strong> ' + escapeHtml(code) + '</div><div><strong>Total Stok:</strong> ' + escapeHtml(stock + ' ' + unit) + '</div>' + colorHtml + '</div>',
                         showDenyButton: true,
                         showCancelButton: true,
                         confirmButtonText: 'Detail',
@@ -438,6 +520,18 @@
                     if (!confirm(form.dataset.confirm || 'Hapus data ini?')) {
                         event.preventDefault();
                     }
+                });
+            });
+
+            document.querySelectorAll('.stock-alert-toggle-form').forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (form.dataset.submitting === '1') {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    form.dataset.submitting = '1';
+                    form.style.pointerEvents = 'none';
                 });
             });
         });

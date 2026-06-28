@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\MappingShift;
+use App\Models\JenisKinerja;
+use App\Models\LaporanKinerja;
 use App\Models\Lokasi;
 use App\Models\Shift;
 use App\Models\User;
@@ -123,6 +125,171 @@ class SmartAbsenImportControllerTest extends TestCase
         $this->assertSame('0', $existing->pulang_cepat);
         $this->assertSame('QR Absen', $existing->keterangan_masuk);
         $this->assertSame('QR Pulang', $existing->keterangan_pulang);
+        $this->assertSame(1, MappingShift::where('user_id', $employee->id)->where('tanggal', '2026-05-29')->whereNull('merged_into_id')->count());
+    }
+
+    /** @test */
+    public function import_creates_incomplete_attendance_and_zero_kpi_without_clock_times()
+    {
+        $admin = User::create([
+            'name' => 'Admin',
+            'username' => 'admin-incomplete',
+            'email' => 'admin-incomplete@example.test',
+            'is_admin' => 'admin',
+        ]);
+
+        $employee = User::create([
+            'name' => 'Employee Incomplete',
+            'username' => 'employee-incomplete',
+            'email' => 'employee-incomplete@example.test',
+            'is_admin' => 'user',
+        ]);
+
+        $shift = Shift::create([
+            'nama_shift' => 'Pagi',
+            'jam_masuk' => '08:00:00',
+            'jam_keluar' => '17:00:00',
+        ]);
+
+        $response = $this->actingAs($admin)->postJson('/smart-import-absen/import', [
+            'import_rows' => [[
+                'user_id' => $employee->id,
+                'shift_id' => $shift->id,
+                'tanggal' => '2026-06-22',
+                'jam_absen' => null,
+                'jam_pulang' => null,
+                'status_absen' => 'Tidak Masuk',
+                'telat' => 0,
+                'pulang_cepat' => 0,
+            ]],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('stats.created', 1);
+
+        $mappingShift = MappingShift::where('user_id', $employee->id)
+            ->where('tanggal', '2026-06-22')
+            ->firstOrFail();
+
+        $jenisIncomplete = JenisKinerja::where('nama', 'Absensi Tidak Lengkap')->firstOrFail();
+
+        $this->assertDatabaseHas('laporan_kinerjas', [
+            'user_id' => $employee->id,
+            'reference' => 'App\Models\MappingShift',
+            'reference_id' => $mappingShift->id,
+            'jenis_kinerja_id' => $jenisIncomplete->id,
+            'nilai' => 0,
+        ]);
+    }
+
+    /** @test */
+    public function import_archives_duplicate_attendance_rows_before_update()
+    {
+        $admin = User::create([
+            'name' => 'Admin',
+            'username' => 'admin-duplicate',
+            'email' => 'admin-duplicate@example.test',
+            'is_admin' => 'admin',
+        ]);
+
+        $employee = User::create([
+            'name' => 'Employee Duplicate',
+            'username' => 'employee-duplicate',
+            'email' => 'employee-duplicate@example.test',
+            'is_admin' => 'user',
+        ]);
+
+        $shift = Shift::create([
+            'nama_shift' => 'Pagi',
+            'jam_masuk' => '08:00:00',
+            'jam_keluar' => '17:00:00',
+        ]);
+
+        $first = MappingShift::create([
+            'user_id' => $employee->id,
+            'shift_id' => $shift->id,
+            'tanggal' => '2026-06-20',
+            'jam_absen' => '08:10',
+            'status_absen' => 'Masuk',
+        ]);
+
+        $second = MappingShift::create([
+            'user_id' => $employee->id,
+            'shift_id' => $shift->id,
+            'tanggal' => '2026-06-20',
+            'jam_pulang' => '17:05',
+            'status_absen' => 'Masuk',
+        ]);
+
+        $this->actingAs($admin)->postJson('/smart-import-absen/import', [
+            'import_rows' => [[
+                'user_id' => $employee->id,
+                'shift_id' => $shift->id,
+                'tanggal' => '2026-06-20',
+                'jam_absen' => null,
+                'jam_pulang' => null,
+                'status_absen' => 'Tidak Masuk',
+                'telat' => 0,
+                'pulang_cepat' => 0,
+            ]],
+        ])->assertOk()
+            ->assertJsonPath('stats.updated', 1);
+
+        $this->assertSame(1, MappingShift::where('user_id', $employee->id)->where('tanggal', '2026-06-20')->whereNull('merged_into_id')->count());
+        $this->assertSame(1, MappingShift::where('user_id', $employee->id)->where('tanggal', '2026-06-20')->whereNotNull('merged_into_id')->count());
+
+        $canonical = MappingShift::where('user_id', $employee->id)->where('tanggal', '2026-06-20')->whereNull('merged_into_id')->firstOrFail();
+        $this->assertSame('08:10', $canonical->jam_absen);
+        $this->assertSame('17:05', $canonical->jam_pulang);
+        $this->assertContains($canonical->id, [$first->id, $second->id]);
+    }
+
+    /** @test */
+    public function preview_matches_employee_name_with_leading_machine_number()
+    {
+        $admin = User::create([
+            'name' => 'Admin',
+            'username' => 'admin-numbered-name',
+            'email' => 'admin-numbered-name@example.test',
+            'is_admin' => 'admin',
+        ]);
+
+        $employee = User::create([
+            'name' => 'Daniel',
+            'username' => 'daniel',
+            'email' => 'daniel@example.test',
+            'is_admin' => 'user',
+        ]);
+
+        $shift = Shift::create([
+            'nama_shift' => 'Pagi',
+            'jam_masuk' => '08:00:00',
+            'jam_keluar' => '17:00:00',
+        ]);
+
+        $filePath = $this->makeSimpleAttendanceXlsx([
+            ['Nama', 'Tanggal', 'Jam Masuk', 'Jam Pulang'],
+            ['2 daniel', '2026-06-22', '08:10', ''],
+        ]);
+        $file = new UploadedFile(
+            $filePath,
+            'absensi-sederhana.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            null,
+            true
+        );
+
+        $response = $this->actingAs($admin)->postJson('/smart-import-absen/preview', [
+            'file_absen' => $file,
+            'shift_id' => $shift->id,
+        ]);
+
+        @unlink($filePath);
+
+        $response->assertOk()
+            ->assertJsonPath('preview.0.valid', true)
+            ->assertJsonPath('preview.0.user_id', $employee->id)
+            ->assertJsonPath('preview.0.match_type', 'exact');
     }
 
     /** @test */
@@ -354,6 +521,18 @@ class SmartAbsenImportControllerTest extends TestCase
         ]);
 
         $path = tempnam(sys_get_temp_dir(), 'smart_import_') . '.xlsx';
+        (new Xlsx($spreadsheet))->save($path);
+
+        return $path;
+    }
+
+    private function makeSimpleAttendanceXlsx(array $rows): string
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray($rows);
+
+        $path = tempnam(sys_get_temp_dir(), 'smart_import_simple_') . '.xlsx';
         (new Xlsx($spreadsheet))->save($path);
 
         return $path;

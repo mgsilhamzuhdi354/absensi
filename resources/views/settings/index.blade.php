@@ -242,6 +242,29 @@
             border-radius: 12px;
             border: 2px solid #e2e8f0;
         }
+
+        .qr-fields-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+        }
+
+        .qr-field-option {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 0.75rem 0.9rem;
+            background: #fff;
+        }
+
+        .qr-field-option label {
+            margin: 0;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            font-weight: 600;
+            color: #334155;
+        }
     </style>
 
     <div class="row">
@@ -353,6 +376,48 @@
                     </div>
                 </div>
                 
+                <!-- Employee QR Settings -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <h5><i class="fa fa-qrcode"></i> QR ID Card Karyawan</h5>
+                    </div>
+                    <div class="settings-card-body">
+                        @php
+                            $allowedQrFields = \App\Services\EmployeeQrService::allowedFields();
+                            $selectedQrFields = json_decode($data->employee_qr_visible_fields ?? '', true);
+                            if (!is_array($selectedQrFields) || empty($selectedQrFields)) {
+                                $selectedQrFields = \App\Services\EmployeeQrService::defaultVisibleFields();
+                            }
+                            $selectedQrFields = old('employee_qr_visible_fields', $selectedQrFields);
+                        @endphp
+
+                        <label class="form-label">Field yang tampil saat QR profil di-scan</label>
+                        <div class="qr-fields-grid">
+                            @foreach($allowedQrFields as $field => $label)
+                                <div class="qr-field-option">
+                                    <label for="employee_qr_field_{{ $field }}">
+                                        <input type="checkbox"
+                                               id="employee_qr_field_{{ $field }}"
+                                               name="employee_qr_visible_fields[]"
+                                               value="{{ $field }}"
+                                               {{ in_array($field, $selectedQrFields, true) ? 'checked' : '' }}>
+                                        <span>{{ $label }}</span>
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
+                        @error('employee_qr_visible_fields')
+                            <div class="text-danger mt-2">{{ $message }}</div>
+                        @enderror
+                        @error('employee_qr_visible_fields.*')
+                            <div class="text-danger mt-2">{{ $message }}</div>
+                        @enderror
+                        <small class="text-muted d-block mt-3">
+                            Field sensitif seperti KTP, BPJS, rekening, gaji, role, password, dan data wajah tidak disediakan untuk QR publik.
+                        </small>
+                    </div>
+                </div>
+
                 <!-- Theme Settings -->
                 <div class="settings-card">
                     <div class="settings-card-header">

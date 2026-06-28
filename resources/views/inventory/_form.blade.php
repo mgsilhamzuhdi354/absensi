@@ -5,6 +5,8 @@
     $statusOptions = ['Aktif', 'Disimpan', 'Dipakai', 'Maintenance', 'Rusak', 'Hilang'];
     $stockInputValue = old('stok', $inventory ? $inventory->formatted_stock : '');
     $stockInputStep = (!$inventory || $inventory->usesWholeStock()) ? '1' : '0.01';
+    $stockAlertEnabled = old('stock_alert_enabled', $inventory ? (int) ($inventory->stock_alert_enabled ?? true) : 1);
+    $warnaOptions = $inventory && $inventory->relationLoaded('stockVariants') ? $inventory->stockVariants : collect();
 @endphp
 
 <div class="row">
@@ -159,6 +161,25 @@
 </div>
 
 <div class="form-group">
+    <label for="warna_barang" class="float-left">Warna Stok Awal / Penyesuaian</label>
+    <input type="text" class="form-control @error('warna_barang') is-invalid @enderror" id="warna_barang" name="warna_barang" list="warna_inventory_options" value="{{ old('warna_barang', 'Umum') }}" placeholder="Contoh: Merah, Hitam, Biru">
+    <datalist id="warna_inventory_options">
+        <option value="Umum">
+        <option value="Hitam">
+        <option value="Putih">
+        <option value="Abu-abu">
+        <option value="Biru">
+        <option value="Merah">
+        @foreach ($warnaOptions as $variant)
+            <option value="{{ $variant->warna_barang }}">
+        @endforeach
+    </datalist>
+    @error('warna_barang')
+        <div class="invalid-feedback">{{ $message }}</div>
+    @enderror
+</div>
+
+<div class="form-group">
     <label for="spesifikasi" class="form-label">Spesifikasi</label>
     <textarea name="spesifikasi" id="spesifikasi" class="form-control @error('spesifikasi') is-invalid @enderror" rows="4">{{ old('spesifikasi', $inventory->spesifikasi ?? '') }}</textarea>
     @error('spesifikasi')
@@ -186,6 +207,12 @@
         </div>
         <a href="{{ asset('storage/' . $inventory->foto_barang) }}" target="_blank" class="d-inline-block mt-2">Lihat foto saat ini</a>
     @endif
+</div>
+
+<div class="form-group">
+    <input type="hidden" name="stock_alert_enabled" value="0">
+    <input name="stock_alert_enabled" class="form-check-input" type="checkbox" value="1" id="stock_alert_enabled" {{ (string) $stockAlertEnabled === '1' ? 'checked' : '' }}>
+    <label class="form-check-label" for="stock_alert_enabled">Notifikasi stok menipis/habis</label>
 </div>
 
 <button type="submit" class="btn btn-primary float-right">{{ $submitLabel }}</button>

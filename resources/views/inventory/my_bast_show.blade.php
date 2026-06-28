@@ -171,6 +171,10 @@
                                 <td>{{ $inventory->serial_number ?? '-' }}</td>
                             </tr>
                             <tr>
+                                <th>Warna</th>
+                                <td>{{ $transaction->warna_barang ?? 'Umum' }}</td>
+                            </tr>
+                            <tr>
                                 <th>Kondisi</th>
                                 <td>{{ $transaction->kondisi_barang ?? ($inventory->kondisi ?? '-') }}</td>
                             </tr>

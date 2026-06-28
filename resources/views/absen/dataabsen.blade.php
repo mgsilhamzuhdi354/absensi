@@ -22,7 +22,7 @@
                 <div class="card-header">
                     <form action="{{ url('/data-absen') }}">
                         <div class="row">
-                            <div class="col-3">
+                            <div class="col-md-3 mb-2">
                                 <select name="user_id" id="user_id" class="form-control selectpicker"
                                     data-live-search="true">
                                     <option value="" selected>Pilih Pegawai</option>
@@ -35,17 +35,24 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="col-3">
+                            <div class="col-md-2 mb-2">
                                 <input type="datetime" class="form-control" name="mulai" placeholder="Tanggal Mulai"
                                     id="mulai" value="{{ request('mulai') }}">
                             </div>
-                            <div class="col-3">
+                            <div class="col-md-2 mb-2">
                                 <input type="datetime" class="form-control" name="akhir" placeholder="Tanggal Akhir"
                                     id="akhir" value="{{ request('akhir') }}">
                             </div>
-                            <div class="col-3">
-                                <button type="submit" id="search" class="border-0 mt-3"
-                                    style="background-color: transparent;"><i class="fas fa-search"></i></button>
+                            <div class="col-md-3 mb-2">
+                                <select name="pegawai_status" class="form-control">
+                                    <option value="aktif" {{ ($pegawaiStatus ?? request('pegawai_status', 'aktif')) === 'aktif' ? 'selected' : '' }}>Absen Aktif</option>
+                                    <option value="keluar" {{ ($pegawaiStatus ?? request('pegawai_status')) === 'keluar' ? 'selected' : '' }}>Absen PHK / Pegawai Keluar</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2 mb-2">
+                                <button type="submit" id="search" class="btn btn-primary w-100">
+                                    <i class="fas fa-search"></i>
+                                </button>
                             </div>
                         </div>
                     </form>

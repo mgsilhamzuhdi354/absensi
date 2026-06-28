@@ -13,6 +13,7 @@ use App\Models\Kontrak;
 use App\Models\Payroll;
 use App\Models\dinasLuar;
 use App\Models\ResetCuti;
+use App\Models\settings;
 use App\Imports\UsersImport;
 use App\Models\MappingShift;
 use Illuminate\Http\Request;
@@ -26,6 +27,8 @@ use Illuminate\Support\Facades\Storage;
 use App\Services\KinerjaService;
 use App\Services\InventoryBastService;
 use Illuminate\Support\Facades\Schema;
+use App\Services\EmployeeQrService;
+use Illuminate\Validation\Rule;
 
 
 
@@ -111,33 +114,132 @@ class karyawanController extends Controller
     public function kartuPegawai()
     {
         $title = 'Kartu Pegawai';
+        $qrService = app(EmployeeQrService::class);
+        $user = $qrService->ensure(auth()->user()->load(['Jabatan', 'Lokasi']));
+        $settings = settings::first();
 
         return view('karyawan.kartuPegawai', compact(
             'title',
+            'user',
+            'settings',
+            'qrService',
         ));
     }
 
     public function qrcode($id)
     {
         $title = 'Kartu';
-        $user = User::find($id);
+        $qrService = app(EmployeeQrService::class);
+        $user = $qrService->ensure(User::with(['Jabatan', 'Lokasi'])->findOrFail($id));
+        $settings = settings::first();
+        $customInfoItems = $qrService->customInfoItems($user);
+        $customInfoIcons = EmployeeQrService::customInfoIconCatalog();
 
         return view('karyawan.qrcode', compact(
             'title',
             'user',
+            'settings',
+            'qrService',
+            'customInfoItems',
+            'customInfoIcons',
         ));
     }
 
     public function print($id)
     {
-        $user = User::find($id);
+        $qrService = app(EmployeeQrService::class);
+        $user = $qrService->ensure(User::with(['Jabatan', 'Lokasi'])->findOrFail($id));
+        $settings = settings::first();
+        $mode = request()->query('mode', EmployeeQrService::MODE_PROFILE);
+        if (!in_array($mode, [EmployeeQrService::MODE_PROFILE, EmployeeQrService::MODE_VCARD, 'both'], true)) {
+            $mode = EmployeeQrService::MODE_PROFILE;
+        }
+
         $pdf = Pdf::loadView('karyawan.print', [
             'title' => 'Kartu',
-            'user' => $user
+            'user' => $user,
+            'settings' => $settings,
+            'mode' => $mode,
+            'qrService' => $qrService,
+            'profileQrDataUri' => $qrService->dataUriForPublicDisk($user->employee_qr_profile_image),
+            'vcardQrDataUri' => $qrService->dataUriForPublicDisk($user->employee_qr_vcard_image),
+            'photoDataUri' => $qrService->photoDataUri($user),
+            'logoDataUri' => $qrService->logoDataUri($settings),
         ]);
 
         $pdf->setPaper('A6', 'portrait');
         return $pdf->stream('kartu-pegawai.pdf');
+    }
+
+    public function downloadEmployeeQr($id, $mode)
+    {
+        $qrService = app(EmployeeQrService::class);
+        if (!in_array($mode, [EmployeeQrService::MODE_PROFILE, EmployeeQrService::MODE_VCARD], true)) {
+            abort(404);
+        }
+
+        $user = $qrService->ensure(User::with(['Jabatan', 'Lokasi'])->findOrFail($id));
+        $path = $qrService->imageForMode($user, $mode);
+
+        if (!$path || !Storage::disk('public')->exists($path)) {
+            abort(404);
+        }
+
+        return Storage::disk('public')->download(
+            $path,
+            'qr-' . $mode . '-' . $qrService->safeFilename($user->employee_id ?: $user->username ?: $user->id) . '.png'
+        );
+    }
+
+    public function regenerateEmployeeQr($id)
+    {
+        app(EmployeeQrService::class)->regenerate(User::findOrFail($id));
+
+        return back()->with('success', 'QR ID Card karyawan berhasil dibuat ulang.');
+    }
+
+    public function updateEmployeeQrInfo(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'info_labels' => 'nullable|array',
+            'info_labels.*' => 'nullable|string|max:80',
+            'info_values' => 'nullable|array',
+            'info_values.*' => 'nullable|string|max:500',
+            'info_icons' => 'nullable|array',
+            'info_icons.*' => ['nullable', 'string', Rule::in(array_keys(EmployeeQrService::customInfoIconCatalog()))],
+        ]);
+
+        $labels = $validated['info_labels'] ?? [];
+        $values = $validated['info_values'] ?? [];
+        $icons = $validated['info_icons'] ?? [];
+        $items = [];
+        $qrService = app(EmployeeQrService::class);
+        $count = max(count($labels), count($values), count($icons));
+
+        for ($index = 0; $index < $count; $index++) {
+            $label = trim((string) ($labels[$index] ?? ''));
+            $value = trim((string) ($values[$index] ?? ''));
+
+            if ($label === '' && $value === '') {
+                continue;
+            }
+
+            if ($value === '') {
+                continue;
+            }
+
+            $items[] = [
+                'label' => $label !== '' ? $label : 'Informasi',
+                'value' => $value,
+                'icon' => $qrService->sanitizeCustomInfoIcon($icons[$index] ?? null),
+            ];
+        }
+
+        User::findOrFail($id)->forceFill([
+            'employee_qr_custom_info' => $items ? json_encode($items, JSON_UNESCAPED_UNICODE) : null,
+        ])->save();
+
+        return back()->with('success', 'Informasi hasil scan QR berhasil disimpan.');
     }
 
     public function euforia()
@@ -191,6 +293,7 @@ class karyawanController extends Controller
     {
         $validatedData = $request->validate([
             'name' => 'required|max:255',
+            'employee_id' => 'nullable|max:255',
             'email' => 'required|email:dns|unique:users',
             'telepon' => 'required',
             'foto_karyawan' => 'image|file|max:10240',
@@ -234,6 +337,9 @@ class karyawanController extends Controller
             'mangkir' => 'nullable',
             'saldo_kasbon' => 'nullable',
             'masa_berlaku' => 'nullable',
+            'nama_kontak_darurat' => 'nullable|max:255',
+            'telepon_kontak_darurat' => 'nullable|max:255',
+            'hubungan_kontak_darurat' => 'nullable|max:255',
         ]);
 
         $validatedData["izin_cuti"] = $request->izin_cuti ?? 0;
@@ -287,6 +393,7 @@ class karyawanController extends Controller
     {
         $rules = [
             'name' => 'required|max:255',
+            'employee_id' => 'nullable|max:255',
             'telepon' => 'required',
             'foto_karyawan' => 'image|file|max:10240',
             'lokasi_id' => 'required',
@@ -327,6 +434,9 @@ class karyawanController extends Controller
             'mangkir' => 'nullable',
             'saldo_kasbon' => 'nullable',
             'masa_berlaku' => 'nullable',
+            'nama_kontak_darurat' => 'nullable|max:255',
+            'telepon_kontak_darurat' => 'nullable|max:255',
+            'hubungan_kontak_darurat' => 'nullable|max:255',
         ];
 
         $user = User::find($id);
@@ -786,6 +896,7 @@ class karyawanController extends Controller
     {
         $rules = [
             'name' => 'required|max:255',
+            'employee_id' => 'nullable|max:255',
             'telepon' => 'required',
             'foto_karyawan' => 'image|file|max:10240',
             'tgl_lahir' => 'required',
@@ -801,6 +912,9 @@ class karyawanController extends Controller
             'nama_bank' => 'nullable',
             'nama_rekening' => 'nullable',
             'alamat' => 'nullable',
+            'nama_kontak_darurat' => 'nullable|max:255',
+            'telepon_kontak_darurat' => 'nullable|max:255',
+            'hubungan_kontak_darurat' => 'nullable|max:255',
         ];
 
 

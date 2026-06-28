@@ -155,4 +155,126 @@ class StockAlertNotificationTest extends TestCase
             ->assertSee('Sistem Stok')
             ->assertSee('Laptop Operasional');
     }
+
+    /** @test */
+    public function disabled_atk_stock_alert_does_not_create_notifications_until_enabled()
+    {
+        $this->actingAs($this->admin)->post('/atk/store', [
+            'nama_atk' => 'Kertas Memo',
+            'kategori' => 'Alat Tulis',
+            'stok' => 3,
+            'satuan' => 'Pcs',
+            'lokasi' => 'Lemari Admin',
+            'active' => 1,
+            'stock_alert_enabled' => 0,
+        ])->assertRedirect('/atk/1/detail');
+
+        $atk = Atk::firstOrFail();
+        $this->assertFalse((bool) $atk->stock_alert_enabled);
+        $this->assertSame(0, $this->admin->notifications()->count());
+        $this->assertDatabaseMissing('stock_alerts', [
+            'alertable_type' => Atk::class,
+            'alertable_id' => $atk->id,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->put('/atk/' . $atk->id . '/stock-alert', [
+                'stock_alert_enabled' => 1,
+            ])
+            ->assertRedirect();
+
+        $atk->refresh();
+        $this->assertTrue((bool) $atk->stock_alert_enabled);
+        $this->assertSame(1, $this->admin->notifications()->count());
+        $this->assertDatabaseHas('stock_alerts', [
+            'source' => 'atk',
+            'alertable_type' => Atk::class,
+            'alertable_id' => $atk->id,
+            'status' => 'low',
+        ]);
+    }
+
+    /** @test */
+    public function disabled_inventory_stock_alert_does_not_create_notifications_until_enabled()
+    {
+        $inventory = Inventory::create([
+            'kode_barang' => 'INV/000998',
+            'nama_barang' => 'Mouse Cadangan',
+            'jenis_barang' => 'Peripheral',
+            'merk_tipe' => 'Logitech',
+            'serial_number' => 'SN-MOUSE',
+            'kondisi' => 'Baik',
+            'status_barang' => 'Aktif',
+            'tanggal_masuk' => '2026-06-22',
+            'stok' => 0,
+            'uom' => 'Unit',
+            'lokasi_id' => $this->lokasi->id,
+            'jabatan_id' => $this->jabatan->id,
+            'stock_alert_enabled' => false,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get('/dashboard')
+            ->assertOk();
+
+        $this->assertSame(0, $this->admin->notifications()->count());
+        $this->assertDatabaseMissing('stock_alerts', [
+            'alertable_type' => Inventory::class,
+            'alertable_id' => $inventory->id,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->put('/inventory/' . $inventory->id . '/stock-alert', [
+                'stock_alert_enabled' => 1,
+            ])
+            ->assertRedirect();
+
+        $inventory->refresh();
+        $this->assertTrue((bool) $inventory->stock_alert_enabled);
+        $this->assertSame(1, $this->admin->notifications()->count());
+        $this->assertDatabaseHas('stock_alerts', [
+            'source' => 'inventory',
+            'alertable_type' => Inventory::class,
+            'alertable_id' => $inventory->id,
+            'status' => 'empty',
+        ]);
+    }
+
+    /** @test */
+    public function disabling_stock_alert_resolves_active_alert_and_hides_unread_stock_notification()
+    {
+        $this->actingAs($this->admin)->post('/atk/store', [
+            'nama_atk' => 'Spidol Board',
+            'kategori' => 'Alat Tulis',
+            'stok' => 2,
+            'satuan' => 'Pcs',
+            'lokasi' => 'Ruang Meeting',
+            'active' => 1,
+        ])->assertRedirect('/atk/1/detail');
+
+        $atk = Atk::firstOrFail();
+        $notification = $this->admin->notifications()->first();
+        $this->assertNotNull($notification);
+        $this->assertNull($notification->read_at);
+
+        $this->actingAs($this->admin)
+            ->put('/atk/' . $atk->id . '/stock-alert', [
+                'stock_alert_enabled' => 0,
+            ])
+            ->assertRedirect();
+
+        $notification->refresh();
+        $this->assertNotNull($notification->read_at);
+        $this->assertDatabaseHas('stock_alerts', [
+            'source' => 'atk',
+            'alertable_type' => Atk::class,
+            'alertable_id' => $atk->id,
+            'status' => 'normal',
+        ]);
+
+        $this->actingAs($this->admin)
+            ->getJson('/notifications/check-new?since=' . now()->subDay()->timestamp . '&include_existing_stock_alerts=1')
+            ->assertOk()
+            ->assertJsonPath('new_count', 0);
+    }
 }

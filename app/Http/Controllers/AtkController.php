@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Exports\AtkExport;
 use App\Models\Atk;
 use App\Models\AtkStockTransaction;
+use App\Models\AtkStockVariant;
 use App\Models\Counter;
 use App\Services\AtkQrService;
 use App\Services\StockAlertService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -42,6 +44,9 @@ class AtkController extends Controller
             ->when($status !== null && $status !== '', function ($query) use ($status) {
                 $query->where('active', (int) $status);
             })
+            ->when(Schema::hasTable('atk_stock_variants'), function ($query) {
+                $query->with('stockVariants');
+            })
             ->orderBy('id', 'DESC')
             ->paginate(10)
             ->withQueryString();
@@ -60,9 +65,11 @@ class AtkController extends Controller
     public function store(Request $request)
     {
         $validated = $this->validatedAtkData($request);
-        $atk = DB::transaction(function () use ($validated) {
+        $initialColor = $this->normalizeColor($request->input('warna_barang'));
+        $atk = DB::transaction(function () use ($validated, $initialColor) {
             $validated['kode_atk'] = $this->generateKodeAtk();
             $atk = Atk::create($validated);
+            $this->syncAtkVariantTotal($atk, $initialColor);
 
             try {
                 return $this->qrService->ensure($atk, true);
@@ -91,6 +98,9 @@ class AtkController extends Controller
 
         $atk = $this->qrService->ensure($atk);
         $atk->load(['stockTransactions.processedBy']);
+        if (Schema::hasTable('atk_stock_variants')) {
+            $atk->load('stockVariants');
+        }
         $deletedStockTransactions = $this->deletedStockTransactions($atk);
 
         return view('atk.detail', compact('title', 'atk', 'deletedStockTransactions'));
@@ -103,6 +113,9 @@ class AtkController extends Controller
         if (!$atk) {
             return redirect('/atk')->with('error', 'Data ATK sudah tidak tersedia.');
         }
+        if (Schema::hasTable('atk_stock_variants')) {
+            $atk->load('stockVariants');
+        }
 
         return view('atk.edit', compact('title', 'atk'));
     }
@@ -112,6 +125,7 @@ class AtkController extends Controller
         $atk = Atk::findOrFail($id);
         $validated = $this->validatedAtkData($request, $atk);
         $atk->update($validated);
+        $this->syncAtkVariantTotal($atk->fresh(), $request->input('warna_barang'));
         $this->qrService->ensure($atk, true);
         $this->stockAlertService->checkAtk($atk->fresh());
 
@@ -143,6 +157,7 @@ class AtkController extends Controller
         $validated = $request->validate([
             'tanggal_transaksi' => 'required|date',
             'jumlah' => 'required|numeric|min:0.01',
+            'warna_barang' => 'nullable|string|max:80',
             'sumber_barang' => 'nullable|string|max:255',
             'catatan' => 'nullable|string',
         ]);
@@ -159,6 +174,7 @@ class AtkController extends Controller
         $validated = $request->validate([
             'tanggal_transaksi' => 'required|date',
             'jumlah' => 'required|numeric|min:0.01',
+            'warna_barang' => 'nullable|string|max:80',
             'penerima_barang' => 'nullable|string|max:255',
             'catatan' => 'nullable|string',
         ]);
@@ -167,6 +183,27 @@ class AtkController extends Controller
         $this->stockAlertService->checkAtk($atk->fresh());
 
         return redirect('/atk/' . $atk->id . '/detail')->with('success', 'Stok keluar ATK berhasil disimpan');
+    }
+
+    public function updateStockAlert(Request $request, $id)
+    {
+        $atk = Atk::findOrFail($id);
+        $request->validate([
+            'stock_alert_enabled' => 'nullable|boolean',
+        ]);
+
+        $atk->forceFill([
+            'stock_alert_enabled' => $request->boolean('stock_alert_enabled') ? 1 : 0,
+        ])->save();
+
+        $this->stockAlertService->checkAtk($atk->fresh());
+
+        return back()->with(
+            'success',
+            $atk->stock_alert_enabled
+                ? 'Notifikasi stok ATK berhasil diaktifkan.'
+                : 'Notifikasi stok ATK berhasil dinonaktifkan.'
+        );
     }
 
     public function deleteStockTransaction($id)
@@ -182,6 +219,8 @@ class AtkController extends Controller
             $newStock = $transaction->jenis_transaksi === 'keluar'
                 ? $currentStock + $quantity
                 : $currentStock - $quantity;
+
+            $this->reverseAtkVariantStock($lockedAtk, $transaction, $quantity);
 
             if ($newStock < -0.000001) {
                 throw ValidationException::withMessages([
@@ -328,16 +367,23 @@ class AtkController extends Controller
             'keterangan' => 'nullable|string',
             'foto_barang' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
             'active' => 'nullable|boolean',
+            'stock_alert_enabled' => 'nullable|boolean',
+            'warna_barang' => 'nullable|string|max:80',
         ]);
 
         $validated['stok'] = round((float) $validated['stok'], 2);
         $validated['active'] = $request->boolean('active') ? 1 : 0;
+        $defaultStockAlertEnabled = $atk ? (bool) $atk->stock_alert_enabled : true;
+        $validated['stock_alert_enabled'] = $request->has('stock_alert_enabled')
+            ? ($request->boolean('stock_alert_enabled') ? 1 : 0)
+            : ($defaultStockAlertEnabled ? 1 : 0);
         if ($atk) {
             $validated['kode_atk'] = $atk->kode_atk;
         } else {
             unset($validated['kode_atk']);
         }
         unset($validated['foto_barang']);
+        unset($validated['warna_barang']);
 
         if ($request->hasFile('foto_barang')) {
             if ($atk && $atk->foto_barang) {
@@ -355,6 +401,10 @@ class AtkController extends Controller
             $lockedAtk = Atk::whereKey($atk->id)->lockForUpdate()->firstOrFail();
             $stockBefore = $this->currentStock($lockedAtk);
             $quantity = round((float) $data['jumlah'], 2);
+            $color = $this->normalizeColor($data['warna_barang'] ?? null);
+            $this->ensureAtkVariantsInitialized($lockedAtk);
+            $variant = $this->lockOrCreateAtkVariant($lockedAtk, $color);
+            $variantStockBefore = round(max(0, (float) ($variant->stok ?? 0)), 2);
             $stockAfter = $type === 'masuk'
                 ? $stockBefore + $quantity
                 : $stockBefore - $quantity;
@@ -365,7 +415,18 @@ class AtkController extends Controller
                 ]);
             }
 
+            if ($type === 'keluar' && ($variantStockBefore - $quantity) < -0.000001) {
+                throw ValidationException::withMessages([
+                    'warna_barang' => 'Stok warna ' . $color . ' tidak mencukupi. Stok tersedia ' . $this->formatStockValue($variantStockBefore) . ' ' . ($lockedAtk->satuan ?: 'Pcs') . '.',
+                ]);
+            }
+
             $stockAfter = round(max(0, $stockAfter), 2);
+            $variant->update([
+                'stok' => $type === 'masuk'
+                    ? round($variantStockBefore + $quantity, 2)
+                    : round(max(0, $variantStockBefore - $quantity), 2),
+            ]);
             $lockedAtk->update([
                 'stok' => $stockAfter,
             ]);
@@ -374,6 +435,7 @@ class AtkController extends Controller
                 'atk_id' => $lockedAtk->id,
                 'jenis_transaksi' => $type,
                 'jumlah' => $quantity,
+                'warna_barang' => $color,
                 'stok_sebelum' => $stockBefore,
                 'stok_sesudah' => $stockAfter,
                 'tanggal_transaksi' => $data['tanggal_transaksi'],
@@ -385,9 +447,145 @@ class AtkController extends Controller
         });
     }
 
+    private function syncAtkVariantTotal(Atk $atk, ?string $color): void
+    {
+        if (!Schema::hasTable('atk_stock_variants')) {
+            return;
+        }
+
+        DB::transaction(function () use ($atk, $color) {
+            $lockedAtk = Atk::whereKey($atk->id)->lockForUpdate()->firstOrFail();
+            $targetStock = $this->currentStock($lockedAtk);
+            $variantTotal = round((float) AtkStockVariant::where('atk_id', $lockedAtk->id)->sum('stok'), 2);
+            $delta = round($targetStock - $variantTotal, 2);
+
+            $this->applyAtkVariantDelta($lockedAtk, $this->normalizeColor($color), $delta);
+        });
+    }
+
+    private function reverseAtkVariantStock(Atk $atk, AtkStockTransaction $transaction, float $quantity): void
+    {
+        if (!Schema::hasTable('atk_stock_variants')) {
+            return;
+        }
+
+        $color = $this->normalizeColor($transaction->warna_barang ?? null);
+        $this->ensureAtkVariantsInitialized($atk);
+        $variant = $this->lockOrCreateAtkVariant($atk, $color);
+        $variantStockBefore = round(max(0, (float) ($variant->stok ?? 0)), 2);
+
+        if ($transaction->jenis_transaksi === 'keluar') {
+            $variant->update([
+                'stok' => round($variantStockBefore + $quantity, 2),
+            ]);
+            return;
+        }
+
+        $variantStockAfter = $variantStockBefore - $quantity;
+        if ($variantStockAfter < -0.000001) {
+            throw ValidationException::withMessages([
+                'transaction' => 'Transaksi stok masuk warna ' . $color . ' belum bisa dihapus karena stok warna saat ini tidak cukup untuk dibalik.',
+            ]);
+        }
+
+        $variant->update([
+            'stok' => round(max(0, $variantStockAfter), 2),
+        ]);
+    }
+
+    private function applyAtkVariantDelta(Atk $atk, string $color, float $delta): void
+    {
+        if (abs($delta) < 0.000001) {
+            return;
+        }
+
+        if ($delta > 0) {
+            $variant = $this->lockOrCreateAtkVariant($atk, $color);
+            $variant->update([
+                'stok' => round(max(0, (float) $variant->stok) + $delta, 2),
+            ]);
+            return;
+        }
+
+        $remaining = abs($delta);
+        $variants = AtkStockVariant::where('atk_id', $atk->id)
+            ->orderByRaw('CASE WHEN warna_barang = ? THEN 0 ELSE 1 END', [$color])
+            ->orderByDesc('stok')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($variants as $variant) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $available = round(max(0, (float) $variant->stok), 2);
+            $taken = min($available, $remaining);
+            $variant->update([
+                'stok' => round($available - $taken, 2),
+            ]);
+            $remaining = round($remaining - $taken, 2);
+        }
+    }
+
+    private function lockOrCreateAtkVariant(Atk $atk, string $color): AtkStockVariant
+    {
+        $variant = AtkStockVariant::where('atk_id', $atk->id)
+            ->where('warna_barang', $color)
+            ->lockForUpdate()
+            ->first();
+
+        if ($variant) {
+            return $variant;
+        }
+
+        return AtkStockVariant::create([
+            'atk_id' => $atk->id,
+            'warna_barang' => $color,
+            'stok' => 0,
+        ]);
+    }
+
+    private function ensureAtkVariantsInitialized(Atk $atk): void
+    {
+        if (!Schema::hasTable('atk_stock_variants')) {
+            return;
+        }
+
+        $hasVariant = AtkStockVariant::where('atk_id', $atk->id)->exists();
+        if ($hasVariant) {
+            return;
+        }
+
+        $stock = $this->currentStock($atk);
+        if ($stock <= 0) {
+            return;
+        }
+
+        AtkStockVariant::create([
+            'atk_id' => $atk->id,
+            'warna_barang' => 'Umum',
+            'stok' => $stock,
+        ]);
+    }
+
     private function currentStock(Atk $atk): float
     {
         return round(max(0, (float) ($atk->stok ?? 0)), 2);
+    }
+
+    private function normalizeColor($value): string
+    {
+        $color = trim(preg_replace('/\s+/', ' ', (string) $value));
+
+        return $color !== '' ? mb_substr($color, 0, 80) : 'Umum';
+    }
+
+    private function formatStockValue($value): string
+    {
+        $formatted = number_format((float) ($value ?? 0), 2, '.', '');
+
+        return rtrim(rtrim($formatted, '0'), '.') ?: '0';
     }
 
     private function deletedStockTransactions(Atk $atk)

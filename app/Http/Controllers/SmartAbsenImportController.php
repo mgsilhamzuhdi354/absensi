@@ -287,6 +287,7 @@ class SmartAbsenImportController extends Controller
             if ($row['user_id'] && $row['tanggal']) {
                 $existing = MappingShift::where('user_id', $row['user_id'])
                     ->where('tanggal', $row['tanggal'])
+                    ->whereNull('merged_into_id')
                     ->first();
                 $row['existing_id'] = $existing ? $existing->id : null;
                 $row['action'] = $existing ? 'update' : 'create';
@@ -383,11 +384,10 @@ class SmartAbsenImportController extends Controller
 
     private function importMappingShift(array $row, int &$created, int &$updated): void
     {
-        $existing = MappingShift::where('user_id', $row['user_id'])
-            ->where('tanggal', $row['tanggal'])
-            ->first();
+        $existing = MappingShift::mergeDuplicateAttendancesFor($row['user_id'], $row['tanggal'], true);
 
         $data = $this->buildMappingShiftData($row);
+        $data['attendance_unique_key'] = MappingShift::attendanceUniqueKey($row['user_id'], $row['tanggal']);
 
         if ($existing) {
             $existing->update($this->mergeWithExistingAttendance($data, $existing, $row));

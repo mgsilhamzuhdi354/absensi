@@ -74,6 +74,25 @@
                                             </td>
                                         </tr>
                                         <tr>
+                                            <th>Stok Per Warna</th>
+                                            <td>
+                                                @include('partials.stock-color-summary', [
+                                                    'variants' => $inventory->stockVariants,
+                                                    'unit' => $inventory->display_uom,
+                                                ])
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Notifikasi Stok</th>
+                                            <td>
+                                                @include('partials.stock-alert-toggle', [
+                                                    'action' => url('/inventory/'.$inventory->id.'/stock-alert'),
+                                                    'enabled' => $inventory->stock_alert_enabled ?? true,
+                                                    'id' => 'inventory_stock_alert_detail_'.$inventory->id,
+                                                ])
+                                            </td>
+                                        </tr>
+                                        <tr>
                                             <th>Pemegang Saat Ini</th>
                                             <td>
                                                 @if ($currentHolderTransaction)
@@ -84,6 +103,7 @@
                                                             <span class="mx-1">|</span> Sejak {{ $currentHolderTransaction->tanggal_transaksi->format('d/m/Y') }}
                                                         @endif
                                                         <span class="mx-1">|</span> Jumlah {{ $inventory->formatStockValue($currentHolderTransaction->jumlah) }} {{ $inventory->display_uom }}
+                                                        <span class="mx-1">|</span> Warna {{ $currentHolderTransaction->warna_barang ?? 'Umum' }}
                                                     </div>
                                                 @else
                                                     <span class="badge bg-secondary">Belum pindah tangan</span>
@@ -164,6 +184,10 @@
                             </div>
                         </div>
                         <div class="form-group">
+                            <label>Warna Barang</label>
+                            <input type="text" name="warna_barang" class="form-control" list="inventory_detail_color_options" value="{{ old('warna_barang', 'Umum') }}" placeholder="Contoh: Hitam, Putih, Abu-abu">
+                        </div>
+                        <div class="form-group">
                             <label>Sumber Barang / Supplier</label>
                             <input type="text" name="sumber_barang" class="form-control" value="{{ old('sumber_barang') }}">
                         </div>
@@ -212,6 +236,10 @@
                                 <label>Jumlah Keluar</label>
                                 <input type="number" step="{{ $wholeStockStep }}" min="{{ $minimumStockQuantity }}" max="{{ $maxStockQuantity }}" name="jumlah" class="form-control" value="{{ old('jumlah', $canStockOut ? $minimumStockQuantity : '') }}" {{ !$canStockOut ? 'disabled' : '' }} required>
                             </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Warna Barang</label>
+                            <input type="text" name="warna_barang" class="form-control" list="inventory_detail_color_options" value="{{ old('warna_barang', optional($inventory->stockVariants->firstWhere('stok', '>', 0))->warna_barang ?? 'Umum') }}" placeholder="Pilih warna yang tersedia" {{ !$canStockOut ? 'disabled' : '' }}>
                         </div>
                         <div class="form-group">
                             <label>Pilih Karyawan</label>
@@ -284,6 +312,18 @@
             </div>
         </div>
 
+        <datalist id="inventory_detail_color_options">
+            <option value="Umum">
+            <option value="Hitam">
+            <option value="Putih">
+            <option value="Abu-abu">
+            <option value="Biru">
+            <option value="Merah">
+            @foreach ($inventory->stockVariants as $variant)
+                <option value="{{ $variant->warna_barang }}">
+            @endforeach
+        </datalist>
+
         <div class="col-md-12">
             <div class="card">
                 <div class="card-header">
@@ -296,6 +336,7 @@
                                 <tr>
                                     <th>Tanggal</th>
                                     <th>Jenis</th>
+                                    <th>Warna</th>
                                     <th>Jumlah</th>
                                     <th>Stok Sebelum</th>
                                     <th>Stok Sesudah</th>
@@ -317,6 +358,7 @@
                                                 {{ ucfirst($transaction->jenis_transaksi) }}
                                             @endif
                                         </td>
+                                        <td>{{ $transaction->warna_barang ?? 'Umum' }}</td>
                                         <td>{{ $inventory->formatStockValue($transaction->jumlah) }}</td>
                                         <td>{{ $inventory->formatStockValue($transaction->stok_sebelum) }}</td>
                                         <td>{{ $inventory->formatStockValue($transaction->stok_sesudah) }}</td>
@@ -405,7 +447,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="10" class="text-center">Belum ada riwayat stok.</td>
+                                        <td colspan="11" class="text-center">Belum ada riwayat stok.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -427,6 +469,7 @@
                                 <tr>
                                     <th>Tanggal Transaksi</th>
                                     <th>Jenis</th>
+                                    <th>Warna</th>
                                     <th>Jumlah</th>
                                     <th>Diproses Oleh</th>
                                     <th>Penerima / Sumber</th>
@@ -446,6 +489,7 @@
                                                 {{ ucfirst($transaction->jenis_transaksi) }}
                                             @endif
                                         </td>
+                                        <td>{{ $transaction->warna_barang ?? 'Umum' }}</td>
                                         <td>{{ $inventory->formatStockValue($transaction->jumlah) }}</td>
                                         <td>{{ $transaction->processedBy->name ?? '-' }}</td>
                                         <td>
@@ -487,7 +531,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="8" class="text-center">Belum ada riwayat stok yang dihapus.</td>
+                                        <td colspan="9" class="text-center">Belum ada riwayat stok yang dihapus.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -502,6 +546,18 @@
 @push('script')
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.stock-alert-toggle-form').forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (form.dataset.submitting === '1') {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    form.dataset.submitting = '1';
+                    form.style.pointerEvents = 'none';
+                });
+            });
+
             var receiverSelect = document.getElementById('penerima_user_id');
             if (!receiverSelect) {
                 return;
