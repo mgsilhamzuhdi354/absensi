@@ -384,8 +384,8 @@ class EmployeeQrService
         if ($logoPath && $this->isRasterImage($logoPath)) {
             $builder
                 ->logoPath($logoPath)
-                ->logoResizeToWidth(48)
-                ->logoResizeToHeight(48)
+                ->logoResizeToWidth(64)
+                ->logoResizeToHeight(64)
                 ->logoPunchoutBackground(true);
         }
 
