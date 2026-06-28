@@ -164,6 +164,7 @@ Route::put('/pegawai/edit-password-proses/{id}', [karyawanController::class, 'ed
 Route::get('/pegawai/qrcode/{id}', [karyawanController::class, 'qrcode'])->middleware('admin');
 Route::get('/pegawai/{id}/qr/{mode}/download', [karyawanController::class, 'downloadEmployeeQr'])->where('mode', 'profile|vcard')->middleware('admin');
 Route::post('/pegawai/{id}/qr/info', [karyawanController::class, 'updateEmployeeQrInfo'])->middleware('admin');
+Route::post('/pegawai/{id}/qr/refresh-image', [karyawanController::class, 'refreshEmployeeQrImage'])->middleware('admin');
 Route::post('/pegawai/{id}/qr/regenerate', [karyawanController::class, 'regenerateEmployeeQr'])->middleware('admin');
 Route::get('/pegawai/print/{id}', [karyawanController::class, 'print'])->middleware('auth');
 Route::get('/kartu-pegawai', [karyawanController::class, 'kartuPegawai'])->middleware('auth');

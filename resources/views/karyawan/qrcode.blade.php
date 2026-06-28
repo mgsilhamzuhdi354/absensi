@@ -173,6 +173,12 @@
                     <a href="{{ url('/pegawai/print/'.$user->id.'?mode=both') }}" target="_blank" class="btn btn-success">
                         <i class="fa fa-print me-1"></i> Cetak Dua Mode
                     </a>
+                    <form action="{{ url('/pegawai/'.$user->id.'/qr/refresh-image') }}" method="POST" onsubmit="return confirm('Perbarui gambar QR dengan logo terbaru tanpa mengganti token?')">
+                        @csrf
+                        <button type="submit" class="btn btn-info text-white">
+                            <i class="fa fa-image me-1"></i> Refresh Logo QR
+                        </button>
+                    </form>
                     <form action="{{ url('/pegawai/'.$user->id.'/qr/regenerate') }}" method="POST" onsubmit="return confirm('Buat ulang token QR? URL lama tidak bisa dipakai lagi.')">
                         @csrf
                         <button type="submit" class="btn btn-warning">

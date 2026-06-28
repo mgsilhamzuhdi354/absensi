@@ -198,6 +198,13 @@ class karyawanController extends Controller
         return back()->with('success', 'QR ID Card karyawan berhasil dibuat ulang.');
     }
 
+    public function refreshEmployeeQrImage($id)
+    {
+        app(EmployeeQrService::class)->refreshImages(User::findOrFail($id));
+
+        return back()->with('success', 'Gambar QR berhasil diperbarui tanpa mengganti token.');
+    }
+
     public function updateEmployeeQrInfo(Request $request, $id)
     {
         $validated = $request->validate([

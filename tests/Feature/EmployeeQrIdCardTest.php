@@ -215,6 +215,28 @@ class EmployeeQrIdCardTest extends TestCase
     }
 
     /** @test */
+    public function admin_can_refresh_employee_qr_image_without_changing_token_or_url()
+    {
+        Storage::fake('public');
+        [$admin, $employee] = $this->seedUsers();
+        $employee = app(EmployeeQrService::class)->ensure($employee);
+        $oldToken = $employee->employee_qr_token;
+        $oldProfileValue = $employee->employee_qr_profile_value;
+        $oldVcardValue = $employee->employee_qr_vcard_value;
+
+        $this->actingAs($admin)
+            ->post('/pegawai/' . $employee->id . '/qr/refresh-image')
+            ->assertRedirect();
+
+        $employee->refresh();
+        $this->assertSame($oldToken, $employee->employee_qr_token);
+        $this->assertSame($oldProfileValue, $employee->employee_qr_profile_value);
+        $this->assertSame($oldVcardValue, $employee->employee_qr_vcard_value);
+        Storage::disk('public')->assertExists($employee->employee_qr_profile_image);
+        Storage::disk('public')->assertExists($employee->employee_qr_vcard_image);
+    }
+
+    /** @test */
     public function employee_id_and_emergency_contact_are_saved_from_employee_forms()
     {
         [$admin] = $this->seedUsers();

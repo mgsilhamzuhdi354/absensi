@@ -7,7 +7,7 @@ use App\Models\settings;
 use Carbon\Carbon;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Encoding\Encoding;
-use Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelMedium;
+use Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelHigh;
 use Endroid\QrCode\RoundBlockSizeMode\RoundBlockSizeModeMargin;
 use Endroid\QrCode\Writer\PngWriter;
 use Illuminate\Support\Facades\Storage;
@@ -113,6 +113,11 @@ class EmployeeQrService
             'employee_qr_vcard_value' => null,
         ])->save();
 
+        return $this->ensure($user->fresh(['Jabatan', 'Lokasi']), true);
+    }
+
+    public function refreshImages(User $user): User
+    {
         return $this->ensure($user->fresh(['Jabatan', 'Lokasi']), true);
     }
 
@@ -374,7 +379,7 @@ class EmployeeQrService
             ->writerOptions([])
             ->data($value)
             ->encoding(new Encoding('UTF-8'))
-            ->errorCorrectionLevel(new ErrorCorrectionLevelMedium())
+            ->errorCorrectionLevel(new ErrorCorrectionLevelHigh())
             ->size(480)
             ->margin(12)
             ->roundBlockSizeMode(new RoundBlockSizeModeMargin())
@@ -384,8 +389,8 @@ class EmployeeQrService
         if ($logoPath && $this->isRasterImage($logoPath)) {
             $builder
                 ->logoPath($logoPath)
-                ->logoResizeToWidth(64)
-                ->logoResizeToHeight(64)
+                ->logoResizeToWidth(96)
+                ->logoResizeToHeight(96)
                 ->logoPunchoutBackground(true);
         }
 
