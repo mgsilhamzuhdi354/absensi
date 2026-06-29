@@ -126,17 +126,48 @@
                                             <th>Divisi / Jabatan</th>
                                             <td>{{ $inventory->jabatan->nama_jabatan ?? '-' }}</td>
                                         </tr>
-                                        <tr>
-                                            <th>Tanggal Masuk</th>
-                                            <td>{{ optional($inventory->tanggal_masuk)->format('d/m/Y') ?? '-' }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+                        <tr>
+                            <th>Tanggal Masuk</th>
+                            <td>{{ optional($inventory->tanggal_masuk)->format('d/m/Y') ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Bukti Pembelian / Nota</th>
+                            <td>
+                                @if ($inventory->bukti_pembelian)
+                                    <a href="{{ url('/inventory/'.$inventory->id.'/purchase-proof/download') }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fa fa-download me-1"></i> Download Nota
+                                    </a>
+                                    <div class="small text-muted mt-1">{{ $inventory->bukti_pembelian_nama_asli ?: basename($inventory->bukti_pembelian) }}</div>
+                                @else
+                                    -
+                                @endif
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
-                    <h6>Spesifikasi</h6>
+    @if ($inventory->bukti_pembelian)
+        @php
+            $proofExtension = strtolower(pathinfo($inventory->bukti_pembelian, PATHINFO_EXTENSION));
+        @endphp
+        <div class="mt-3">
+            <h6>Bukti Pembelian / Nota</h6>
+            @if (in_array($proofExtension, ['jpg', 'jpeg', 'png'], true))
+                <a href="{{ asset('storage/'.$inventory->bukti_pembelian) }}" target="_blank">
+                    <img src="{{ asset('storage/'.$inventory->bukti_pembelian) }}" alt="Bukti pembelian {{ $inventory->nama_barang }}" class="img-fluid rounded border" style="max-height: 260px; object-fit: contain;">
+                </a>
+            @else
+                <a href="{{ url('/inventory/'.$inventory->id.'/purchase-proof/download') }}" class="btn btn-outline-primary btn-sm">
+                    <i class="fa fa-file-pdf me-1"></i> Download PDF Nota
+                </a>
+            @endif
+        </div>
+    @endif
+
+    <h6>Spesifikasi</h6>
                     <p>{!! $inventory->spesifikasi ? nl2br(e($inventory->spesifikasi)) : '-' !!}</p>
 
                     <h6>Description</h6>

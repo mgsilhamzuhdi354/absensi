@@ -169,6 +169,45 @@ class InventoryQrStockTest extends TestCase
     }
 
     /** @test */
+    public function admin_can_store_download_and_replace_inventory_purchase_proof()
+    {
+        Storage::fake('public');
+
+        $response = $this->actingAs($this->admin)->post('/inventory/store', $this->inventoryPayload([
+            'bukti_pembelian' => UploadedFile::fake()->image('nota.png', 600, 400),
+        ]));
+
+        $inventory = Inventory::first();
+
+        $response->assertRedirect('/inventory/' . $inventory->id . '/detail');
+        $this->assertNotNull($inventory->bukti_pembelian);
+        $this->assertSame('nota.png', $inventory->bukti_pembelian_nama_asli);
+        Storage::disk('public')->assertExists($inventory->bukti_pembelian);
+
+        $this->actingAs($this->admin)
+            ->get('/inventory/' . $inventory->id . '/detail')
+            ->assertOk()
+            ->assertSee('Bukti Pembelian / Nota')
+            ->assertSee('storage/' . $inventory->bukti_pembelian, false);
+
+        $this->actingAs($this->admin)
+            ->get('/inventory/' . $inventory->id . '/purchase-proof/download')
+            ->assertOk();
+
+        $oldProof = $inventory->bukti_pembelian;
+
+        $this->actingAs($this->admin)->put('/inventory/update/' . $inventory->id, $this->inventoryPayload([
+            'kode_barang' => $inventory->kode_barang,
+            'bukti_pembelian' => UploadedFile::fake()->create('nota-baru.pdf', 80, 'application/pdf'),
+        ]))->assertRedirect('/inventory/' . $inventory->id . '/detail');
+
+        $inventory->refresh();
+        Storage::disk('public')->assertMissing($oldProof);
+        Storage::disk('public')->assertExists($inventory->bukti_pembelian);
+        $this->assertSame('nota-baru.pdf', $inventory->bukti_pembelian_nama_asli);
+    }
+
+    /** @test */
     public function numeric_uom_is_rejected_so_stock_and_unit_do_not_get_mixed()
     {
         $response = $this->actingAs($this->admin)->post('/inventory/store', $this->inventoryPayload([

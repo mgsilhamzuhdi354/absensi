@@ -157,6 +157,9 @@ class InventoryController extends Controller
         if ($inventory->foto_barang) {
             Storage::disk(self::PUBLIC_DISK)->delete($inventory->foto_barang);
         }
+        if ($inventory->bukti_pembelian) {
+            Storage::disk(self::PUBLIC_DISK)->delete($inventory->bukti_pembelian);
+        }
         if ($inventory->qr_code_image) {
             Storage::disk(self::PUBLIC_DISK)->delete($inventory->qr_code_image);
         }
@@ -332,6 +335,20 @@ class InventoryController extends Controller
         return Storage::disk(self::PUBLIC_DISK)->download(
             $inventory->qr_code_image,
             'qr-' . $this->safeFilename($inventory->kode_barang ?: $inventory->id) . '.png'
+        );
+    }
+
+    public function downloadPurchaseProof($id)
+    {
+        $inventory = Inventory::findOrFail($id);
+
+        if (!$inventory->bukti_pembelian || !Storage::disk(self::PUBLIC_DISK)->exists($inventory->bukti_pembelian)) {
+            abort(404);
+        }
+
+        return Storage::disk(self::PUBLIC_DISK)->download(
+            $inventory->bukti_pembelian,
+            $inventory->bukti_pembelian_nama_asli ?: 'bukti-pembelian-' . $this->safeFilename($inventory->kode_barang ?: $inventory->id)
         );
     }
 
@@ -728,10 +745,12 @@ class InventoryController extends Controller
             'lokasi_id' => 'required|exists:lokasis,id',
             'jabatan_id' => 'required|exists:jabatans,id',
             'foto_barang' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'bukti_pembelian' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
             'stock_alert_enabled' => 'nullable|boolean',
             'warna_barang' => 'nullable|string|max:80',
         ], [
             'uom.not_regex' => 'UoM harus berupa nama satuan, contoh Unit, Pcs, Set, Box, bukan angka stok.',
+            'bukti_pembelian.mimes' => 'Bukti pembelian harus berupa file JPG, JPEG, PNG, atau PDF.',
         ]);
 
         if (Inventory::isWholeStockUom($validated['uom']) && !$this->isWholeNumber($validated['stok'])) {
@@ -754,6 +773,7 @@ class InventoryController extends Controller
             unset($validated['kode_barang']);
         }
         unset($validated['foto_barang']);
+        unset($validated['bukti_pembelian']);
         unset($validated['warna_barang']);
 
         if ($request->hasFile('foto_barang')) {
@@ -761,6 +781,16 @@ class InventoryController extends Controller
                 Storage::disk(self::PUBLIC_DISK)->delete($inventory->foto_barang);
             }
             $validated['foto_barang'] = $request->file('foto_barang')->store('inventory/photos', self::PUBLIC_DISK);
+        }
+
+        if ($request->hasFile('bukti_pembelian')) {
+            if ($inventory && $inventory->bukti_pembelian) {
+                Storage::disk(self::PUBLIC_DISK)->delete($inventory->bukti_pembelian);
+            }
+
+            $file = $request->file('bukti_pembelian');
+            $validated['bukti_pembelian'] = $file->store('inventory/purchase-proofs', self::PUBLIC_DISK);
+            $validated['bukti_pembelian_nama_asli'] = $file->getClientOriginalName();
         }
 
         return $validated;

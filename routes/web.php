@@ -548,6 +548,7 @@ Route::post('/inventory/{id}/stock-out', [InventoryController::class, 'stockOut'
 Route::put('/inventory/{id}/stock-alert', [InventoryController::class, 'updateStockAlert'])->middleware('admin');
 Route::get('/inventory/{id}/qr/print', [InventoryController::class, 'printQr'])->middleware('admin');
 Route::get('/inventory/{id}/qr/download', [InventoryController::class, 'downloadQr'])->middleware('admin');
+Route::get('/inventory/{id}/purchase-proof/download', [InventoryController::class, 'downloadPurchaseProof'])->middleware('admin');
 Route::get('/inventory/edit/{id}', [InventoryController::class, 'edit'])->middleware('admin');
 Route::put('/inventory/update/{id}', [InventoryController::class, 'update'])->middleware('admin');
 Route::get('/inventory/delete/{id}', function () {

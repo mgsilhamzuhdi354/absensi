@@ -210,6 +210,28 @@
 </div>
 
 <div class="form-group">
+    <label for="bukti_pembelian" class="float-left">Bukti Pembelian / Nota</label>
+    <input type="file" class="form-control @error('bukti_pembelian') is-invalid @enderror" id="bukti_pembelian" name="bukti_pembelian" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf">
+    <small class="text-muted d-block mt-1">Upload nota pembelian dalam format JPG, JPEG, PNG, atau PDF. Maksimal 5MB.</small>
+    @error('bukti_pembelian')
+        <div class="invalid-feedback">{{ $message }}</div>
+    @enderror
+    @if ($inventory && $inventory->bukti_pembelian)
+        <div class="mt-2">
+            @php
+                $proofExtension = strtolower(pathinfo($inventory->bukti_pembelian, PATHINFO_EXTENSION));
+            @endphp
+            @if (in_array($proofExtension, ['jpg', 'jpeg', 'png'], true))
+                <img src="{{ asset('storage/' . $inventory->bukti_pembelian) }}" alt="Bukti pembelian {{ $inventory->nama_barang }}" class="img-fluid rounded border" style="max-height: 180px; object-fit: cover;">
+            @else
+                <span class="badge bg-light text-dark border">PDF</span>
+            @endif
+        </div>
+        <a href="{{ url('/inventory/'.$inventory->id.'/purchase-proof/download') }}" class="d-inline-block mt-2">Download bukti pembelian saat ini</a>
+    @endif
+</div>
+
+<div class="form-group">
     <input type="hidden" name="stock_alert_enabled" value="0">
     <input name="stock_alert_enabled" class="form-check-input" type="checkbox" value="1" id="stock_alert_enabled" {{ (string) $stockAlertEnabled === '1' ? 'checked' : '' }}>
     <label class="form-check-label" for="stock_alert_enabled">Notifikasi stok menipis/habis</label>

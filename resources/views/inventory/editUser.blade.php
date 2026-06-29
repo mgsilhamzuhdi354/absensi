@@ -58,6 +58,20 @@
                             @enderror
                         </div>
 
+                        <div class="group-input">
+                            <label for="bukti_pembelian" class="form-label">Bukti Pembelian / Nota</label>
+                            <input type="file" class="@error('bukti_pembelian') is-invalid @enderror" id="bukti_pembelian" name="bukti_pembelian" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf">
+                            <small>Format JPG, JPEG, PNG, atau PDF. Maksimal 5MB.</small>
+                            @error('bukti_pembelian')
+                            <div class="invalid-feedback">
+                                {{ $message }}
+                            </div>
+                            @enderror
+                            @if ($inventory->bukti_pembelian)
+                                <a href="{{ url('/inventory/'.$inventory->id.'/purchase-proof/download') }}" target="_blank">Download bukti pembelian saat ini</a>
+                            @endif
+                        </div>
+
                         <div class="row">
                             <div class="col group-input">
                                 <label style="z-index: 1000" for="lokasi_id" class="float-left">Lokasi</label>
