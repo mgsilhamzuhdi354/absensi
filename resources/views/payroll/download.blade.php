@@ -247,14 +247,15 @@
         $uang_makan          = $data->uang_makan ?? 0;
         $total_kehadiran     = $data->total_kehadiran ?? 0;
         $total_lembur        = $data->total_lembur ?? 0;
-        $bonus_pribadi       = $data->bonus_pribadi ?? 0;  // Tunjangan Makan
-        $bonus_team          = $data->bonus_team ?? 0;     // Tunjangan Transport
+        $bonus_pribadi       = $data->bonus_pribadi ?? 0; // Tunjangan Makan
+        $bonus_team          = $data->bonus_team ?? 0; // Tunjangan Transport
         $bonus_jackpot       = $data->bonus_jackpot ?? 0; // Tunjangan Komunikasi
         $total_thr           = $data->total_thr ?? 0;
         $total_reimbursement = $data->total_reimbursement ?? 0;
 
-        $total_penghasilan = $gaji_pokok + $uang_transport + $uang_makan + $total_kehadiran +
-            $total_lembur + $bonus_team + $bonus_jackpot + $total_thr + $total_reimbursement;
+        $total_penghasilan_terhitung = $gaji_pokok + $uang_transport + $uang_makan + $total_kehadiran +
+            $total_lembur + $bonus_pribadi + $bonus_team + $bonus_jackpot + $total_thr + $total_reimbursement;
+        $total_penghasilan = $data->total_penjumlahan ?? $total_penghasilan_terhitung;
 
         // ============================================================
         // POTONGAN — ambil dari data payroll yang tersimpan di DB
@@ -277,10 +278,11 @@
         $pph21_persen = $data->pph21_persen ?? 0;
         $pph21_amount = $data->pph21_amount ?? 0;
 
-        $total_potongan = $total_terlambat + $total_mangkir + $total_izin + $bayar_kasbon + $loss
+        $total_potongan_terhitung = $total_terlambat + $total_mangkir + $total_izin + $bayar_kasbon + $loss
             + $bpjs_jht_karyawan + $bpjs_kes_karyawan + $pph21_amount;
+        $total_potongan = $data->total_pengurangan ?? $total_potongan_terhitung;
 
-        $gaji_dibayarkan = $total_penghasilan - $total_potongan;
+        $gaji_dibayarkan = $data->grand_total ?? ($total_penghasilan - $total_potongan);
 
         // ============================================================
         // ALIAS variabel — mapping nama DB ke nama tampilan HTML
@@ -406,6 +408,16 @@
                                 <td class="item-label">Uang Makan</td>
                                 <td class="item-colon">:</td>
                                 <td class="item-value">Rp {{ number_format($uang_makan, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="item-label">Uang Transport</td>
+                                <td class="item-colon">:</td>
+                                <td class="item-value">Rp {{ number_format($uang_transport, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="item-label">Tunjangan Makan</td>
+                                <td class="item-colon">:</td>
+                                <td class="item-value">Rp {{ number_format($tunjangan_makan, 0, ',', '.') }}</td>
                             </tr>
 
                             <tr>
