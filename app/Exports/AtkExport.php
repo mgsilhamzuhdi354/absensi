@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Atk;
+use App\Services\CompanyContext;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
@@ -43,6 +44,7 @@ class AtkExport implements FromQuery, WithMapping, WithHeadings, ShouldAutoSize,
     {
         return [
             'Kode ATK',
+            'Perusahaan',
             'Nama ATK',
             'Kategori',
             'Stok',
@@ -59,6 +61,7 @@ class AtkExport implements FromQuery, WithMapping, WithHeadings, ShouldAutoSize,
     {
         return [
             $atk->kode_atk ?? '-',
+            $atk->company->name ?? '-',
             $atk->nama_atk ?? '-',
             $atk->kategori ?? '-',
             $atk->formatted_stock,
@@ -76,7 +79,13 @@ class AtkExport implements FromQuery, WithMapping, WithHeadings, ShouldAutoSize,
         $search = $this->filters['search'] ?? null;
         $status = $this->filters['status'] ?? null;
 
-        return Atk::when($search, function ($query) use ($search) {
+        $companyId = $this->filters['company_id'] ?? app(CompanyContext::class)->currentCompanyId();
+
+        return Atk::with('company')
+            ->when($companyId, function ($query) use ($companyId) {
+                $query->forCompany($companyId);
+            })
+            ->when($search, function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('kode_atk', 'LIKE', '%' . $search . '%')
                         ->orWhere('nama_atk', 'LIKE', '%' . $search . '%')

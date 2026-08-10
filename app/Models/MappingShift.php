@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
 class MappingShift extends Model
 {
-    use HasFactory;
+    use BelongsToCompany, HasFactory;
     protected $guarded = ['id'];
 
     public const PEGAWAI_STATUS_AKTIF = 'aktif';

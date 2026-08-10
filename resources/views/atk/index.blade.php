@@ -55,6 +55,7 @@
                                     <th class="text-center">No.</th>
                                     <th style="min-width: 110px;" class="text-center">Foto</th>
                                     <th style="min-width: 160px;" class="text-center">Kode ATK</th>
+                                    <th style="min-width: 220px;" class="text-center">Perusahaan</th>
                                     <th style="min-width: 240px;" class="text-center">Nama ATK</th>
                                     <th style="min-width: 160px;" class="text-center">Kategori</th>
                                     <th style="min-width: 100px;" class="text-center">Stok</th>
@@ -70,7 +71,7 @@
                             <tbody>
                                 @if (count($atks) <= 0)
                                     <tr>
-                                        <td colspan="13" class="text-center">Tidak Ada Data</td>
+                                        <td colspan="14" class="text-center">Tidak Ada Data</td>
                                     </tr>
                                 @else
                                     @foreach ($atks as $key => $atk)
@@ -90,6 +91,7 @@
                                                 @endif
                                             </td>
                                             <td class="text-center">{{ $atk->kode_atk }}</td>
+                                            <td class="text-center">{{ $atk->company->name ?? '-' }}</td>
                                             <td>{{ $atk->nama_atk }}</td>
                                             <td class="text-center">{{ $atk->kategori ?? '-' }}</td>
                                             <td class="text-center">{{ $atk->formatted_stock }}</td>

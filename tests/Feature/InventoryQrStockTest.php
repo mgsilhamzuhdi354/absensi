@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Inventory;
+use App\Models\AssetTransfer;
 use App\Models\InventoryBastDocument;
 use App\Models\InventoryStockTransaction;
+use App\Models\Company;
 use App\Models\Jabatan;
 use App\Models\Lokasi;
 use App\Models\settings;
@@ -89,12 +91,13 @@ class InventoryQrStockTest extends TestCase
         $this->actingAs($this->admin)
             ->get('/inventory/tambah')
             ->assertOk()
-            ->assertSee('INV/000001');
+            ->assertSee('IOS/INV/000001')
+            ->assertSee('data-code-preview="CAB2/INV/000001"', false);
 
         $this->actingAs($this->admin)
             ->get('/inventory/tambah')
             ->assertOk()
-            ->assertSee('INV/000001');
+            ->assertSee('IOS/INV/000001');
 
         $this->assertDatabaseHas('counters', [
             'name' => 'Inventory',
@@ -110,7 +113,7 @@ class InventoryQrStockTest extends TestCase
         $inventory = Inventory::first();
 
         $response->assertRedirect('/inventory/' . $inventory->id . '/detail');
-        $this->assertSame('INV/000001', $inventory->kode_barang);
+        $this->assertSame('IOS/INV/000001', $inventory->kode_barang);
         $this->assertTrue((bool) $inventory->stock_alert_enabled);
         $this->assertDatabaseHas('inventory_stock_variants', [
             'inventory_id' => $inventory->id,
@@ -139,7 +142,7 @@ class InventoryQrStockTest extends TestCase
             'stock_alert_enabled' => 0,
         ]))->assertRedirect('/inventory/2/detail');
 
-        $this->assertSame('INV/000002', Inventory::find(2)->kode_barang);
+        $this->assertSame('IOS/INV/000002', Inventory::find(2)->kode_barang);
         $this->assertFalse((bool) Inventory::find(2)->stock_alert_enabled);
     }
 
@@ -248,7 +251,7 @@ class InventoryQrStockTest extends TestCase
             'http://127.0.0.1:8000/inventory/scan/lookup?code=inventory-token-123',
             url('/inventory/' . $inventory->id . '/detail'),
             (string) $inventory->id,
-            'INV-000001',
+            'IOS-INV-000001',
         ];
 
         foreach ($payloads as $payload) {
@@ -1014,6 +1017,172 @@ class InventoryQrStockTest extends TestCase
         Storage::disk('public')->assertExists($document->file_pdf);
     }
 
+    /** @test */
+    public function inventory_codes_and_visibility_are_separated_by_active_company()
+    {
+        Storage::fake('public');
+
+        $secondCompany = Company::where('code', 'CAB2')->firstOrFail();
+        $secondLokasi = Lokasi::create([
+            'company_id' => $secondCompany->id,
+            'nama_lokasi' => 'Gudang Cabang 2',
+            'status' => 'approved',
+            'keterangan' => 'Office',
+        ]);
+        $secondJabatan = Jabatan::create([
+            'company_id' => $secondCompany->id,
+            'nama_jabatan' => 'IT Cabang 2',
+        ]);
+
+        $this->actingAs($this->admin)->post('/inventory/store', $this->inventoryPayload([
+            'nama_barang' => 'Laptop Pusat',
+            'serial_number' => 'SN-PUSAT',
+        ]))->assertRedirect('/inventory/1/detail');
+
+        $this->actingAs($this->admin)->post('/inventory/store', $this->inventoryPayload([
+            'company_id' => $secondCompany->id,
+            'lokasi_id' => $secondLokasi->id,
+            'jabatan_id' => $secondJabatan->id,
+            'nama_barang' => 'Laptop Cabang',
+            'serial_number' => 'SN-CABANG',
+        ]))->assertRedirect('/inventory/2/detail');
+
+        $this->assertDatabaseHas('inventories', [
+            'nama_barang' => 'Laptop Pusat',
+            'kode_barang' => 'IOS/INV/000001',
+        ]);
+        $this->assertDatabaseHas('inventories', [
+            'nama_barang' => 'Laptop Cabang',
+            'kode_barang' => 'CAB2/INV/000001',
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get('/inventory')
+            ->assertOk()
+            ->assertSee('Laptop Cabang')
+            ->assertDontSee('Laptop Pusat');
+
+        $this->actingAs($this->admin)
+            ->post('/perusahaan/switch', ['company_id' => 1])
+            ->assertRedirect();
+
+        $this->actingAs($this->admin)
+            ->get('/inventory/2/detail')
+            ->assertRedirect('/inventory');
+
+        $this->actingAs($this->admin)
+            ->get('/inventory')
+            ->assertOk()
+            ->assertSee('Laptop Pusat')
+            ->assertDontSee('Laptop Cabang');
+    }
+
+    /** @test */
+    public function admin_can_transfer_inventory_stock_to_another_company()
+    {
+        Storage::fake('public');
+
+        $targetCompany = Company::where('code', 'CAB2')->firstOrFail();
+        $source = Inventory::create($this->inventoryPayload([
+            'nama_barang' => 'Printer Transfer',
+            'stok' => 4,
+            'uom' => 'Unit',
+        ]));
+
+        $response = $this->actingAs($this->admin)->post('/inventory/' . $source->id . '/transfer-company', [
+            'destination_company_id' => $targetCompany->id,
+            'tanggal_transfer' => '2026-08-10',
+            'jumlah' => '2',
+            'warna_barang' => 'Umum',
+            'catatan' => 'Kirim ke cabang',
+        ]);
+
+        $target = Inventory::withoutGlobalScope('company')
+            ->where('company_id', $targetCompany->id)
+            ->where('id', '!=', $source->id)
+            ->firstOrFail();
+
+        $response->assertRedirect('/inventory/' . $target->id . '/detail');
+
+        $this->assertSame(2.0, (float) $source->fresh()->stok);
+        $this->assertSame(2.0, (float) $target->stok);
+        $this->assertSame('CAB2/INV/000001', $target->kode_barang);
+        $this->assertSame('Printer Transfer', $target->nama_barang);
+
+        $this->assertDatabaseHas('inventory_stock_transactions', [
+            'inventory_id' => $source->id,
+            'company_id' => $source->company_id,
+            'jenis_transaksi' => 'keluar',
+            'jumlah' => 2,
+            'warna_barang' => 'Umum',
+            'penerima_barang' => $targetCompany->name,
+            'keperluan' => 'Transfer antar perusahaan',
+        ]);
+
+        $this->assertDatabaseHas('inventory_stock_transactions', [
+            'inventory_id' => $target->id,
+            'company_id' => $targetCompany->id,
+            'jenis_transaksi' => 'masuk',
+            'jumlah' => 2,
+            'warna_barang' => 'Umum',
+            'sumber_barang' => 'PT Indoocean Crew Service',
+        ]);
+
+        $this->assertDatabaseHas('asset_transfers', [
+            'transferable_type' => Inventory::class,
+            'transferable_id' => $source->id,
+            'target_transferable_id' => $target->id,
+            'source_company_id' => $source->company_id,
+            'destination_company_id' => $targetCompany->id,
+            'jumlah' => 2,
+            'warna_barang' => 'Umum',
+        ]);
+
+        $this->assertSame(1, AssetTransfer::withoutGlobalScope('company')->count());
+
+        $this->actingAs($this->admin)
+            ->get('/inventory/' . $target->id . '/detail')
+            ->assertOk()
+            ->assertSee('Transfer Perusahaan')
+            ->assertSee('Riwayat Transfer Perusahaan')
+            ->assertSee('Printer Transfer');
+    }
+
+    /** @test */
+    public function storing_inventory_for_selected_company_switches_admin_context_to_that_company()
+    {
+        Storage::fake('public');
+
+        $targetCompany = Company::where('code', 'CAB2')->firstOrFail();
+        $targetLokasi = Lokasi::create([
+            'company_id' => $targetCompany->id,
+            'nama_lokasi' => 'Gudang CAB2',
+        ]);
+        $targetJabatan = Jabatan::create([
+            'company_id' => $targetCompany->id,
+            'nama_jabatan' => 'Operasional CAB2',
+        ]);
+
+        $response = $this->actingAs($this->admin)->post('/inventory/store', $this->inventoryPayload([
+            'company_id' => $targetCompany->id,
+            'lokasi_id' => $targetLokasi->id,
+            'jabatan_id' => $targetJabatan->id,
+            'nama_barang' => 'Laptop Cabang Baru',
+            'serial_number' => 'CAB-001',
+        ]));
+
+        $inventory = Inventory::withoutGlobalScope('company')->firstOrFail();
+
+        $response->assertRedirect('/inventory/' . $inventory->id . '/detail');
+        $this->assertSame($targetCompany->id, session('active_company_id'));
+        $this->assertSame('CAB2/INV/000001', $inventory->kode_barang);
+
+        $this->actingAs($this->admin)
+            ->get('/inventory')
+            ->assertOk()
+            ->assertSee('Laptop Cabang Baru');
+    }
+
     private function signatureData()
     {
         return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
@@ -1022,7 +1191,7 @@ class InventoryQrStockTest extends TestCase
     private function inventoryPayload(array $override = [])
     {
         return array_merge([
-            'kode_barang' => 'INV/000001',
+            'kode_barang' => 'IOS/INV/000001',
             'nama_barang' => 'Laptop Dell',
             'jenis_barang' => 'Laptop',
             'merk_tipe' => 'Dell Latitude 7280',

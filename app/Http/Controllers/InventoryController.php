@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Lokasi;
+use App\Models\AssetTransfer;
 use App\Models\Counter;
 use App\Models\Jabatan;
+use App\Models\Company;
 use App\Models\Inventory;
 use App\Models\InventoryBastDocument;
 use App\Models\InventoryStockTransaction;
@@ -13,12 +15,14 @@ use App\Services\InventoryBastService;
 use App\Services\InventoryQrService;
 use App\Services\InventoryStockService;
 use App\Services\StockAlertService;
+use App\Services\CompanyContext;
 use App\Notifications\UserNotification;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class InventoryController extends Controller
@@ -43,7 +47,7 @@ class InventoryController extends Controller
     {
         $title = 'Aset Kantor';
         $search = request()->input('search');
-        $inventories = Inventory::with(['lokasi', 'jabatan'])
+        $inventories = Inventory::with(['lokasi', 'jabatan', 'company'])
                                 ->when($search, function ($query) use ($search) {
                                     $query->where(function ($q) use ($search) {
                                         $q->where('nama_barang', 'LIKE', '%' . $search . '%')
@@ -71,15 +75,23 @@ class InventoryController extends Controller
     public function tambah()
     {
         $title = 'Aset Kantor';
+        $companyId = app(CompanyContext::class)->currentCompanyId();
+        $companies = Company::active()->orderBy('name')->get();
         $lokasi = Lokasi::orderBy('nama_lokasi')->get();
         $jabatan = Jabatan::orderBy('nama_jabatan')->get();
-        $kode_barang = $this->previewKodeBarang();
+        $kode_barang = $this->previewKodeBarang($companyId ?: app(CompanyContext::class)->defaultCompanyId());
+        $companyCodePreviews = $companies->mapWithKeys(function ($company) {
+            return [$company->id => $this->previewKodeBarang($company->id)];
+        });
 
         return view(auth()->user()->is_admin == 'admin' ? 'inventory.tambah' : 'inventory.tambahUser', compact(
             'title',
             'lokasi',
             'jabatan',
             'kode_barang',
+            'companies',
+            'companyId',
+            'companyCodePreviews',
         ));
     }
 
@@ -88,7 +100,7 @@ class InventoryController extends Controller
         $validated = $this->validatedInventoryData($request);
         $initialColor = $request->input('warna_barang');
         $inventory = DB::transaction(function () use ($validated, $initialColor) {
-            $validated['kode_barang'] = $this->generateKodeBarang();
+            $validated['kode_barang'] = $this->generateKodeBarang($validated['company_id']);
             $inventory = Inventory::create($validated);
             $this->stockService->syncVariantTotal($inventory, $initialColor);
 
@@ -104,7 +116,8 @@ class InventoryController extends Controller
             }
         });
 
-        $this->stockAlertService->checkInventory($inventory->fresh());
+        $this->stockAlertService->checkInventory(Inventory::withoutGlobalScope('company')->find($inventory->id));
+        app(CompanyContext::class)->setActiveCompany($inventory->company_id);
 
         return redirect('/inventory/' . $inventory->id . '/detail')->with('success', 'Data Berhasil Disimpan');
     }
@@ -112,8 +125,11 @@ class InventoryController extends Controller
     public function edit($id)
     {
         $title = 'Aset Kantor';
+        $companyId = app(CompanyContext::class)->currentCompanyId();
+        $companies = Company::active()->orderBy('name')->get();
         $lokasi = Lokasi::orderBy('nama_lokasi')->get();
         $jabatan = Jabatan::orderBy('nama_jabatan')->get();
+        $companyCodePreviews = collect();
         $inventory = Inventory::find($id);
         if (!$inventory) {
             return redirect('/inventory')->with('error', 'Data inventory sudah tidak tersedia.');
@@ -127,6 +143,9 @@ class InventoryController extends Controller
             'lokasi',
             'jabatan',
             'inventory',
+            'companies',
+            'companyId',
+            'companyCodePreviews',
         ));
     }
 
@@ -185,10 +204,24 @@ class InventoryController extends Controller
 
         $deletedStockTransactions = $this->deletedStockTransactions($inventory, $inventoryReturnTablesReady);
         $currentHolderTransaction = $this->currentHolderTransaction($inventory);
-        $lokasi = Lokasi::orderBy('nama_lokasi')->get();
-        $users = User::with('Jabatan')->orderBy('name')->get();
+        $lokasi = Lokasi::forCompany($inventory->company_id)->orderBy('nama_lokasi')->get();
+        $users = User::with('Jabatan')->forCompany($inventory->company_id)->orderBy('name')->get();
+        $transferCompanies = Company::active()
+            ->where('id', '!=', $inventory->company_id)
+            ->orderBy('name')
+            ->get();
+        $assetTransfers = AssetTransfer::withoutGlobalScope('company')
+            ->with(['sourceCompany', 'destinationCompany', 'processedBy'])
+            ->where('transferable_type', Inventory::class)
+            ->where(function ($query) use ($inventory) {
+                $query->where('transferable_id', $inventory->id)
+                    ->orWhere('target_transferable_id', $inventory->id);
+            })
+            ->latest('tanggal_transfer')
+            ->latest('id')
+            ->get();
 
-        return view('inventory.detail', compact('title', 'inventory', 'lokasi', 'users', 'deletedStockTransactions', 'currentHolderTransaction', 'inventoryReturnTablesReady'));
+        return view('inventory.detail', compact('title', 'inventory', 'lokasi', 'users', 'deletedStockTransactions', 'currentHolderTransaction', 'inventoryReturnTablesReady', 'transferCompanies', 'assetTransfers'));
     }
 
     public function scan()
@@ -239,7 +272,10 @@ class InventoryController extends Controller
             'warna_barang' => 'nullable|string|max:80',
             'sumber_barang' => 'nullable|string|max:255',
             'kondisi_barang' => 'nullable|string|max:255',
-            'lokasi_id' => 'nullable|exists:lokasis,id',
+            'lokasi_id' => [
+                'nullable',
+                Rule::exists('lokasis', 'id')->where(fn ($query) => $query->where('company_id', $inventory->company_id)),
+            ],
             'catatan' => 'nullable|string',
         ]);
 
@@ -261,6 +297,94 @@ class InventoryController extends Controller
 
         return redirect('/inventory/' . $inventory->id . '/detail')
             ->with('success', 'Stok keluar / pindah tangan berhasil disimpan' . ($bastMessage ?? ''));
+    }
+
+    public function transferCompany(Request $request, $id)
+    {
+        $inventory = Inventory::findOrFail($id);
+        $minimum = $inventory->usesWholeStock() ? 1 : 0.01;
+        $stepMessage = $inventory->usesWholeStock()
+            ? 'Jumlah transfer untuk satuan ' . $inventory->display_uom . ' harus angka bulat.'
+            : null;
+
+        $validated = $request->validate([
+            'destination_company_id' => [
+                'required',
+                Rule::exists('companies', 'id')->where(fn ($query) => $query->where('active', 1)),
+            ],
+            'tanggal_transfer' => 'required|date',
+            'jumlah' => 'required|numeric|min:' . $minimum,
+            'warna_barang' => 'nullable|string|max:80',
+            'catatan' => 'nullable|string',
+        ]);
+
+        if ($stepMessage && abs((float) $validated['jumlah'] - round((float) $validated['jumlah'])) > 0.000001) {
+            throw ValidationException::withMessages(['jumlah' => $stepMessage]);
+        }
+
+        if ((int) $validated['destination_company_id'] === (int) $inventory->company_id) {
+            throw ValidationException::withMessages([
+                'destination_company_id' => 'Perusahaan tujuan harus berbeda dari perusahaan asal.',
+            ]);
+        }
+
+        $targetInventoryId = null;
+        $transfer = DB::transaction(function () use ($inventory, $validated, &$targetInventoryId) {
+            $source = Inventory::withoutGlobalScope('company')->findOrFail($inventory->id);
+            $destinationCompany = Company::findOrFail($validated['destination_company_id']);
+            $sourceCompany = Company::find($source->company_id);
+            $quantity = round((float) $validated['jumlah'], 2);
+            $color = $this->normalizeColor($validated['warna_barang'] ?? null);
+            $note = $validated['catatan'] ?? null;
+
+            $outgoing = $this->stockService->stockOut($source, [
+                'tanggal_transaksi' => $validated['tanggal_transfer'],
+                'jumlah' => $quantity,
+                'warna_barang' => $color,
+                'penerima_barang' => $destinationCompany->name,
+                'jabatan_penerima' => 'Perusahaan tujuan',
+                'departemen_penerima' => $destinationCompany->code,
+                'keperluan' => 'Transfer antar perusahaan',
+                'kondisi_barang' => $source->kondisi,
+                'catatan' => trim('Transfer ke ' . $destinationCompany->name . ($note ? "\n" . $note : '')),
+            ], auth()->user());
+
+            $target = $this->cloneInventoryForTransfer($source, (int) $destinationCompany->id, $validated['tanggal_transfer']);
+            $incoming = $this->stockService->stockIn($target, [
+                'tanggal_transaksi' => $validated['tanggal_transfer'],
+                'jumlah' => $quantity,
+                'warna_barang' => $color,
+                'sumber_barang' => $sourceCompany->name ?? 'Perusahaan asal',
+                'kondisi_barang' => $source->kondisi,
+                'catatan' => trim('Transfer dari ' . ($sourceCompany->name ?? 'Perusahaan asal') . ($note ? "\n" . $note : '')),
+            ], auth()->user());
+
+            $target = $this->qrService->ensure($target, true);
+            $targetInventoryId = $target->id;
+
+            return AssetTransfer::create([
+                'company_id' => $source->company_id,
+                'source_company_id' => $source->company_id,
+                'destination_company_id' => $destinationCompany->id,
+                'transferable_type' => Inventory::class,
+                'transferable_id' => $source->id,
+                'target_transferable_id' => $target->id,
+                'outgoing_transaction_id' => $outgoing->id,
+                'incoming_transaction_id' => $incoming->id,
+                'jumlah' => $quantity,
+                'warna_barang' => $color,
+                'tanggal_transfer' => $validated['tanggal_transfer'],
+                'catatan' => $note,
+                'diproses_oleh' => auth()->id(),
+            ]);
+        });
+
+        $this->stockAlertService->checkInventory(Inventory::withoutGlobalScope('company')->find($inventory->id));
+        $this->stockAlertService->checkInventory(Inventory::withoutGlobalScope('company')->find($targetInventoryId));
+        app(CompanyContext::class)->setActiveCompany((int) $validated['destination_company_id']);
+
+        return redirect('/inventory/' . $targetInventoryId . '/detail')
+            ->with('success', 'Transfer aset antar perusahaan berhasil disimpan. Nomor transfer #' . $transfer->id);
     }
 
     public function updateStockAlert(Request $request, $id)
@@ -358,8 +482,14 @@ class InventoryController extends Controller
         $validated = $request->validate([
             'tanggal_surat' => 'nullable|date',
             'nama_mengetahui' => 'nullable|string|max:255',
-            'known_by_user_id' => 'nullable|exists:users,id',
-            'first_party_user_id' => 'nullable|exists:users,id',
+            'known_by_user_id' => [
+                'nullable',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('company_id', $transaction->company_id)),
+            ],
+            'first_party_user_id' => [
+                'nullable',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('company_id', $transaction->company_id)),
+            ],
         ]);
 
         $document = $this->bastService->createForTransaction($transaction, $validated, auth()->user());
@@ -585,7 +715,10 @@ class InventoryController extends Controller
             'tanggal_transaksi' => 'required|date',
             'jumlah' => 'required|numeric|min:' . $minimumQuantity,
             'warna_barang' => 'nullable|string|max:80',
-            'penerima_user_id' => 'nullable|exists:users,id',
+            'penerima_user_id' => [
+                'nullable',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('company_id', $inventory->company_id)),
+            ],
             'penerima_barang' => 'required_without:penerima_user_id|nullable|string|max:255',
             'jabatan_penerima' => 'nullable|string|max:255',
             'departemen_penerima' => 'nullable|string|max:255',
@@ -594,8 +727,14 @@ class InventoryController extends Controller
             'catatan' => 'nullable|string',
             'buat_bast_otomatis' => 'nullable|boolean',
             'nama_mengetahui' => 'nullable|string|max:255',
-            'known_by_user_id' => 'nullable|exists:users,id',
-            'first_party_user_id' => 'nullable|exists:users,id',
+            'known_by_user_id' => [
+                'nullable',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('company_id', $inventory->company_id)),
+            ],
+            'first_party_user_id' => [
+                'nullable',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('company_id', $inventory->company_id)),
+            ],
         ]);
     }
 
@@ -748,6 +887,7 @@ class InventoryController extends Controller
             'bukti_pembelian' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
             'stock_alert_enabled' => 'nullable|boolean',
             'warna_barang' => 'nullable|string|max:80',
+            'company_id' => ['nullable', 'exists:companies,id'],
         ], [
             'uom.not_regex' => 'UoM harus berupa nama satuan, contoh Unit, Pcs, Set, Box, bukan angka stok.',
             'bukti_pembelian.mimes' => 'Bukti pembelian harus berupa file JPG, JPEG, PNG, atau PDF.',
@@ -762,6 +902,10 @@ class InventoryController extends Controller
         $validated['stok'] = Inventory::isWholeStockUom($validated['uom'])
             ? (int) round((float) $validated['stok'])
             : round((float) $validated['stok'], 2);
+        $validated['company_id'] = $inventory
+            ? $inventory->company_id
+            : $this->selectedCompanyId($request);
+        $this->ensureLocationAndDivisionBelongToCompany($validated);
         $defaultStockAlertEnabled = $inventory ? (bool) $inventory->stock_alert_enabled : true;
         $validated['stock_alert_enabled'] = $request->has('stock_alert_enabled')
             ? ($request->boolean('stock_alert_enabled') ? 1 : 0)
@@ -796,33 +940,60 @@ class InventoryController extends Controller
         return $validated;
     }
 
-    private function generateKodeBarang(): string
+    private function generateKodeBarang(int $companyId): string
     {
-        $counter = $this->lockedCounter('Inventory', 'INV');
+        $counter = $this->lockedCounter('Inventory', 'INV', $companyId);
         $nextCounter = (int) $counter->counter + 1;
         $counter->update(['counter' => $nextCounter]);
 
-        return $this->formatCounterCode($counter->text ?: 'INV', $nextCounter);
+        return $this->formatCounterCode($this->companyCode($companyId) . '/' . ($counter->text ?: 'INV'), $nextCounter);
     }
 
-    private function previewKodeBarang(): string
+    private function cloneInventoryForTransfer(Inventory $source, int $destinationCompanyId, string $tanggalTransfer): Inventory
     {
-        $counter = Counter::firstOrCreate(
-            ['name' => 'Inventory'],
+        return Inventory::create([
+            'company_id' => $destinationCompanyId,
+            'kode_barang' => $this->generateKodeBarang($destinationCompanyId),
+            'nama_barang' => $source->nama_barang,
+            'jenis_barang' => $source->jenis_barang,
+            'merk_tipe' => $source->merk_tipe,
+            'serial_number' => $source->serial_number,
+            'spesifikasi' => $source->spesifikasi,
+            'kondisi' => $source->kondisi,
+            'status_barang' => $source->status_barang,
+            'tanggal_masuk' => $tanggalTransfer,
+            'stok' => 0,
+            'uom' => $source->uom,
+            'desc' => trim(($source->desc ?: '') . "\n\nTransfer dari " . ($source->company->name ?? 'perusahaan asal')),
+            'lokasi_id' => null,
+            'jabatan_id' => null,
+            'stock_alert_enabled' => $source->stock_alert_enabled,
+        ]);
+    }
+
+    private function previewKodeBarang(?int $companyId): string
+    {
+        $companyId = $companyId ?: app(CompanyContext::class)->defaultCompanyId();
+        $counter = Counter::withoutGlobalScope('company')->firstOrCreate(
+            ['company_id' => $companyId, 'name' => 'Inventory'],
             ['text' => 'INV', 'counter' => 0]
         );
 
-        return $this->formatCounterCode($counter->text ?: 'INV', (int) $counter->counter + 1);
+        return $this->formatCounterCode($this->companyCode($companyId) . '/' . ($counter->text ?: 'INV'), (int) $counter->counter + 1);
     }
 
-    private function lockedCounter(string $name, string $prefix): Counter
+    private function lockedCounter(string $name, string $prefix, int $companyId): Counter
     {
-        Counter::firstOrCreate(
-            ['name' => $name],
+        Counter::withoutGlobalScope('company')->firstOrCreate(
+            ['company_id' => $companyId, 'name' => $name],
             ['text' => $prefix, 'counter' => 0]
         );
 
-        return Counter::where('name', $name)->lockForUpdate()->firstOrFail();
+        return Counter::withoutGlobalScope('company')
+            ->where('company_id', $companyId)
+            ->where('name', $name)
+            ->lockForUpdate()
+            ->firstOrFail();
     }
 
     private function formatCounterCode(string $prefix, int $counter): string
@@ -835,6 +1006,42 @@ class InventoryController extends Controller
         $number = (float) $value;
 
         return abs($number - round($number)) < 0.000001;
+    }
+
+    private function selectedCompanyId(Request $request): int
+    {
+        $companyId = $request->input('company_id') ?: app(CompanyContext::class)->currentCompanyId();
+
+        return (int) ($companyId ?: app(CompanyContext::class)->defaultCompanyId());
+    }
+
+    private function companyCode(int $companyId): string
+    {
+        return Company::whereKey($companyId)->value('code') ?: 'IOS';
+    }
+
+    private function normalizeColor($value): string
+    {
+        $color = trim(preg_replace('/\s+/', ' ', (string) $value));
+
+        return $color !== '' ? mb_substr($color, 0, 80) : 'Umum';
+    }
+
+    private function ensureLocationAndDivisionBelongToCompany(array $data): void
+    {
+        $companyId = (int) $data['company_id'];
+
+        if (!Lokasi::withoutGlobalScope('company')->whereKey($data['lokasi_id'])->where('company_id', $companyId)->exists()) {
+            throw ValidationException::withMessages([
+                'lokasi_id' => 'Lokasi harus berasal dari perusahaan yang dipilih.',
+            ]);
+        }
+
+        if (!Jabatan::withoutGlobalScope('company')->whereKey($data['jabatan_id'])->where('company_id', $companyId)->exists()) {
+            throw ValidationException::withMessages([
+                'jabatan_id' => 'Divisi / Jabatan harus berasal dari perusahaan yang dipilih.',
+            ]);
+        }
     }
 
     private function syncInventoryChangesToStockHistory(Inventory $inventory, $oldCondition)

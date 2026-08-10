@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Atk;
+use App\Models\AssetTransfer;
 use App\Models\AtkStockTransaction;
+use App\Models\Company;
 use App\Models\Jabatan;
 use App\Models\settings;
 use App\Models\User;
@@ -70,12 +72,13 @@ class AtkManagementTest extends TestCase
         $this->actingAs($this->admin)
             ->get('/atk/tambah')
             ->assertOk()
-            ->assertSee('ATK/000001');
+            ->assertSee('IOS/ATK/000001')
+            ->assertSee('data-code-preview="CAB2/ATK/000001"', false);
 
         $this->actingAs($this->admin)
             ->get('/atk/tambah')
             ->assertOk()
-            ->assertSee('ATK/000001');
+            ->assertSee('IOS/ATK/000001');
 
         $this->assertDatabaseHas('counters', [
             'name' => 'ATK',
@@ -100,7 +103,7 @@ class AtkManagementTest extends TestCase
 
         $this->assertNotNull($atk);
         $this->assertSame('Pulpen Gel', $atk->nama_atk);
-        $this->assertSame('ATK/000001', $atk->kode_atk);
+        $this->assertSame('IOS/ATK/000001', $atk->kode_atk);
         $this->assertSame(25.5, $atk->stok);
         $this->assertSame(1, $atk->active);
         $this->assertTrue((bool) $atk->stock_alert_enabled);
@@ -121,7 +124,7 @@ class AtkManagementTest extends TestCase
             ->get('/atk?search=Pulpen')
             ->assertOk()
             ->assertSee('Pulpen Gel')
-            ->assertSee('ATK/000001')
+            ->assertSee('IOS/ATK/000001')
             ->assertSee('Export Excel')
             ->assertSee('storage/' . $photoPath, false)
             ->assertSee('Hitam')
@@ -270,7 +273,7 @@ class AtkManagementTest extends TestCase
 
         $this->assertDatabaseHas('atks', [
             'id' => $atk->id,
-            'kode_atk' => 'ATK/000001',
+            'kode_atk' => 'IOS/ATK/000001',
             'nama_atk' => 'Pulpen Gel Hitam',
             'stok' => 12,
             'lokasi' => 'Gudang ATK',
@@ -286,5 +289,109 @@ class AtkManagementTest extends TestCase
         $this->assertSame(0, Atk::count());
         Storage::disk('public')->assertMissing($atk->qr_code_image);
         Storage::disk('public')->assertMissing($photoPath);
+    }
+
+    /** @test */
+    public function admin_can_transfer_atk_stock_to_another_company()
+    {
+        Storage::fake('public');
+
+        $targetCompany = Company::where('code', 'CAB2')->firstOrFail();
+
+        $this->actingAs($this->admin)->post('/atk/store', [
+            'nama_atk' => 'Kertas A4',
+            'kategori' => 'Kertas',
+            'stok' => '10',
+            'satuan' => 'Rim',
+            'lokasi' => 'Gudang Pusat',
+            'active' => '1',
+            'warna_barang' => 'Putih',
+        ])->assertRedirect('/atk/1/detail');
+
+        $source = Atk::firstOrFail();
+
+        $response = $this->actingAs($this->admin)->post('/atk/' . $source->id . '/transfer-company', [
+            'destination_company_id' => $targetCompany->id,
+            'tanggal_transfer' => '2026-08-10',
+            'jumlah' => '3',
+            'warna_barang' => 'Putih',
+            'catatan' => 'Pembukaan stok cabang',
+        ]);
+
+        $target = Atk::withoutGlobalScope('company')
+            ->where('company_id', $targetCompany->id)
+            ->where('id', '!=', $source->id)
+            ->firstOrFail();
+
+        $response->assertRedirect('/atk/' . $target->id . '/detail');
+
+        $this->assertSame(7.0, (float) $source->fresh()->stok);
+        $this->assertSame(3.0, (float) $target->stok);
+        $this->assertSame('CAB2/ATK/000001', $target->kode_atk);
+
+        $this->assertDatabaseHas('atk_stock_transactions', [
+            'atk_id' => $source->id,
+            'company_id' => $source->company_id,
+            'jenis_transaksi' => 'keluar',
+            'jumlah' => 3,
+            'penerima_barang' => $targetCompany->name,
+        ]);
+
+        $this->assertDatabaseHas('atk_stock_transactions', [
+            'atk_id' => $target->id,
+            'company_id' => $targetCompany->id,
+            'jenis_transaksi' => 'masuk',
+            'jumlah' => 3,
+            'sumber_barang' => 'PT Indoocean Crew Service',
+        ]);
+
+        $this->assertDatabaseHas('asset_transfers', [
+            'transferable_type' => Atk::class,
+            'transferable_id' => $source->id,
+            'target_transferable_id' => $target->id,
+            'source_company_id' => $source->company_id,
+            'destination_company_id' => $targetCompany->id,
+            'jumlah' => 3,
+            'warna_barang' => 'Putih',
+        ]);
+
+        $this->assertSame(1, AssetTransfer::withoutGlobalScope('company')->count());
+
+        $this->actingAs($this->admin)
+            ->get('/atk/' . $target->id . '/detail')
+            ->assertOk()
+            ->assertSee('Transfer Perusahaan')
+            ->assertSee('Riwayat Transfer Perusahaan')
+            ->assertSee('Kertas A4');
+    }
+
+    /** @test */
+    public function storing_atk_for_selected_company_switches_admin_context_to_that_company()
+    {
+        Storage::fake('public');
+
+        $targetCompany = Company::where('code', 'CAB2')->firstOrFail();
+
+        $response = $this->actingAs($this->admin)->post('/atk/store', [
+            'company_id' => $targetCompany->id,
+            'nama_atk' => 'Sticky Notes Cabang',
+            'kategori' => 'Office',
+            'stok' => '5',
+            'satuan' => 'Pack',
+            'lokasi' => 'Gudang Cabang',
+            'active' => '1',
+            'warna_barang' => 'Umum',
+        ]);
+
+        $atk = Atk::withoutGlobalScope('company')->firstOrFail();
+
+        $response->assertRedirect('/atk/' . $atk->id . '/detail');
+        $this->assertSame($targetCompany->id, session('active_company_id'));
+        $this->assertSame('CAB2/ATK/000001', $atk->kode_atk);
+
+        $this->actingAs($this->admin)
+            ->get('/atk')
+            ->assertOk()
+            ->assertSee('Sticky Notes Cabang');
     }
 }

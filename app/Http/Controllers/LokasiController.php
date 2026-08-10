@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Lokasi;
+use App\Models\Company;
 use App\Models\settings;
 use Illuminate\Http\Request;
 use App\Events\NotifApproval;
@@ -70,8 +71,10 @@ class LokasiController extends Controller
     public function tambahLokasi()
     {
         $title = "Tambah Lokasi Kantor";
+        $companies = Company::active()->orderBy('name')->get();
         return view('lokasi.tambah', compact(
             'title',
+            'companies',
         ));
     }
 
@@ -93,7 +96,9 @@ class LokasiController extends Controller
             'status' => 'required',
             'keterangan' => 'required',
             'created_by' => 'required',
+            'company_id' => 'nullable|exists:companies,id',
         ]);
+        $validatedData['company_id'] = $validatedData['company_id'] ?? current_company_id() ?? company_context()->defaultCompanyId();
         Lokasi::create($validatedData);
         return redirect('/lokasi-kantor')->with('success', 'Lokasi Berhasil Di Tambahkan');
     }
@@ -162,6 +167,7 @@ class LokasiController extends Controller
         return view('lokasi.edit', [
             'title' => 'Edit Lokasi Kantor',
             'lokasi' => Lokasi::findOrFail($id),
+            'companies' => Company::active()->orderBy('name')->get(),
         ]);
     }
 
@@ -244,9 +250,12 @@ class LokasiController extends Controller
             'lat_kantor' => 'required',
             'long_kantor' => 'required',
             'keterangan' => 'required',
+            'company_id' => 'nullable|exists:companies,id',
         ]);
+        $lokasi = Lokasi::findOrFail($id);
+        $validatedData['company_id'] = $lokasi->company_id;
 
-        Lokasi::where('id', $id)->update($validatedData);
+        $lokasi->update($validatedData);
         return redirect('/lokasi-kantor')->with('success', 'Lokasi Berhasil Diupdate');
     }
 

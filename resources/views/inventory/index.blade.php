@@ -34,6 +34,7 @@
                                 <tr>
                                     <th class="text-center">No.</th>
                                     <th style="min-width: 200px;" class="text-center">Kode Barang</th>
+                                    <th style="min-width: 220px;" class="text-center">Perusahaan</th>
                                     <th style="min-width: 300px;" class="text-center">Nama Barang</th>
                                     <th style="min-width: 120px;" class="text-center">Stok</th>
                                     <th style="min-width: 180px;" class="text-center">Warna</th>
@@ -48,13 +49,14 @@
                             <tbody>
                                 @if (count($inventories) <= 0)
                                     <tr>
-                                        <td colspan="11" class="text-center">Tidak Ada Data</td>
+                                        <td colspan="12" class="text-center">Tidak Ada Data</td>
                                     </tr>
                                 @else
                                     @foreach ($inventories as $key => $inventory)
                                         <tr>
                                             <td>{{ ($inventories->currentpage() - 1) * $inventories->perpage() + $key + 1 }}.</td>
                                             <td class="text-center">{{ $inventory->kode_barang ?? '-' }}</td>
+                                            <td class="text-center">{{ $inventory->company->name ?? '-' }}</td>
                                             <td class="text-center">{{ $inventory->nama_barang ?? '-' }}</td>
                                             <td class="text-center">{{ $inventory->formatted_stock }}</td>
                                             <td class="text-center">

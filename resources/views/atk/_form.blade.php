@@ -4,9 +4,29 @@
     $isActive = old('active', $atk ? $atk->active : 1);
     $stockAlertEnabled = old('stock_alert_enabled', $atk ? (int) ($atk->stock_alert_enabled ?? true) : 1);
     $warnaOptions = $atk && $atk->relationLoaded('stockVariants') ? $atk->stockVariants : collect();
+    $selectedCompanyId = old('company_id', $atk->company_id ?? $companyId ?? optional($currentCompany ?? null)->id);
 @endphp
 
 <div class="row">
+    @if (auth()->user()->is_admin == 'admin')
+        <div class="col-md-6">
+            <div class="form-group">
+                <label for="company_id" class="float-left">Perusahaan</label>
+                <select class="form-control @error('company_id') is-invalid @enderror" id="company_id" name="company_id" {{ $atk ? 'disabled' : '' }}>
+                    <option value="">-- Pilih --</option>
+                    @foreach (($companies ?? collect()) as $company)
+                        <option value="{{ $company->id }}" data-code-preview="{{ ($companyCodePreviews ?? collect())->get($company->id) }}" {{ (string) $selectedCompanyId === (string) $company->id ? 'selected' : '' }}>{{ $company->code }} - {{ $company->name }}</option>
+                    @endforeach
+                </select>
+                @if ($atk)
+                    <input type="hidden" name="company_id" value="{{ $atk->company_id }}">
+                @endif
+                @error('company_id')
+                    <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
+            </div>
+        </div>
+    @endif
     <div class="col-md-6">
         <div class="form-group">
             <label for="kode_atk" class="float-left">Kode ATK</label>
@@ -127,3 +147,35 @@
 </div>
 
 <button type="submit" class="btn btn-primary float-right">{{ $submitLabel }}</button>
+
+@push('script')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var companySelect = document.getElementById('company_id');
+            var codeInput = document.getElementById('kode_atk');
+
+            function syncCompanyCodePreview() {
+                if (!companySelect || !codeInput || companySelect.disabled) {
+                    return;
+                }
+
+                var selectedOption = companySelect.options[companySelect.selectedIndex];
+                var preview = selectedOption ? selectedOption.getAttribute('data-code-preview') : '';
+
+                if (preview) {
+                    codeInput.value = preview;
+                }
+            }
+
+            if (companySelect && codeInput) {
+                companySelect.addEventListener('change', syncCompanyCodePreview);
+
+                if (window.jQuery) {
+                    window.jQuery(companySelect).on('changed.bs.select change', syncCompanyCodePreview);
+                }
+
+                syncCompanyCodePreview();
+            }
+        });
+    </script>
+@endpush

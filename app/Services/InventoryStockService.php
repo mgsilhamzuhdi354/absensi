@@ -96,7 +96,7 @@ class InventoryStockService
 
     private function lockedInventory(Inventory $inventory): Inventory
     {
-        return Inventory::whereKey($inventory->id)->lockForUpdate()->firstOrFail();
+        return Inventory::withoutGlobalScope('company')->whereKey($inventory->id)->lockForUpdate()->firstOrFail();
     }
 
     private function updateInventoryAfterStockIn(Inventory $inventory, array $data, float $stokSesudah): void
@@ -111,6 +111,7 @@ class InventoryStockService
     private function stockInTransactionData(Inventory $inventory, array $data, User $admin, float $jumlah, float $stokSebelum, float $stokSesudah, string $color): array
     {
         return [
+            'company_id' => $inventory->company_id,
             'inventory_id' => $inventory->id,
             'jenis_transaksi' => self::TRANSAKSI_MASUK,
             'jumlah' => $jumlah,
@@ -129,6 +130,7 @@ class InventoryStockService
     private function stockOutTransactionData(Inventory $inventory, array $data, User $admin, float $jumlah, float $stokSebelum, float $stokSesudah, string $color): array
     {
         return [
+            'company_id' => $inventory->company_id,
             'inventory_id' => $inventory->id,
             'jenis_transaksi' => self::TRANSAKSI_KELUAR,
             'jumlah' => $jumlah,
@@ -275,6 +277,7 @@ class InventoryStockService
         }
 
         return InventoryStockVariant::create([
+            'company_id' => $inventory->company_id,
             'inventory_id' => $inventory->id,
             'warna_barang' => $color,
             'stok' => 0,
@@ -298,6 +301,7 @@ class InventoryStockService
         }
 
         InventoryStockVariant::create([
+            'company_id' => $inventory->company_id,
             'inventory_id' => $inventory->id,
             'warna_barang' => 'Umum',
             'stok' => $stock,

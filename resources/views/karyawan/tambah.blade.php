@@ -18,6 +18,21 @@
                 <form class="p-4" method="post" action="{{ url('/pegawai/tambah-pegawai-proses') }}"
                     enctype="multipart/form-data">
                     @csrf
+                    @if (auth()->user()->is_admin == 'admin')
+                        <div class="row">
+                            <div class="col mb-4">
+                                <label for="company_id">Perusahaan</label>
+                                <select name="company_id" id="company_id" class="form-control @error('company_id') is-invalid @enderror">
+                                    @foreach (($companies ?? collect()) as $company)
+                                        <option value="{{ $company->id }}" {{ old('company_id', optional($currentCompany ?? null)->id) == $company->id ? 'selected' : '' }}>{{ $company->code }} - {{ $company->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('company_id')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
+                    @endif
                     <div class="row">
                         <div class="col mb-4">
                             <label for="name">Nama Pegawai</label>

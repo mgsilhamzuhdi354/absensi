@@ -50,6 +50,7 @@ use App\Http\Controllers\BackupController;
 use App\Http\Controllers\PengajuanDinasLuarController;
 use App\Http\Controllers\SmartAbsenImportController;
 use App\Http\Controllers\EmployeeQrController;
+use App\Http\Controllers\CompanyController;
 
 /*
 |--------------------------------------------------------------------------
@@ -118,6 +119,13 @@ Route::get('/role', [RoleController::class, 'index'])->middleware('admin');
 Route::get('/role/tambah', [RoleController::class, 'tambah'])->middleware('admin');
 Route::post('/role/store', [RoleController::class, 'store'])->middleware('admin');
 Route::get('/role/edit/{id}', [RoleController::class, 'edit'])->middleware('admin');
+
+Route::get('/perusahaan', [CompanyController::class, 'index'])->middleware('admin');
+Route::get('/perusahaan/tambah', [CompanyController::class, 'tambah'])->middleware('admin');
+Route::post('/perusahaan/store', [CompanyController::class, 'store'])->middleware('admin');
+Route::get('/perusahaan/edit/{id}', [CompanyController::class, 'edit'])->middleware('admin');
+Route::put('/perusahaan/update/{id}', [CompanyController::class, 'update'])->middleware('admin');
+Route::post('/perusahaan/switch', [CompanyController::class, 'switch'])->middleware('admin');
 Route::put('/role/update/{id}', [RoleController::class, 'update'])->middleware('admin');
 Route::delete('/role/delete/{id}', [RoleController::class, 'delete'])->middleware('admin');
 
@@ -517,6 +525,7 @@ Route::delete('/atk/transactions/{id}', [AtkController::class, 'deleteStockTrans
 Route::get('/atk/{id}/detail', [AtkController::class, 'detail'])->middleware('admin');
 Route::post('/atk/{id}/stock-in', [AtkController::class, 'stockIn'])->middleware('admin');
 Route::post('/atk/{id}/stock-out', [AtkController::class, 'stockOut'])->middleware('admin');
+Route::post('/atk/{id}/transfer-company', [AtkController::class, 'transferCompany'])->middleware('admin');
 Route::put('/atk/{id}/stock-alert', [AtkController::class, 'updateStockAlert'])->middleware('admin');
 Route::get('/atk/{id}/qr/print', [AtkController::class, 'printQr'])->middleware('admin');
 Route::get('/atk/{id}/qr/download', [AtkController::class, 'downloadQr'])->middleware('admin');
@@ -545,6 +554,7 @@ Route::get('/inventory/bast/{id}/download', [InventoryController::class, 'downlo
 Route::get('/inventory/{id}/detail', [InventoryController::class, 'detail'])->middleware('admin');
 Route::post('/inventory/{id}/stock-in', [InventoryController::class, 'stockIn'])->middleware('admin');
 Route::post('/inventory/{id}/stock-out', [InventoryController::class, 'stockOut'])->middleware('admin');
+Route::post('/inventory/{id}/transfer-company', [InventoryController::class, 'transferCompany'])->middleware('admin');
 Route::put('/inventory/{id}/stock-alert', [InventoryController::class, 'updateStockAlert'])->middleware('admin');
 Route::get('/inventory/{id}/qr/print', [InventoryController::class, 'printQr'])->middleware('admin');
 Route::get('/inventory/{id}/qr/download', [InventoryController::class, 'downloadQr'])->middleware('admin');

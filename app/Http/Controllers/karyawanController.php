@@ -9,6 +9,7 @@ use App\Models\Shift;
 use App\Models\Lembur;
 use App\Models\Lokasi;
 use App\Models\Jabatan;
+use App\Models\Company;
 use App\Models\Kontrak;
 use App\Models\Payroll;
 use App\Models\dinasLuar;
@@ -54,7 +55,8 @@ class karyawanController extends Controller
         }
         $sortOrder = in_array($sortOrder, ['asc', 'desc']) ? $sortOrder : 'asc';
 
-        $data = User::when($search, function ($query) use ($search) {
+        $data = User::forCompany(current_company_id())
+            ->when($search, function ($query) use ($search) {
             $query->where('name', 'LIKE', '%' . $search . '%')
                 ->orWhere('email', 'LIKE', '%' . $search . '%')
                 ->orWhere('telepon', 'LIKE', '%' . $search . '%')
@@ -292,7 +294,8 @@ class karyawanController extends Controller
             "title" => 'Tambah Pegawai',
             "data_jabatan" => Jabatan::all(),
             "data_lokasi" => Lokasi::where('status', 'approved')->where('keterangan', 'Office')->get(),
-            "roles" => Role::orderBy('name')->get()
+            "roles" => Role::orderBy('name')->get(),
+            "companies" => Company::active()->orderBy('name')->get(),
         ]);
     }
 
@@ -347,7 +350,9 @@ class karyawanController extends Controller
             'nama_kontak_darurat' => 'nullable|max:255',
             'telepon_kontak_darurat' => 'nullable|max:255',
             'hubungan_kontak_darurat' => 'nullable|max:255',
+            'company_id' => 'nullable|exists:companies,id',
         ]);
+        $validatedData['company_id'] = (int) ($request->input('company_id') ?: current_company_id() ?: company_context()->defaultCompanyId());
 
         $validatedData["izin_cuti"] = $request->izin_cuti ?? 0;
         $validatedData["izin_lainnya"] = $request->izin_lainnya ?? 0;
@@ -389,10 +394,11 @@ class karyawanController extends Controller
         return view('karyawan.editkaryawan', [
             'title' => 'Detail Pegawai',
             'karyawan' => $user,
-            'data_jabatan' => Jabatan::all(),
-            "data_lokasi" => Lokasi::where('status', 'approved')->where('keterangan', 'Office')->get(),
+            'data_jabatan' => Jabatan::forCompany($user->company_id)->get(),
+            "data_lokasi" => Lokasi::forCompany($user->company_id)->where('status', 'approved')->where('keterangan', 'Office')->get(),
             "roles" => Role::orderBy('name')->get(),
-            'user_roles' => $user->roles->pluck('name')->toArray()
+            'user_roles' => $user->roles->pluck('name')->toArray(),
+            "companies" => Company::active()->orderBy('name')->get(),
         ]);
     }
 
@@ -444,6 +450,7 @@ class karyawanController extends Controller
             'nama_kontak_darurat' => 'nullable|max:255',
             'telepon_kontak_darurat' => 'nullable|max:255',
             'hubungan_kontak_darurat' => 'nullable|max:255',
+            'company_id' => 'nullable|exists:companies,id',
         ];
 
         $user = User::find($id);
@@ -461,6 +468,7 @@ class karyawanController extends Controller
         }
 
         $validatedData = $request->validate($rules);
+        $validatedData['company_id'] = $user->company_id ?: (current_company_id() ?: company_context()->defaultCompanyId());
 
         $validatedData["izin_cuti"] = $request->izin_cuti ?? 0;
         $validatedData["izin_lainnya"] = $request->izin_lainnya ?? 0;

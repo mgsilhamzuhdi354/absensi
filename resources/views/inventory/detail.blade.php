@@ -55,6 +55,10 @@
                                             <td>{{ $inventory->kode_barang ?? '-' }}</td>
                                         </tr>
                                         <tr>
+                                            <th>Perusahaan</th>
+                                            <td>{{ $inventory->company->name ?? '-' }}</td>
+                                        </tr>
+                                        <tr>
                                             <th>Jenis Barang</th>
                                             <td>{{ $inventory->jenis_barang ?? '-' }}</td>
                                         </tr>
@@ -192,6 +196,50 @@
                     </div>
                     <a href="{{ url('/inventory/'.$inventory->id.'/qr/print') }}" target="_blank" class="btn btn-primary btn-sm mb-2">Cetak Label QR</a>
                     <a href="{{ url('/inventory/'.$inventory->id.'/qr/download') }}" class="btn btn-info btn-sm mb-2">Download QR</a>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Transfer Perusahaan</h5>
+                </div>
+                <div class="card-body">
+                    @if (!$canStockOut)
+                        <div class="alert alert-warning">Stok tersedia tidak cukup. Transfer belum bisa diproses.</div>
+                    @elseif (($transferCompanies ?? collect())->isEmpty())
+                        <div class="alert alert-warning">Belum ada perusahaan tujuan aktif.</div>
+                    @endif
+                    <form method="post" action="{{ url('/inventory/'.$inventory->id.'/transfer-company') }}" class="inventory-stock-form">
+                        @csrf
+                        <div class="form-group">
+                            <label>Perusahaan Tujuan</label>
+                            <select name="destination_company_id" class="form-control selectpicker" data-live-search="true" {{ !$canStockOut || ($transferCompanies ?? collect())->isEmpty() ? 'disabled' : '' }} required>
+                                <option value="">-- Pilih perusahaan --</option>
+                                @foreach (($transferCompanies ?? collect()) as $company)
+                                    <option value="{{ $company->id }}" {{ old('destination_company_id') == $company->id ? 'selected' : '' }}>{{ $company->name }} ({{ $company->code }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 form-group">
+                                <label>Tanggal</label>
+                                <input type="date" name="tanggal_transfer" class="form-control" value="{{ old('tanggal_transfer', date('Y-m-d')) }}" {{ !$canStockOut ? 'disabled' : '' }} required>
+                            </div>
+                            <div class="col-md-6 form-group">
+                                <label>Jumlah</label>
+                                <input type="number" step="{{ $wholeStockStep }}" min="{{ $minimumStockQuantity }}" max="{{ $maxStockQuantity }}" name="jumlah" class="form-control" value="{{ old('jumlah', $canStockOut ? $minimumStockQuantity : '') }}" {{ !$canStockOut ? 'disabled' : '' }} required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Warna Barang</label>
+                            <input type="text" name="warna_barang" class="form-control" list="inventory_detail_color_options" value="{{ old('warna_barang', optional($inventory->stockVariants->firstWhere('stok', '>', 0))->warna_barang ?? 'Umum') }}" {{ !$canStockOut ? 'disabled' : '' }}>
+                        </div>
+                        <div class="form-group">
+                            <label>Catatan</label>
+                            <textarea name="catatan" class="form-control" rows="3" {{ !$canStockOut ? 'disabled' : '' }}>{{ old('catatan') }}</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary" {{ !$canStockOut || ($transferCompanies ?? collect())->isEmpty() ? 'disabled' : '' }}>Transfer Aset</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -479,6 +527,48 @@
                                 @empty
                                     <tr>
                                         <td colspan="11" class="text-center">Belum ada riwayat stok.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Riwayat Transfer Perusahaan</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive inventory-history-responsive">
+                        <table class="table table-striped table-bordered inventory-history-table">
+                            <thead>
+                                <tr>
+                                    <th>Tanggal</th>
+                                    <th>Dari</th>
+                                    <th>Ke</th>
+                                    <th>Jumlah</th>
+                                    <th>Warna</th>
+                                    <th>Diproses Oleh</th>
+                                    <th>Catatan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse (($assetTransfers ?? collect()) as $transfer)
+                                    <tr>
+                                        <td>{{ optional($transfer->tanggal_transfer)->format('d/m/Y') }}</td>
+                                        <td>{{ $transfer->sourceCompany->name ?? '-' }}</td>
+                                        <td>{{ $transfer->destinationCompany->name ?? '-' }}</td>
+                                        <td>{{ $inventory->formatStockValue($transfer->jumlah) }} {{ $inventory->display_uom }}</td>
+                                        <td>{{ $transfer->warna_barang ?? 'Umum' }}</td>
+                                        <td>{{ $transfer->processedBy->name ?? '-' }}</td>
+                                        <td>{!! $transfer->catatan ? nl2br(e($transfer->catatan)) : '-' !!}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="text-center">Belum ada transfer perusahaan.</td>
                                     </tr>
                                 @endforelse
                             </tbody>

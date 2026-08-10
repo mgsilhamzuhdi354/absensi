@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Company;
 use App\Models\InventoryBastDocument;
 use App\Models\Inventory;
 use App\Models\InventoryStockTransaction;
@@ -50,10 +51,12 @@ class InventoryBastService
                 : ($inventoryDivision ?: ($admin->Jabatan->nama_jabatan ?? null));
             $receiverPosition = $transaction->penerima->Jabatan->nama_jabatan ?? $transaction->jabatan_penerima;
             $receiverDepartment = $transaction->departemen_penerima ?: $receiverPosition;
+            $companyId = $transaction->company_id ?: optional($transaction->inventory)->company_id;
 
             $documentData = [
+                'company_id' => $companyId,
                 'inventory_stock_transaction_id' => $transaction->id,
-                'nomor_surat' => $this->generateNumber($date),
+                'nomor_surat' => $this->generateNumber($date, $companyId),
                 'tanggal_surat' => $date->toDateString(),
                 'nama_penerima' => $transaction->penerima->name ?? $transaction->penerima_barang,
                 'jabatan_penerima' => $receiverPosition,
@@ -171,6 +174,7 @@ class InventoryBastService
             'document' => $document,
             'transaction' => $document->transaction,
             'inventory' => $document->transaction->inventory,
+            'company' => $this->companyForDocument($document),
         ]);
 
         $path = self::PDF_DIRECTORY . '/' . $document->id . '.pdf';
@@ -300,15 +304,26 @@ class InventoryBastService
             && Schema::hasColumn('inventory_bast_documents', 'party_details_locked');
     }
 
-    private function generateNumber(Carbon $date)
+    private function generateNumber(Carbon $date, ?int $companyId)
     {
         $romanMonth = $this->romanMonth((int) $date->format('n'));
-        $nextNumber = InventoryBastDocument::whereYear('tanggal_surat', $date->year)
+        $nextNumber = InventoryBastDocument::withoutGlobalScope('company')
+            ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
+            ->whereYear('tanggal_surat', $date->year)
             ->whereMonth('tanggal_surat', $date->month)
             ->lockForUpdate()
             ->count() + 1;
 
         return str_pad($nextNumber, 3, '0', STR_PAD_LEFT) . ' / IT-BAST / ' . $romanMonth . ' / ' . $date->year;
+    }
+
+    private function companyForDocument(InventoryBastDocument $document): ?Company
+    {
+        $companyId = $document->company_id
+            ?: optional(optional($document->transaction)->inventory)->company_id
+            ?: optional($document->transaction)->company_id;
+
+        return $companyId ? Company::find($companyId) : null;
     }
 
     private function romanMonth($month)

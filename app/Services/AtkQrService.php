@@ -55,7 +55,7 @@ class AtkQrService
             'qr_token' => $atk->qr_token,
         ])->save();
 
-        return $atk->fresh();
+        return Atk::withoutGlobalScope('company')->find($atk->id);
     }
 
     public function valueFor(Atk $atk)
@@ -178,6 +178,10 @@ class AtkQrService
 
             if (preg_match('/^(?:ATK-QR:|QR:)\s*(.+)$/i', $candidate, $prefixed)) {
                 $candidates[] = trim($prefixed[1]);
+            }
+
+            if (preg_match('/^[A-Za-z0-9]+-[A-Za-z]+-\d+$/', $candidate) || preg_match('/^[A-Za-z]+-\d+$/', $candidate)) {
+                $candidates[] = str_replace('-', '/', $candidate);
             }
         }
     }

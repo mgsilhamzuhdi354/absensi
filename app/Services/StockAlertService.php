@@ -138,6 +138,7 @@ class StockAlertService
                 'alertable_id' => $item->getKey(),
             ],
             [
+                'company_id' => $item->company_id ?? current_company_id(),
                 'source' => $source,
                 'status' => self::STATUS_NORMAL,
                 'stock' => $stock,
@@ -150,6 +151,7 @@ class StockAlertService
             || $alert->last_notified_at === null;
 
         $alert->forceFill([
+            'company_id' => $item->company_id ?? $alert->company_id,
             'source' => $source,
             'status' => $status,
             'stock' => $stock,
@@ -162,7 +164,7 @@ class StockAlertService
         }
 
         $message = $this->message($status, $label, $name, $code, $stock, $unit);
-        $this->notifyAdmins($message, $action, $status, $source, get_class($item) . ':' . $item->getKey());
+        $this->notifyAdmins($message, $action, $status, $source, get_class($item) . ':' . $item->getKey(), $item->company_id ?? null);
 
         $alert->forceFill([
             'last_notified_at' => now(),
@@ -195,7 +197,10 @@ class StockAlertService
     {
         $alertKey = get_class($item) . ':' . $item->getKey();
 
-        User::where('is_admin', 'admin')->get()->each(function (User $admin) use ($alertKey) {
+        User::where('is_admin', 'admin')
+            ->forCompany($item->company_id ?? null)
+            ->get()
+            ->each(function (User $admin) use ($alertKey) {
             $admin->unreadNotifications()
                 ->get()
                 ->filter(function ($notification) use ($alertKey) {
@@ -220,9 +225,12 @@ class StockAlertService
         return 'Stok ' . $label . ' ' . $itemName . ' (' . $itemCode . ') menipis. Stok saat ini ' . $stockText . ' (batas ' . self::LOW_STOCK_THRESHOLD . ').';
     }
 
-    private function notifyAdmins(string $message, string $action, string $status, string $source, string $alertKey): void
+    private function notifyAdmins(string $message, string $action, string $status, string $source, string $alertKey, ?int $companyId): void
     {
-        User::where('is_admin', 'admin')->get()->each(function (User $admin) use ($message, $action, $status, $source, $alertKey) {
+        User::where('is_admin', 'admin')
+            ->forCompany($companyId)
+            ->get()
+            ->each(function (User $admin) use ($message, $action, $status, $source, $alertKey) {
             $admin->messages = [
                 'user_id' => $admin->id,
                 'from' => 'Sistem Stok',

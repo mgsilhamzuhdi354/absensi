@@ -54,7 +54,7 @@ class InventoryQrService
             'qr_token' => $inventory->qr_token,
         ])->save();
 
-        return $inventory->fresh();
+        return Inventory::withoutGlobalScope('company')->find($inventory->id);
     }
 
     public function valueFor(Inventory $inventory)
@@ -183,7 +183,7 @@ class InventoryQrService
                 $candidates[] = trim($prefixed[1]);
             }
 
-            if (preg_match('/^[A-Za-z]+-\d+$/', $candidate)) {
+            if (preg_match('/^[A-Za-z0-9]+-[A-Za-z]+-\d+$/', $candidate) || preg_match('/^[A-Za-z]+-\d+$/', $candidate)) {
                 $candidates[] = str_replace('-', '/', $candidate);
             }
         }

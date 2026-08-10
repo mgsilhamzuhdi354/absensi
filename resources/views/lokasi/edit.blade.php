@@ -6,6 +6,17 @@
                 <form method="post" action="{{ url('/lokasi-kantor/update/'.$lokasi->id) }}" class="p-4">
                     @method('put')
                     @csrf
+                        @if (auth()->user()->is_admin == 'admin')
+                            <div class="form-group">
+                                <label for="company_id">Perusahaan</label>
+                                <select class="form-control" id="company_id" disabled>
+                                    @foreach (($companies ?? collect()) as $company)
+                                        <option value="{{ $company->id }}" {{ $lokasi->company_id == $company->id ? 'selected' : '' }}>{{ $company->code }} - {{ $company->name }}</option>
+                                    @endforeach
+                                </select>
+                                <input type="hidden" name="company_id" value="{{ $lokasi->company_id }}">
+                            </div>
+                        @endif
                         <div class="form-group">
                             <label for="nama_lokasi">Nama Lokasi</label>
                             <input type="text" class="form-control @error('nama_lokasi') is-invalid @enderror" id="nama_lokasi" name="nama_lokasi" autofocus value="{{ old('nama_lokasi', $lokasi->nama_lokasi) }}">
@@ -61,6 +72,7 @@
                 <form method="post" action="{{ url('/lokasi-kantor/update/'.$lokasi->id) }}" class="p-4">
                     @method('put')
                     @csrf
+                        <input type="hidden" name="company_id" value="{{ $lokasi->company_id }}">
                         <input type="hidden" name="nama_lokasi" value="{{ $lokasi->nama_lokasi }}">
                         <input type="hidden" name="keterangan" value="{{ $lokasi->keterangan }}">
                         <input type="hidden" name="lat_kantor" id="lat">

@@ -7,9 +7,29 @@
     $stockInputStep = (!$inventory || $inventory->usesWholeStock()) ? '1' : '0.01';
     $stockAlertEnabled = old('stock_alert_enabled', $inventory ? (int) ($inventory->stock_alert_enabled ?? true) : 1);
     $warnaOptions = $inventory && $inventory->relationLoaded('stockVariants') ? $inventory->stockVariants : collect();
+    $selectedCompanyId = old('company_id', $inventory->company_id ?? $companyId ?? optional($currentCompany ?? null)->id);
 @endphp
 
 <div class="row">
+    @if (auth()->user()->is_admin == 'admin')
+        <div class="col-md-6">
+            <div class="form-group">
+                <label for="company_id" class="float-left">Perusahaan</label>
+                <select class="form-control @error('company_id') is-invalid @enderror" id="company_id" name="company_id" {{ $inventory ? 'disabled' : '' }}>
+                    <option value="">-- Pilih --</option>
+                    @foreach (($companies ?? collect()) as $company)
+                        <option value="{{ $company->id }}" data-code-preview="{{ ($companyCodePreviews ?? collect())->get($company->id) }}" {{ (string) $selectedCompanyId === (string) $company->id ? 'selected' : '' }}>{{ $company->code }} - {{ $company->name }}</option>
+                    @endforeach
+                </select>
+                @if ($inventory)
+                    <input type="hidden" name="company_id" value="{{ $inventory->company_id }}">
+                @endif
+                @error('company_id')
+                    <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
+            </div>
+        </div>
+    @endif
     <div class="col-md-6">
         <div class="form-group">
             <label for="kode_barang" class="float-left">Kode Barang</label>
@@ -269,6 +289,32 @@
             uomInput.addEventListener('input', syncStockStep);
             uomInput.addEventListener('change', syncStockStep);
             syncStockStep();
+
+            var companySelect = document.getElementById('company_id');
+            var codeInput = document.getElementById('kode_barang');
+
+            function syncCompanyCodePreview() {
+                if (!companySelect || !codeInput || companySelect.disabled) {
+                    return;
+                }
+
+                var selectedOption = companySelect.options[companySelect.selectedIndex];
+                var preview = selectedOption ? selectedOption.getAttribute('data-code-preview') : '';
+
+                if (preview) {
+                    codeInput.value = preview;
+                }
+            }
+
+            if (companySelect && codeInput) {
+                companySelect.addEventListener('change', syncCompanyCodePreview);
+
+                if (window.jQuery) {
+                    window.jQuery(companySelect).on('changed.bs.select change', syncCompanyCodePreview);
+                }
+
+                syncCompanyCodePreview();
+            }
         });
     </script>
 @endpush

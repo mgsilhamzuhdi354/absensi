@@ -4,6 +4,10 @@
     $bulan = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'];
     $tanggalTeks = $tanggal->format('d') . ' ' . $bulan[(int) $tanggal->format('n')] . ' ' . $tanggal->format('Y');
     $hariTeks = $hari[$tanggal->format('l')] ?? $tanggal->format('l');
+    $companyName = $company->name ?? 'PT Indo Ocean Crew Service';
+    $companyEmail = $company->email ?? 'ios@indooceancrew.co.id';
+    $companyPhone = $company->phone ?? '+62 822-6012-1933';
+    $companyAddress = $company->address ?? 'Jakarta, Indonesia';
     $divisiInventory = $inventory->jabatan->nama_jabatan ?? null;
     $pihakKedua = $document->nama_penerima ?: (optional($transaction->penerima)->name ?: ($transaction->penerima_barang ?: '-'));
     $jabatanPihakKedua = $document->jabatan_penerima ?: (optional(optional($transaction->penerima)->Jabatan)->nama_jabatan ?: ($transaction->jabatan_penerima ?: '-'));
@@ -232,8 +236,8 @@
 </head>
 <body>
     <div class="center">
-        <h2 class="company-title">PT INDO OCEANCREW SERVICE</h2>
-        <div class="company-subtitle">Email: ios@indooceancrew.co.id | Telp: +62 822-6012-1933 | Jakarta, Indonesia</div>
+        <h2 class="company-title">{{ strtoupper($companyName) }}</h2>
+        <div class="company-subtitle">Email: {{ $companyEmail }} | Telp: {{ $companyPhone }} | {{ $companyAddress }}</div>
     </div>
     <div class="hr-line"></div>
     <div class="center">
@@ -242,7 +246,7 @@
     </div>
 
     <p class="paragraph">
-        Pada hari ini, {{ $hariTeks }} tanggal {{ $tanggalTeks }}, bertempat di kantor PT Indo Ocean Crew Service,
+        Pada hari ini, {{ $hariTeks }} tanggal {{ $tanggalTeks }}, bertempat di kantor {{ $companyName }},
         telah dilakukan penyerahan aset/inventaris perusahaan berupa fasilitas kerja kepada karyawan dengan rincian
         pihak-pihak terkait sebagai berikut:
     </p>
@@ -325,7 +329,7 @@
     <p class="paragraph"><strong>Ketentuan & Tanggung Jawab Penggunaan:</strong></p>
     <ol>
         <li>PIHAK KEDUA bertanggung jawab penuh atas keutuhan, kebersihan, perawatan, dan keamanan unit selama masa penggunaan.</li>
-        <li>Fasilitas ini diberikan semata-mata untuk mendukung kelancaran operasional kerja dan tugas kedinasan di PT Indo Ocean Crew Service.</li>
+        <li>Fasilitas ini diberikan semata-mata untuk mendukung kelancaran operasional kerja dan tugas kedinasan di {{ $companyName }}.</li>
         <li>Segala bentuk kerusakan akibat kelalaian seperti terjatuh, terkena air, atau kehilangan unit menjadi tanggung jawab PIHAK KEDUA dan akan diproses sesuai peraturan internal perusahaan.</li>
         <li>Apabila PIHAK KEDUA mengakhiri masa kontrak/hubungan kerja, maka wajib menyerahkan kembali aset ini kepada departemen {{ $deptPihakPertama }} dalam kondisi baik dan lengkap.</li>
     </ol>

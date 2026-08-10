@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Jabatan;
+use App\Models\Company;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use RealRashid\SweetAlert\Facades\Alert;
 
 class jabatanController extends Controller
@@ -29,7 +31,8 @@ class jabatanController extends Controller
     {
         return view('jabatan.create', [
             'title' => 'Tambah Data Divisi',
-            'users' => User::select('id', 'name')->orderBy('name')->get(),
+            'users' => User::select('id', 'name')->forCompany(current_company_id())->orderBy('name')->get(),
+            'companies' => Company::active()->orderBy('name')->get(),
         ]);
     }
 
@@ -37,8 +40,13 @@ class jabatanController extends Controller
     {
         $validatedData = $request->validate([
             'nama_jabatan' => 'required|max:255',
-            'manager' => 'nullable',
+            'manager' => [
+                'nullable',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('company_id', $this->selectedCompanyId($request))),
+            ],
+            'company_id' => 'nullable|exists:companies,id',
         ]);
+        $validatedData['company_id'] = $this->selectedCompanyId($request);
 
         Jabatan::create($validatedData);
         return redirect('/jabatan')->with('success', 'Data Berhasil di Tambahkan');
@@ -49,7 +57,8 @@ class jabatanController extends Controller
         return view('jabatan.edit', [
             'title' => 'Edit Data Divisi',
             'data_jabatan' => Jabatan::findOrFail($id),
-            'users' => User::select('id', 'name')->orderBy('name')->get(),
+            'users' => User::select('id', 'name')->forCompany(Jabatan::findOrFail($id)->company_id)->orderBy('name')->get(),
+            'companies' => Company::active()->orderBy('name')->get(),
         ]);
     }
 
@@ -57,8 +66,13 @@ class jabatanController extends Controller
     {
         $validatedData = $request->validate([
             'nama_jabatan' => 'required|max:255',
-            'manager' => 'nullable',
+            'manager' => [
+                'nullable',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('company_id', Jabatan::findOrFail($id)->company_id)),
+            ],
+            'company_id' => 'nullable|exists:companies,id',
         ]);
+        $validatedData['company_id'] = Jabatan::findOrFail($id)->company_id;
 
         Jabatan::where('id', $id)->update($validatedData);
         return redirect('/jabatan')->with('success', 'Data Berhasil di Update');
@@ -75,5 +89,10 @@ class jabatanController extends Controller
             $jabatan->delete();
             return redirect('/jabatan')->with('success', 'Data Berhasil di Delete');
         }
+    }
+
+    private function selectedCompanyId(Request $request): int
+    {
+        return (int) ($request->input('company_id') ?: current_company_id() ?: company_context()->defaultCompanyId());
     }
 }

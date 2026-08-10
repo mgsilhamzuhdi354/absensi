@@ -17,6 +17,19 @@
             <div class="card">
                 <form method="post" action="{{ url('/jabatan/insert') }}" class="p-4">
                     @csrf
+                        @if (auth()->user()->is_admin == 'admin')
+                            <div class="form-group">
+                                <label for="company_id">Perusahaan</label>
+                                <select name="company_id" id="company_id" class="form-control @error('company_id') is-invalid @enderror">
+                                    @foreach (($companies ?? collect()) as $company)
+                                        <option value="{{ $company->id }}" {{ old('company_id', optional($currentCompany ?? null)->id) == $company->id ? 'selected' : '' }}>{{ $company->code }} - {{ $company->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('company_id')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        @endif
                         <div class="form-group">
                             <label for="nama_jabatan">Nama Divisi</label>
                             <input type="text" class="form-control @error('nama_jabatan') is-invalid @enderror" id="nama_jabatan" name="nama_jabatan" autofocus value="{{ old('nama_jabatan') }}">

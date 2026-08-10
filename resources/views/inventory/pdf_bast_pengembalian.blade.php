@@ -4,6 +4,10 @@
     $bulan = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'];
     $tanggalTeks = $tanggal->format('d') . ' ' . $bulan[(int) $tanggal->format('n')] . ' ' . $tanggal->format('Y');
     $hariTeks = $hari[$tanggal->format('l')] ?? $tanggal->format('l');
+    $companyName = $company->name ?? 'PT Indo Ocean Crew Service';
+    $companyEmail = $company->email ?? 'ios@indooceancrew.co.id';
+    $companyPhone = $company->phone ?? '+62 822-6012-1933';
+    $companyAddress = $company->address ?? 'Jakarta, Indonesia';
     $signatureSrc = function ($path) {
         if (!$path || !\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
             return null;
@@ -80,8 +84,8 @@
 </head>
 <body>
     <div class="center">
-        <h2 class="company-title">PT INDO OCEANCREW SERVICE</h2>
-        <div class="company-subtitle">Email: ios@indooceancrew.co.id | Telp: +62 822-6012-1933 | Jakarta, Indonesia</div>
+        <h2 class="company-title">{{ strtoupper($companyName) }}</h2>
+        <div class="company-subtitle">Email: {{ $companyEmail }} | Telp: {{ $companyPhone }} | {{ $companyAddress }}</div>
     </div>
     <div class="hr-line"></div>
     <div class="center">
@@ -90,7 +94,7 @@
     </div>
 
     <p class="paragraph">
-        Pada hari ini, {{ $hariTeks }} tanggal {{ $tanggalTeks }}, bertempat di kantor PT Indo Ocean Crew Service,
+        Pada hari ini, {{ $hariTeks }} tanggal {{ $tanggalTeks }}, bertempat di kantor {{ $companyName }},
         telah dilakukan pengembalian aset/inventaris perusahaan dari karyawan kepada perusahaan dengan rincian berikut:
     </p>
 

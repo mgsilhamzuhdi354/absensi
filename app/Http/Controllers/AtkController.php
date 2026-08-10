@@ -3,16 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Exports\AtkExport;
+use App\Models\AssetTransfer;
 use App\Models\Atk;
 use App\Models\AtkStockTransaction;
 use App\Models\AtkStockVariant;
+use App\Models\Company;
 use App\Models\Counter;
 use App\Services\AtkQrService;
+use App\Services\CompanyContext;
 use App\Services\StockAlertService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AtkController extends Controller
@@ -33,7 +37,8 @@ class AtkController extends Controller
         $title = 'ATK';
         $search = request()->input('search');
         $status = request()->input('status');
-        $atks = Atk::when($search, function ($query) use ($search) {
+        $atks = Atk::with('company')
+            ->when($search, function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('kode_atk', 'LIKE', '%' . $search . '%')
                         ->orWhere('nama_atk', 'LIKE', '%' . $search . '%')
@@ -57,9 +62,14 @@ class AtkController extends Controller
     public function tambah()
     {
         $title = 'ATK';
-        $kode_atk = $this->previewKodeAtk();
+        $companyId = app(CompanyContext::class)->currentCompanyId();
+        $companies = Company::active()->orderBy('name')->get();
+        $kode_atk = $this->previewKodeAtk($companyId ?: app(CompanyContext::class)->defaultCompanyId());
+        $companyCodePreviews = $companies->mapWithKeys(function ($company) {
+            return [$company->id => $this->previewKodeAtk($company->id)];
+        });
 
-        return view('atk.tambah', compact('title', 'kode_atk'));
+        return view('atk.tambah', compact('title', 'kode_atk', 'companies', 'companyId', 'companyCodePreviews'));
     }
 
     public function store(Request $request)
@@ -67,7 +77,7 @@ class AtkController extends Controller
         $validated = $this->validatedAtkData($request);
         $initialColor = $this->normalizeColor($request->input('warna_barang'));
         $atk = DB::transaction(function () use ($validated, $initialColor) {
-            $validated['kode_atk'] = $this->generateKodeAtk();
+            $validated['kode_atk'] = $this->generateKodeAtk($validated['company_id']);
             $atk = Atk::create($validated);
             $this->syncAtkVariantTotal($atk, $initialColor);
 
@@ -83,7 +93,8 @@ class AtkController extends Controller
             }
         });
 
-        $this->stockAlertService->checkAtk($atk->fresh());
+        $this->stockAlertService->checkAtk(Atk::withoutGlobalScope('company')->find($atk->id));
+        app(CompanyContext::class)->setActiveCompany($atk->company_id);
 
         return redirect('/atk/' . $atk->id . '/detail')->with('success', 'Data Berhasil Disimpan');
     }
@@ -102,13 +113,30 @@ class AtkController extends Controller
             $atk->load('stockVariants');
         }
         $deletedStockTransactions = $this->deletedStockTransactions($atk);
+        $transferCompanies = Company::active()
+            ->where('id', '!=', $atk->company_id)
+            ->orderBy('name')
+            ->get();
+        $assetTransfers = AssetTransfer::withoutGlobalScope('company')
+            ->with(['sourceCompany', 'destinationCompany', 'processedBy'])
+            ->where('transferable_type', Atk::class)
+            ->where(function ($query) use ($atk) {
+                $query->where('transferable_id', $atk->id)
+                    ->orWhere('target_transferable_id', $atk->id);
+            })
+            ->latest('tanggal_transfer')
+            ->latest('id')
+            ->get();
 
-        return view('atk.detail', compact('title', 'atk', 'deletedStockTransactions'));
+        return view('atk.detail', compact('title', 'atk', 'deletedStockTransactions', 'transferCompanies', 'assetTransfers'));
     }
 
     public function edit($id)
     {
         $title = 'ATK';
+        $companyId = app(CompanyContext::class)->currentCompanyId();
+        $companies = Company::active()->orderBy('name')->get();
+        $companyCodePreviews = collect();
         $atk = Atk::find($id);
         if (!$atk) {
             return redirect('/atk')->with('error', 'Data ATK sudah tidak tersedia.');
@@ -117,7 +145,7 @@ class AtkController extends Controller
             $atk->load('stockVariants');
         }
 
-        return view('atk.edit', compact('title', 'atk'));
+        return view('atk.edit', compact('title', 'atk', 'companies', 'companyId', 'companyCodePreviews'));
     }
 
     public function update(Request $request, $id)
@@ -183,6 +211,80 @@ class AtkController extends Controller
         $this->stockAlertService->checkAtk($atk->fresh());
 
         return redirect('/atk/' . $atk->id . '/detail')->with('success', 'Stok keluar ATK berhasil disimpan');
+    }
+
+    public function transferCompany(Request $request, $id)
+    {
+        $atk = Atk::findOrFail($id);
+        $validated = $request->validate([
+            'destination_company_id' => [
+                'required',
+                Rule::exists('companies', 'id')->where(fn ($query) => $query->where('active', 1)),
+            ],
+            'tanggal_transfer' => 'required|date',
+            'jumlah' => 'required|numeric|min:0.01',
+            'warna_barang' => 'nullable|string|max:80',
+            'catatan' => 'nullable|string',
+        ]);
+
+        if ((int) $validated['destination_company_id'] === (int) $atk->company_id) {
+            throw ValidationException::withMessages([
+                'destination_company_id' => 'Perusahaan tujuan harus berbeda dari perusahaan asal.',
+            ]);
+        }
+
+        $targetAtkId = null;
+        $transfer = DB::transaction(function () use ($atk, $validated, &$targetAtkId) {
+            $source = Atk::withoutGlobalScope('company')->findOrFail($atk->id);
+            $destinationCompany = Company::findOrFail($validated['destination_company_id']);
+            $sourceCompany = Company::find($source->company_id);
+            $quantity = round((float) $validated['jumlah'], 2);
+            $color = $this->normalizeColor($validated['warna_barang'] ?? null);
+            $note = $validated['catatan'] ?? null;
+
+            $outgoing = $this->recordStockTransaction($source, 'keluar', [
+                'tanggal_transaksi' => $validated['tanggal_transfer'],
+                'jumlah' => $quantity,
+                'warna_barang' => $color,
+                'penerima_barang' => $destinationCompany->name,
+                'catatan' => trim('Transfer ke ' . $destinationCompany->name . ($note ? "\n" . $note : '')),
+            ]);
+
+            $target = $this->cloneAtkForTransfer($source, (int) $destinationCompany->id);
+            $incoming = $this->recordStockTransaction($target, 'masuk', [
+                'tanggal_transaksi' => $validated['tanggal_transfer'],
+                'jumlah' => $quantity,
+                'warna_barang' => $color,
+                'sumber_barang' => $sourceCompany->name ?? 'Perusahaan asal',
+                'catatan' => trim('Transfer dari ' . ($sourceCompany->name ?? 'Perusahaan asal') . ($note ? "\n" . $note : '')),
+            ]);
+
+            $target = $this->qrService->ensure($target, true);
+            $targetAtkId = $target->id;
+
+            return AssetTransfer::create([
+                'company_id' => $source->company_id,
+                'source_company_id' => $source->company_id,
+                'destination_company_id' => $destinationCompany->id,
+                'transferable_type' => Atk::class,
+                'transferable_id' => $source->id,
+                'target_transferable_id' => $target->id,
+                'outgoing_transaction_id' => $outgoing->id,
+                'incoming_transaction_id' => $incoming->id,
+                'jumlah' => $quantity,
+                'warna_barang' => $color,
+                'tanggal_transfer' => $validated['tanggal_transfer'],
+                'catatan' => $note,
+                'diproses_oleh' => auth()->id(),
+            ]);
+        });
+
+        $this->stockAlertService->checkAtk(Atk::withoutGlobalScope('company')->find($atk->id));
+        $this->stockAlertService->checkAtk(Atk::withoutGlobalScope('company')->find($targetAtkId));
+        app(CompanyContext::class)->setActiveCompany((int) $validated['destination_company_id']);
+
+        return redirect('/atk/' . $targetAtkId . '/detail')
+            ->with('success', 'Transfer ATK antar perusahaan berhasil disimpan. Nomor transfer #' . $transfer->id);
     }
 
     public function updateStockAlert(Request $request, $id)
@@ -321,33 +423,38 @@ class AtkController extends Controller
         return (new AtkExport($request->all()))->download('Report ATK.xlsx');
     }
 
-    private function generateKodeAtk(): string
+    private function generateKodeAtk(int $companyId): string
     {
-        $counter = $this->lockedCounter('ATK', 'ATK');
+        $counter = $this->lockedCounter('ATK', 'ATK', $companyId);
         $nextCounter = (int) $counter->counter + 1;
         $counter->update(['counter' => $nextCounter]);
 
-        return $this->formatCounterCode($counter->text ?: 'ATK', $nextCounter);
+        return $this->formatCounterCode($this->companyCode($companyId) . '/' . ($counter->text ?: 'ATK'), $nextCounter);
     }
 
-    private function previewKodeAtk(): string
+    private function previewKodeAtk(?int $companyId): string
     {
-        $counter = Counter::firstOrCreate(
-            ['name' => 'ATK'],
+        $companyId = $companyId ?: app(CompanyContext::class)->defaultCompanyId();
+        $counter = Counter::withoutGlobalScope('company')->firstOrCreate(
+            ['company_id' => $companyId, 'name' => 'ATK'],
             ['text' => 'ATK', 'counter' => 0]
         );
 
-        return $this->formatCounterCode($counter->text ?: 'ATK', (int) $counter->counter + 1);
+        return $this->formatCounterCode($this->companyCode($companyId) . '/' . ($counter->text ?: 'ATK'), (int) $counter->counter + 1);
     }
 
-    private function lockedCounter(string $name, string $prefix): Counter
+    private function lockedCounter(string $name, string $prefix, int $companyId): Counter
     {
-        Counter::firstOrCreate(
-            ['name' => $name],
+        Counter::withoutGlobalScope('company')->firstOrCreate(
+            ['company_id' => $companyId, 'name' => $name],
             ['text' => $prefix, 'counter' => 0]
         );
 
-        return Counter::where('name', $name)->lockForUpdate()->firstOrFail();
+        return Counter::withoutGlobalScope('company')
+            ->where('company_id', $companyId)
+            ->where('name', $name)
+            ->lockForUpdate()
+            ->firstOrFail();
     }
 
     private function formatCounterCode(string $prefix, int $counter): string
@@ -369,9 +476,13 @@ class AtkController extends Controller
             'active' => 'nullable|boolean',
             'stock_alert_enabled' => 'nullable|boolean',
             'warna_barang' => 'nullable|string|max:80',
+            'company_id' => 'nullable|exists:companies,id',
         ]);
 
         $validated['stok'] = round((float) $validated['stok'], 2);
+        $validated['company_id'] = $atk
+            ? $atk->company_id
+            : $this->selectedCompanyId($request);
         $validated['active'] = $request->boolean('active') ? 1 : 0;
         $defaultStockAlertEnabled = $atk ? (bool) $atk->stock_alert_enabled : true;
         $validated['stock_alert_enabled'] = $request->has('stock_alert_enabled')
@@ -398,7 +509,7 @@ class AtkController extends Controller
     private function recordStockTransaction(Atk $atk, string $type, array $data): AtkStockTransaction
     {
         return DB::transaction(function () use ($atk, $type, $data) {
-            $lockedAtk = Atk::whereKey($atk->id)->lockForUpdate()->firstOrFail();
+            $lockedAtk = Atk::withoutGlobalScope('company')->whereKey($atk->id)->lockForUpdate()->firstOrFail();
             $stockBefore = $this->currentStock($lockedAtk);
             $quantity = round((float) $data['jumlah'], 2);
             $color = $this->normalizeColor($data['warna_barang'] ?? null);
@@ -432,6 +543,7 @@ class AtkController extends Controller
             ]);
 
             return AtkStockTransaction::create([
+                'company_id' => $lockedAtk->company_id,
                 'atk_id' => $lockedAtk->id,
                 'jenis_transaksi' => $type,
                 'jumlah' => $quantity,
@@ -447,6 +559,22 @@ class AtkController extends Controller
         });
     }
 
+    private function cloneAtkForTransfer(Atk $source, int $destinationCompanyId): Atk
+    {
+        return Atk::create([
+            'company_id' => $destinationCompanyId,
+            'kode_atk' => $this->generateKodeAtk($destinationCompanyId),
+            'nama_atk' => $source->nama_atk,
+            'kategori' => $source->kategori,
+            'stok' => 0,
+            'satuan' => $source->satuan,
+            'lokasi' => null,
+            'keterangan' => trim(($source->keterangan ?: '') . "\n\nTransfer dari " . ($source->company->name ?? 'perusahaan asal')),
+            'active' => $source->active,
+            'stock_alert_enabled' => $source->stock_alert_enabled,
+        ]);
+    }
+
     private function syncAtkVariantTotal(Atk $atk, ?string $color): void
     {
         if (!Schema::hasTable('atk_stock_variants')) {
@@ -454,7 +582,7 @@ class AtkController extends Controller
         }
 
         DB::transaction(function () use ($atk, $color) {
-            $lockedAtk = Atk::whereKey($atk->id)->lockForUpdate()->firstOrFail();
+            $lockedAtk = Atk::withoutGlobalScope('company')->whereKey($atk->id)->lockForUpdate()->firstOrFail();
             $targetStock = $this->currentStock($lockedAtk);
             $variantTotal = round((float) AtkStockVariant::where('atk_id', $lockedAtk->id)->sum('stok'), 2);
             $delta = round($targetStock - $variantTotal, 2);
@@ -540,10 +668,23 @@ class AtkController extends Controller
         }
 
         return AtkStockVariant::create([
+            'company_id' => $atk->company_id,
             'atk_id' => $atk->id,
             'warna_barang' => $color,
             'stok' => 0,
         ]);
+    }
+
+    private function selectedCompanyId(Request $request): int
+    {
+        $companyId = $request->input('company_id') ?: app(CompanyContext::class)->currentCompanyId();
+
+        return (int) ($companyId ?: app(CompanyContext::class)->defaultCompanyId());
+    }
+
+    private function companyCode(int $companyId): string
+    {
+        return Company::whereKey($companyId)->value('code') ?: 'IOS';
     }
 
     private function ensureAtkVariantsInitialized(Atk $atk): void
@@ -563,6 +704,7 @@ class AtkController extends Controller
         }
 
         AtkStockVariant::create([
+            'company_id' => $atk->company_id,
             'atk_id' => $atk->id,
             'warna_barang' => 'Umum',
             'stok' => $stock,

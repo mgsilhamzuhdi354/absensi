@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Company;
 use App\Models\Inventory;
 use App\Models\DokumenPengembalianAset;
 use App\Models\InventoryStockTransaction;
@@ -173,6 +174,7 @@ class LayananAsetPegawaiKeluar
             'pegawai_keluar_id' => $pegawaiKeluar->id,
             'inventory_stock_transaction_id' => $transaction->id,
         ], [
+            'company_id' => $transaction->company_id ?: optional($transaction->inventory)->company_id,
             'status' => PenyelesaianAsetPegawaiKeluar::STATUS_PENDING,
         ]);
     }
@@ -206,7 +208,8 @@ class LayananAsetPegawaiKeluar
 
     private function lockedInventory(InventoryStockTransaction $transaction)
     {
-        return Inventory::whereKey($transaction->inventory_id)
+        return Inventory::withoutGlobalScope('company')
+            ->whereKey($transaction->inventory_id)
             ->lockForUpdate()
             ->firstOrFail();
     }
@@ -252,6 +255,7 @@ class LayananAsetPegawaiKeluar
 
         if (!$variant) {
             $variant = InventoryStockVariant::create([
+                'company_id' => $inventory->company_id,
                 'inventory_id' => $inventory->id,
                 'warna_barang' => $returnData['warna_barang'],
                 'stok' => 0,
@@ -266,6 +270,7 @@ class LayananAsetPegawaiKeluar
     private function createReturnTransaction(PegawaiKeluar $pegawaiKeluar, InventoryStockTransaction $originalTransaction, array $returnData, array $data, User $admin)
     {
         return InventoryStockTransaction::create([
+            'company_id' => $originalTransaction->company_id ?: optional($originalTransaction->inventory)->company_id,
             'inventory_id' => $originalTransaction->inventory_id,
             'return_for_transaction_id' => $originalTransaction->id,
             'pegawai_keluar_id' => $pegawaiKeluar->id,
@@ -380,12 +385,13 @@ class LayananAsetPegawaiKeluar
         $receiverPosition = optional(optional($itReceiver)->Jabatan)->nama_jabatan;
 
         return [
+            'company_id' => $originalTransaction->company_id ?: optional($originalTransaction->inventory)->company_id,
             'pegawai_keluar_asset_clearance_id' => $clearance->id,
             'return_inventory_stock_transaction_id' => $returnTransaction->id,
             'original_inventory_stock_transaction_id' => $originalTransaction->id,
             'pegawai_keluar_id' => $pegawaiKeluar->id,
             'inventory_id' => $originalTransaction->inventory_id,
-            'nomor_surat' => $this->generateReturnNumber($date),
+            'nomor_surat' => $this->generateReturnNumber($date, $originalTransaction->company_id ?: optional($originalTransaction->inventory)->company_id),
             'tanggal_surat' => $date->toDateString(),
             'employee_user_id' => $employee->id ?? null,
             'it_receiver_user_id' => $itReceiver->id ?? null,
@@ -425,6 +431,7 @@ class LayananAsetPegawaiKeluar
             'pegawaiKeluar' => $document->pegawaiKeluar,
             'originalTransaction' => $document->originalTransaction,
             'returnTransaction' => $document->returnTransaction,
+            'company' => $this->companyForDocument($document),
         ];
     }
 
@@ -514,15 +521,24 @@ class LayananAsetPegawaiKeluar
         return round(max(0, (float) ($inventory->stok ?? 0)), 2);
     }
 
-    private function generateReturnNumber(Carbon $date)
+    private function generateReturnNumber(Carbon $date, ?int $companyId)
     {
         $romanMonth = $this->romanMonth((int) $date->format('n'));
-        $nextNumber = DokumenPengembalianAset::whereYear('tanggal_surat', $date->year)
+        $nextNumber = DokumenPengembalianAset::withoutGlobalScope('company')
+            ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
+            ->whereYear('tanggal_surat', $date->year)
             ->whereMonth('tanggal_surat', $date->month)
             ->lockForUpdate()
             ->count() + 1;
 
         return str_pad($nextNumber, 3, '0', STR_PAD_LEFT) . ' / IT-BAST-PB / ' . $romanMonth . ' / ' . $date->year;
+    }
+
+    private function companyForDocument(DokumenPengembalianAset $document): ?Company
+    {
+        $companyId = $document->company_id ?: optional($document->inventory)->company_id;
+
+        return $companyId ? Company::find($companyId) : null;
     }
 
     private function romanMonth($month)

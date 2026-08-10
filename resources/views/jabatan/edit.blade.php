@@ -18,6 +18,17 @@
                 <form method="post" class="p-4" action="{{ url('/jabatan/update/'.$data_jabatan->id) }}">
                     @method('put')
                     @csrf
+                        @if (auth()->user()->is_admin == 'admin')
+                            <div class="form-group">
+                                <label for="company_id">Perusahaan</label>
+                                <select class="form-control" id="company_id" disabled>
+                                    @foreach (($companies ?? collect()) as $company)
+                                        <option value="{{ $company->id }}" {{ $data_jabatan->company_id == $company->id ? 'selected' : '' }}>{{ $company->code }} - {{ $company->name }}</option>
+                                    @endforeach
+                                </select>
+                                <input type="hidden" name="company_id" value="{{ $data_jabatan->company_id }}">
+                            </div>
+                        @endif
                         <div class="form-group">
                             <label for="nama_jabatan">Nama Divisi</label>
                             <input type="text" class="form-control @error('nama_jabatan') is-invalid @enderror" id="nama_jabatan" name="nama_jabatan" autofocus value="{{ old('nama_jabatan', $data_jabatan->nama_jabatan) }}">

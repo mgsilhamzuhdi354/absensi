@@ -55,6 +55,19 @@
                                 enctype="multipart/form-data">
                                 @method('put')
                                 @csrf
+                                @if (auth()->user()->is_admin == 'admin')
+                                    <div class="row">
+                                        <div class="col mb-4">
+                                            <label for="company_id">Perusahaan</label>
+                                            <select id="company_id" class="form-control" disabled>
+                                                @foreach (($companies ?? collect()) as $company)
+                                                    <option value="{{ $company->id }}" {{ $karyawan->company_id == $company->id ? 'selected' : '' }}>{{ $company->code }} - {{ $company->name }}</option>
+                                                @endforeach
+                                            </select>
+                                            <input type="hidden" name="company_id" value="{{ $karyawan->company_id }}">
+                                        </div>
+                                    </div>
+                                @endif
                                 <div class="row">
                                     <div class="col mb-4">
                                         <label for="name">Nama Pegawai</label>

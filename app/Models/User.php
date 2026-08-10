@@ -9,10 +9,21 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
 
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable, HasRoles;
+
+    protected static function booted()
+    {
+        static::creating(function (User $user) {
+            if (Schema::hasTable('users') && Schema::hasColumn('users', 'company_id') && !$user->company_id) {
+                $user->company_id = current_company_id() ?: company_context()->defaultCompanyId();
+            }
+        });
+    }
 
     /**
      * The attributes that are mass assignable.
@@ -74,6 +85,16 @@ class User extends Authenticatable
     public function Lokasi()
     {
         return $this->belongsTo(Lokasi::class);
+    }
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function scopeForCompany(Builder $query, $companyId)
+    {
+        return $companyId ? $query->where('company_id', $companyId) : $query;
     }
 
     public function whatsapp($phoneNumber) {

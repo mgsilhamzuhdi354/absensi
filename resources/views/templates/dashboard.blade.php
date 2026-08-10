@@ -3,7 +3,7 @@
 
 <head>
   @php
-    $settings = App\Models\settings::first();
+    $settings = App\Models\settings::first() ?: App\Models\settings::withoutGlobalScope('company')->first();
   @endphp
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -194,6 +194,21 @@
 
         <div class="nav-right col-8 pull-right right-header p-0">
           <ul class="nav-menus">
+            @if(auth()->user()->is_admin == 'admin')
+              <li class="me-3">
+                <form method="post" action="{{ url('/perusahaan/switch') }}" class="d-flex align-items-center">
+                  @csrf
+                  <select name="company_id" class="form-control form-control-sm" style="min-width: 210px;" onchange="this.form.submit()">
+                    <option value="all" {{ $isAllCompanies ?? false ? 'selected' : '' }}>Semua Perusahaan</option>
+                    @foreach(($companyOptions ?? collect()) as $companyOption)
+                      <option value="{{ $companyOption->id }}" {{ optional($currentCompany ?? null)->id == $companyOption->id ? 'selected' : '' }}>
+                        {{ $companyOption->code }} - {{ $companyOption->name }}
+                      </option>
+                    @endforeach
+                  </select>
+                </form>
+              </li>
+            @endif
             <li>
               <a class="notification-box" href="{{ url('/notifications') }}"><i class="fa fa-bell"></i>
                 @if (auth()->user()->notifications()->whereNull('read_at')->count() > 0)
@@ -203,6 +218,9 @@
               </a>
             </li>
             <li class="profile-nav onhover-dropdown p-0 me-0">
+              @php
+                $profileJabatan = auth()->user()->Jabatan ?: auth()->user()->Jabatan()->withoutGlobalScope('company')->first();
+              @endphp
               <div class="d-flex profile-media">
                 @if (auth()->user()->foto_karyawan)
                   <img class="b-r-50" src="{{ url('/storage/' . auth()->user()->foto_karyawan) }}" alt=""
@@ -211,7 +229,7 @@
                   <img class="b-r-50" src="{{ url('/html/assets/images/dashboard/profile.jpg') }}" alt="">
                 @endif
                 <div class="flex-grow-1"><span>{{ auth()->user()->name }}</span>
-                  <p class="mb-0 font-roboto">{{ auth()->user()->Jabatan->nama_jabatan }} <i
+                  <p class="mb-0 font-roboto">{{ $profileJabatan->nama_jabatan ?? '-' }} <i
                       class="middle fa fa-angle-down"></i></p>
                 </div>
               </div>
@@ -298,6 +316,10 @@
                       <li class="sidebar-list">
                         <a class="sidebar-link sidebar-title link-nav" href="{{ url('/role') }}"><i
                             data-feather="airplay"> </i><span>Role</span></a>
+                      </li>
+                      <li class="sidebar-list">
+                        <a class="sidebar-link sidebar-title link-nav" href="{{ url('/perusahaan') }}"><i
+                            data-feather="briefcase"> </i><span>Perusahaan</span></a>
                       </li>
                     @endif
 
@@ -663,7 +685,7 @@
                 if (typeof Push !== 'undefined') {
                   Push.create('🔔 Notifikasi Baru', {
                     body: notif.message,
-                    icon: '{{ url("/storage/" . App\Models\settings::first()->logo ?? "") }}',
+                    icon: '{{ url("/storage/" . ($settings->logo ?? "")) }}',
                     timeout: 5000,
                     onClick: function () {
                       window.location.href = notif.action;

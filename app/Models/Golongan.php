@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Golongan extends Model
 {
-    use HasFactory;
+    use BelongsToCompany, HasFactory;
     protected $guarded = ["id"];
 
     public function User()

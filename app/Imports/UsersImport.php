@@ -19,11 +19,13 @@ class UsersImport implements ToModel, WithHeadingRow
     */
     public function model(array $row)
     {
+        $companyId = current_company_id() ?: company_context()->defaultCompanyId();
         $jabatan = Jabatan::where('nama_jabatan', $row['divisi'])->first();
         if ($jabatan) {
             $jabatan_id = $jabatan->id;
         } else {
             $jabatan_new = Jabatan::create([
+                'company_id' => $companyId,
                 'nama_jabatan' => $row['divisi']
             ]);
             $jabatan_id = $jabatan_new->id;
@@ -34,6 +36,7 @@ class UsersImport implements ToModel, WithHeadingRow
             $lokasi_id = $lokasi->id;
         } else {
             $lokasi_new = Lokasi::create([
+                'company_id' => $companyId,
                 'nama_lokasi' => $row['lokasi'],
                 'created_by' => auth()->user()->id,
                 'status' => 'approved',
@@ -75,6 +78,7 @@ class UsersImport implements ToModel, WithHeadingRow
             "masa_berlaku" => $row['masa_berlaku'],
             "jabatan_id" => $jabatan_id,
             "lokasi_id" => $lokasi_id,
+            "company_id" => $companyId,
             "ktp" => $row['ktp'],
             "kartu_keluarga" => $row['kartu_keluarga'],
             "bpjs_kesehatan" => $row['bpjs_kesehatan'],
