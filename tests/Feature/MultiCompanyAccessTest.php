@@ -46,10 +46,30 @@ class MultiCompanyAccessTest extends TestCase
 
         $this->get('/?company_id=' . $this->krb->id)
             ->assertOk()
+            ->assertSee('<h1 class="brand-title">' . $this->krb->name . '</h1>', false)
+            ->assertDontSee('<h1 class="brand-title">PT Indoocean Crew Service</h1>', false)
             ->assertSee($this->krb->name)
             ->assertSee('Face Recognition')
             ->assertSee('QR Code')
             ->assertSee('/login?company_id=' . $this->krb->id, false);
+    }
+
+    public function test_login_from_selected_company_hides_company_picker(): void
+    {
+        $this->get('/login?company_id=' . $this->krb->id)
+            ->assertOk()
+            ->assertSee('<h1 class="login-title">' . $this->krb->name . '</h1>', false)
+            ->assertSee('Perusahaan Aktif')
+            ->assertSee('name="company_id"', false)
+            ->assertSee('value="' . $this->krb->id . '"', false)
+            ->assertDontSee('Pilih Perusahaan')
+            ->assertDontSee($this->ios->name);
+
+        $this->get('/login')
+            ->assertOk()
+            ->assertSee('Pilih Perusahaan')
+            ->assertSee($this->ios->name)
+            ->assertSee($this->krb->name);
     }
 
     public function test_admin_login_uses_selected_company(): void

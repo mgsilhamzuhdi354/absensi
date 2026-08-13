@@ -27,10 +27,14 @@ class authController extends Controller
 {
     public function index()
     {
+        $companies = $this->loginCompanies();
+        $selectedCompany = $companies->firstWhere('id', (int) request('company_id'));
+
         return view('auth.login', [
             "title" => "Log In",
-            "companies" => $this->loginCompanies(),
+            "companies" => $companies,
             "selectedCompanyId" => request('company_id') ?: company_context()->currentCompanyId(),
+            "selectedCompany" => $selectedCompany,
         ]);
     }
 

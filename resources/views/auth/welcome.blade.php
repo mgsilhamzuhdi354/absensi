@@ -40,9 +40,10 @@
         justify-content: center;
         padding: 32px 18px;
         background:
-            linear-gradient(135deg, rgba(7, 54, 116, 0.92), rgba(25, 102, 201, 0.9)),
-            url('{{ asset('images/logo.png') }}');
-        background-size: cover, 420px;
+            linear-gradient(135deg, rgba(9, 42, 75, 0.96), rgba(20, 113, 135, 0.94) 58%, rgba(225, 169, 70, 0.88) 145%),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+            linear-gradient(0deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+        background-size: cover, 46px 46px, 46px 46px;
         background-position: center;
     }
 
@@ -53,12 +54,12 @@
 
     .brand-header {
         text-align: center;
-        margin-bottom: 26px;
+        margin-bottom: 22px;
     }
 
     .brand-logo {
-        width: 88px;
-        height: 88px;
+        width: 82px;
+        height: 82px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -69,16 +70,34 @@
     }
 
     .brand-logo img {
-        width: 64px;
-        height: 64px;
+        width: 60px;
+        height: 60px;
         object-fit: contain;
+    }
+
+    .brand-kicker {
+        width: fit-content;
+        max-width: 100%;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 auto 12px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.84);
+        font-size: 0.82rem;
+        font-weight: 700;
+        border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     .brand-title {
         margin: 0;
-        font-size: clamp(1.45rem, 4vw, 2.2rem);
+        color: #fff;
+        font-size: clamp(1.75rem, 4.5vw, 3rem);
         font-weight: 800;
         line-height: 1.2;
+        text-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
     }
 
     .brand-subtitle {
@@ -96,6 +115,7 @@
         border-radius: 18px;
         background: rgba(255, 255, 255, 0.13);
         border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 18px 45px rgba(6, 28, 56, 0.18);
     }
 
     .current-time {
@@ -114,13 +134,14 @@
     .section-title {
         margin: 0 0 14px;
         text-align: center;
-        font-size: 1.1rem;
-        font-weight: 700;
+        color: #fff;
+        font-size: 1.18rem;
+        font-weight: 800;
     }
 
     .company-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
         gap: 14px;
         margin: 0 auto;
     }
@@ -152,7 +173,8 @@
         gap: 14px;
         min-height: 86px;
         padding: 16px;
-        border-radius: 18px;
+        border-radius: 16px;
+        box-shadow: 0 18px 45px rgba(6, 28, 56, 0.18);
     }
 
     .company-code {
@@ -165,6 +187,7 @@
         padding: 4px;
         border-radius: 15px;
         background: rgba(255, 255, 255, 0.18);
+        color: #fff;
         font-size: clamp(0.62rem, 2vw, 0.82rem);
         font-weight: 800;
         line-height: 1.05;
@@ -196,7 +219,7 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        margin: 0 auto 22px;
+        margin: 0 auto 20px;
         padding: 12px 16px;
         border-radius: 18px;
         background: rgba(255, 255, 255, 0.13);
@@ -220,6 +243,7 @@
         padding: 22px;
         text-align: center;
         border-radius: 20px;
+        box-shadow: 0 20px 55px rgba(6, 28, 56, 0.2);
     }
 
     .feature-icon {
@@ -324,8 +348,12 @@
             <div class="brand-logo">
                 <img src="{{ asset('images/logo.png') }}" alt="Logo">
             </div>
-            <h1 class="brand-title">PT Indoocean Crew Service</h1>
-            <p class="brand-subtitle">Sistem Absensi Karyawan</p>
+            <div class="brand-kicker">
+                <i class="fas fa-building"></i>
+                <span>{{ $selectedCompany ? 'Perusahaan Terpilih' : 'PT Indoocean Crew Service' }}</span>
+            </div>
+            <h1 class="brand-title">{{ $selectedCompany ? $selectedCompany->name : 'Pilih Perusahaan' }}</h1>
+            <p class="brand-subtitle">{{ $selectedCompany ? 'Menu absensi untuk ' . $selectedCompany->name : 'Pilih PT terlebih dahulu untuk membuka menu absensi' }}</p>
         </div>
 
         <div class="time-display">
@@ -334,7 +362,7 @@
         </div>
 
         @if($selectedCompany)
-            <div class="selected-company">
+            <div class="selected-company" aria-label="Perusahaan aktif">
                 <span class="company-code">{{ $selectedCompany->code }}</span>
                 <span class="company-info">
                     <span class="company-name">{{ $selectedCompany->name }}</span>

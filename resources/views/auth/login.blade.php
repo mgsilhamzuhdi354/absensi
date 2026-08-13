@@ -216,6 +216,21 @@
             color: #64748b;
             font-size: 0.75rem;
         }
+
+        .selected-company-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border: 2px solid #667eea;
+            border-radius: 14px;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.14);
+        }
+
+        .selected-company-card .company-choice-code {
+            background: #e9eefb;
+        }
         
         .is-invalid {
             border-color: #ef4444 !important;
@@ -373,14 +388,28 @@
                 <img src="{{ asset('images/logo.png') }}" alt="Logo">
             </div>
             
-            <h1 class="login-title">PT Indoocean Crew Service</h1>
-            <p class="login-subtitle">Silakan masuk ke akun Anda</p>
+            <h1 class="login-title">{{ $selectedCompany ? $selectedCompany->name : 'PT Indoocean Crew Service' }}</h1>
+            <p class="login-subtitle">{{ $selectedCompany ? 'Silakan masuk ke dashboard ' . $selectedCompany->name : 'Silakan masuk ke akun Anda' }}</p>
             
             <!-- Login Form -->
             <form action="{{ url('/login-proses') }}" method="POST">
                 @csrf
 
-                @if(($companies ?? collect())->isNotEmpty())
+                @if($selectedCompany)
+                    <input type="hidden" name="company_id" id="company_id" value="{{ $selectedCompany->id }}">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fa fa-building"></i> Perusahaan Aktif
+                        </label>
+                        <div class="selected-company-card">
+                            <span class="company-choice-code">{{ $selectedCompany->code }}</span>
+                            <span class="company-choice-text">
+                                <span class="company-choice-name">{{ $selectedCompany->name }}</span>
+                                <span class="company-choice-note">Dipilih dari halaman awal</span>
+                            </span>
+                        </div>
+                    </div>
+                @elseif(($companies ?? collect())->isNotEmpty())
                     <div class="form-group">
                         <label class="form-label">
                             <i class="fa fa-building"></i> Pilih Perusahaan
