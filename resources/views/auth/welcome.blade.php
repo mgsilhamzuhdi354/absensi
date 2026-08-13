@@ -141,8 +141,9 @@
 
     .company-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 14px;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        width: min(720px, 100%);
         margin: 0 auto;
     }
 
@@ -151,42 +152,47 @@
     .login-button,
     .back-company-button {
         text-decoration: none;
-        border: 1px solid rgba(255, 255, 255, 0.22);
-        background: rgba(255, 255, 255, 0.13);
-        color: #fff;
-        transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
     }
 
     .company-button:hover,
     .feature-button:hover,
     .login-button:hover,
     .back-company-button:hover {
-        color: #fff;
-        transform: translateY(-2px);
-        background: rgba(255, 255, 255, 0.22);
-        border-color: rgba(255, 255, 255, 0.38);
+        transform: translateY(-3px);
     }
 
     .company-button {
         display: flex;
         align-items: center;
-        gap: 14px;
-        min-height: 86px;
-        padding: 16px;
-        border-radius: 16px;
-        box-shadow: 0 18px 45px rgba(6, 28, 56, 0.18);
+        gap: 16px;
+        min-height: 92px;
+        padding: 16px 18px;
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-left: 6px solid #e1a946;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.96);
+        color: #132238;
+        box-shadow: 0 18px 40px rgba(6, 28, 56, 0.22);
+    }
+
+    .company-button:hover {
+        color: #132238;
+        border-color: #fff;
+        border-left-color: #f1c15c;
+        box-shadow: 0 24px 54px rgba(6, 28, 56, 0.28);
     }
 
     .company-code {
-        width: 58px;
-        height: 54px;
-        flex: 0 0 58px;
+        width: 62px;
+        height: 56px;
+        flex: 0 0 62px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         padding: 4px;
-        border-radius: 15px;
-        background: rgba(255, 255, 255, 0.18);
+        border-radius: 14px;
+        background: #0d4d7a;
         color: #fff;
         font-size: clamp(0.62rem, 2vw, 0.82rem);
         font-weight: 800;
@@ -204,13 +210,29 @@
         font-weight: 800;
         line-height: 1.2;
         overflow-wrap: anywhere;
+        color: #132238;
     }
 
     .company-action {
         display: block;
         margin-top: 5px;
-        color: rgba(255, 255, 255, 0.75);
+        color: #5c6b7a;
         font-size: 0.82rem;
+        font-weight: 700;
+    }
+
+    .company-arrow {
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: auto;
+        border-radius: 999px;
+        background: #eef5fb;
+        color: #0d4d7a;
+        font-size: 0.95rem;
     }
 
     .selected-company {
@@ -221,14 +243,16 @@
         gap: 12px;
         margin: 0 auto 20px;
         padding: 12px 16px;
-        border-radius: 18px;
-        background: rgba(255, 255, 255, 0.13);
-        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid rgba(255, 255, 255, 0.86);
+        color: #132238;
+        box-shadow: 0 18px 40px rgba(6, 28, 56, 0.2);
     }
 
     .feature-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 220px));
+        grid-template-columns: repeat(2, minmax(0, 240px));
         justify-content: center;
         gap: 18px;
         margin: 0 auto 24px;
@@ -236,14 +260,22 @@
 
     .feature-button {
         display: flex;
-        min-height: 180px;
+        min-height: 190px;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         padding: 22px;
         text-align: center;
-        border-radius: 20px;
-        box-shadow: 0 20px 55px rgba(6, 28, 56, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.96);
+        color: #132238;
+        box-shadow: 0 20px 48px rgba(6, 28, 56, 0.22);
+    }
+
+    .feature-button:hover {
+        color: #132238;
+        box-shadow: 0 26px 62px rgba(6, 28, 56, 0.3);
     }
 
     .feature-icon {
@@ -268,13 +300,14 @@
     .feature-title {
         display: block;
         font-weight: 800;
-        font-size: 1rem;
+        font-size: 1.05rem;
+        color: #132238;
     }
 
     .feature-desc {
         display: block;
         margin-top: 7px;
-        color: rgba(255, 255, 255, 0.72);
+        color: #5c6b7a;
         font-size: 0.84rem;
         line-height: 1.35;
     }
@@ -296,6 +329,28 @@
         padding: 12px 24px;
         border-radius: 999px;
         font-weight: 800;
+        border: 1px solid rgba(255, 255, 255, 0.82);
+        box-shadow: 0 14px 34px rgba(6, 28, 56, 0.18);
+    }
+
+    .login-button {
+        background: #e1a946;
+        color: #102033;
+        border-color: #f0c96f;
+    }
+
+    .login-button:hover {
+        color: #102033;
+        box-shadow: 0 18px 44px rgba(6, 28, 56, 0.25);
+    }
+
+    .back-company-button {
+        background: rgba(255, 255, 255, 0.16);
+        color: #fff;
+    }
+
+    .back-company-button:hover {
+        color: #fff;
     }
 
     .landing-footer {
@@ -404,6 +459,7 @@
                             <span class="company-name">{{ $company->name }}</span>
                             <span class="company-action">Buka menu absensi</span>
                         </span>
+                        <span class="company-arrow"><i class="fas fa-chevron-right"></i></span>
                     </a>
                 @empty
                     <a href="{{ url('/attendance/face') }}" class="company-button">
@@ -412,6 +468,7 @@
                             <span class="company-name">Face Recognition</span>
                             <span class="company-action">Buka absensi wajah</span>
                         </span>
+                        <span class="company-arrow"><i class="fas fa-chevron-right"></i></span>
                     </a>
                     <a href="{{ url('/attendance/qr') }}" class="company-button">
                         <span class="company-code">QR</span>
@@ -419,6 +476,7 @@
                             <span class="company-name">QR Code</span>
                             <span class="company-action">Buka absensi QR</span>
                         </span>
+                        <span class="company-arrow"><i class="fas fa-chevron-right"></i></span>
                     </a>
                 @endforelse
             </div>

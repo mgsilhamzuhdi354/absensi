@@ -162,19 +162,29 @@
             width: 100%;
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 11px 12px;
+            gap: 12px;
+            padding: 12px 13px;
             border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            background: #f8fafc;
+            border-left: 5px solid #d9a73e;
+            border-radius: 14px;
+            background: #fff;
             color: #1e293b;
             text-align: left;
             cursor: pointer;
-            transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+            transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .company-choice:hover {
+            transform: translateY(-1px);
+            border-color: #cbd5e1;
+            border-left-color: #e1a946;
+            box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
         }
 
         .company-choice.active {
             border-color: #667eea;
+            border-left-color: #e1a946;
             background: #fff;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.16);
         }
@@ -188,8 +198,8 @@
             justify-content: center;
             padding: 4px;
             border-radius: 11px;
-            background: #e9eefb;
-            color: #5266d8;
+            background: #0d4d7a;
+            color: #fff;
             font-size: 0.68rem;
             font-weight: 800;
             line-height: 1.05;
@@ -215,6 +225,20 @@
             margin-top: 2px;
             color: #64748b;
             font-size: 0.75rem;
+        }
+
+        .company-choice-arrow {
+            width: 32px;
+            height: 32px;
+            flex: 0 0 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
+            border-radius: 50%;
+            background: #eef5fb;
+            color: #0d4d7a;
+            font-size: 0.78rem;
         }
 
         .selected-company-card {
@@ -428,6 +452,7 @@
                                         <span class="company-choice-name">{{ $company->name }}</span>
                                         <span class="company-choice-note">Masuk sebagai PT aktif</span>
                                     </span>
+                                    <span class="company-choice-arrow"><i class="fa fa-chevron-right"></i></span>
                                 </button>
                             @endforeach
                         </div>
