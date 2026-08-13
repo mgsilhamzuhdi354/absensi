@@ -5,17 +5,20 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Lokasi;
 use App\Models\Jabatan;
+use App\Models\Company;
 use App\Models\Golongan;
 use Illuminate\Support\Str;
 use App\Mail\ForgotPassword;
 use App\Models\JenisKinerja;
 use App\Models\MappingShift;
 use App\Models\settings;
+use App\Services\CompanyContext;
 use Illuminate\Http\Request;
 use App\Models\LaporanKinerja;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Password;
 use RealRashid\SweetAlert\Facades\Alert;
@@ -25,7 +28,9 @@ class authController extends Controller
     public function index()
     {
         return view('auth.login', [
-            "title" => "Log In"
+            "title" => "Log In",
+            "companies" => $this->loginCompanies(),
+            "selectedCompanyId" => request('company_id') ?: company_context()->currentCompanyId(),
         ]);
     }
 
@@ -46,8 +51,18 @@ class authController extends Controller
     public function welcome()
     {
         return view('auth.welcome', [
-            "title" => "Log In"
+            "title" => "Log In",
+            "companies" => $this->loginCompanies(),
         ]);
+    }
+
+    private function loginCompanies()
+    {
+        if (!Schema::hasTable('companies')) {
+            return collect();
+        }
+
+        return Company::active()->orderBy('name')->get();
     }
 
     // Public Attendance - Face Recognition
@@ -922,8 +937,10 @@ class authController extends Controller
 
         $credentials = $request->validate([
             'username' => 'required',
-            'password' => 'required'
+            'password' => 'required',
+            'company_id' => 'nullable|exists:companies,id',
         ]);
+        $attemptCredentials = $request->only('username', 'password');
 
         $user = User::where('username', $request->username)->first();
 
@@ -932,7 +949,7 @@ class authController extends Controller
                 Alert::error('Failed', 'Username / Password Salah / Akun Tidak Aktif');
                 return back();
             } else {
-                if (Auth::attempt($credentials)) {
+                if (Auth::attempt($attemptCredentials)) {
                     // FIX: Preserve existing is_admin value
                     // Only sync from Spatie role if user has admin role but is_admin is not set
                     // Do NOT reset admin to user - this was causing the bug
@@ -945,6 +962,7 @@ class authController extends Controller
                     // The is_admin column should already be set correctly from user creation/registration
 
                     $request->session()->regenerate();
+                    $this->applyCompanyAfterLogin($request, Auth::user());
                     return redirect()->intended('/dashboard');
                 } else {
                     Alert::error('Failed', 'Username / Password Salah / Akun Tidak Aktif');
@@ -965,8 +983,10 @@ class authController extends Controller
 
         $credentials = $request->validate([
             'username' => 'required',
-            'password' => 'required'
+            'password' => 'required',
+            'company_id' => 'nullable|exists:companies,id',
         ]);
+        $attemptCredentials = $request->only('username', 'password');
 
         $user = User::where('username', $request->username)->first();
 
@@ -975,8 +995,9 @@ class authController extends Controller
                 Alert::error('Failed', 'Username / Password Salah / Akun Tidak Aktif');
                 return back();
             } else {
-                if (Auth::attempt($credentials)) {
+                if (Auth::attempt($attemptCredentials)) {
                     $request->session()->regenerate();
+                    $this->applyCompanyAfterLogin($request, Auth::user());
                     return redirect()->intended('/dashboard');
                 } else {
                     Alert::error('Failed', 'Username / Password Salah / Akun Tidak Aktif');
@@ -986,6 +1007,22 @@ class authController extends Controller
         } else {
             Alert::error('Failed', 'Username / Password Salah / Akun Tidak Aktif');
             return back();
+        }
+    }
+
+    private function applyCompanyAfterLogin(Request $request, User $user): void
+    {
+        $context = app(CompanyContext::class);
+
+        if ($context->canChooseCompany($user) && $request->filled('company_id')) {
+            $context->setActiveCompany($request->input('company_id'));
+            return;
+        }
+
+        if ($user->company_id) {
+            session([CompanyContext::SESSION_KEY => (int) $user->company_id]);
+        } else {
+            session()->forget(CompanyContext::SESSION_KEY);
         }
     }
 

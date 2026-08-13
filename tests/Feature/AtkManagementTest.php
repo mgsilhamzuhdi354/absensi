@@ -73,7 +73,7 @@ class AtkManagementTest extends TestCase
             ->get('/atk/tambah')
             ->assertOk()
             ->assertSee('IOS/ATK/000001')
-            ->assertSee('data-code-preview="CAB2/ATK/000001"', false);
+            ->assertSee('data-code-preview="KRB/ATK/000001"', false);
 
         $this->actingAs($this->admin)
             ->get('/atk/tambah')
@@ -296,7 +296,7 @@ class AtkManagementTest extends TestCase
     {
         Storage::fake('public');
 
-        $targetCompany = Company::where('code', 'CAB2')->firstOrFail();
+        $targetCompany = Company::where('code', 'KRB')->firstOrFail();
 
         $this->actingAs($this->admin)->post('/atk/store', [
             'nama_atk' => 'Kertas A4',
@@ -327,7 +327,7 @@ class AtkManagementTest extends TestCase
 
         $this->assertSame(7.0, (float) $source->fresh()->stok);
         $this->assertSame(3.0, (float) $target->stok);
-        $this->assertSame('CAB2/ATK/000001', $target->kode_atk);
+        $this->assertSame('KRB/ATK/000001', $target->kode_atk);
 
         $this->assertDatabaseHas('atk_stock_transactions', [
             'atk_id' => $source->id,
@@ -370,7 +370,7 @@ class AtkManagementTest extends TestCase
     {
         Storage::fake('public');
 
-        $targetCompany = Company::where('code', 'CAB2')->firstOrFail();
+        $targetCompany = Company::where('code', 'KRB')->firstOrFail();
 
         $response = $this->actingAs($this->admin)->post('/atk/store', [
             'company_id' => $targetCompany->id,
@@ -387,7 +387,7 @@ class AtkManagementTest extends TestCase
 
         $response->assertRedirect('/atk/' . $atk->id . '/detail');
         $this->assertSame($targetCompany->id, session('active_company_id'));
-        $this->assertSame('CAB2/ATK/000001', $atk->kode_atk);
+        $this->assertSame('KRB/ATK/000001', $atk->kode_atk);
 
         $this->actingAs($this->admin)
             ->get('/atk')

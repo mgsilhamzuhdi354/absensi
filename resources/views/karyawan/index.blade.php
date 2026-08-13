@@ -187,6 +187,12 @@
                                                         <li><a href="{{ url('/pegawai/face/'.$du->id) }}" title="Face Recognition"><i style="color: black" class="fa fa-solid fa-camera"></i></a></li>
                                                     @endif
 
+                                                    <li class="me-2">
+                                                        <button type="button" title="Pindah Kantor" class="border-0" style="background-color: transparent;" data-bs-toggle="modal" data-bs-target="#transferCompanyModal{{ $du->id }}">
+                                                            <i class="fa fa-exchange-alt" style="color: #0d6efd"></i>
+                                                        </button>
+                                                    </li>
+
                                                     <li class="delete">
                                                         <form action="{{ url('/pegawai/delete/'.$du->id) }}" method="post">
                                                             @method('delete')
@@ -202,6 +208,65 @@
                             </tbody>
                         </table>
                     </div>
+                    @foreach ($data_user as $du)
+                        <div class="modal fade" id="transferCompanyModal{{ $du->id }}" tabindex="-1" aria-labelledby="transferCompanyModalLabel{{ $du->id }}" aria-hidden="true">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="transferCompanyModalLabel{{ $du->id }}">Pindah Kantor - {{ $du->name }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <form action="{{ url('/pegawai/'.$du->id.'/transfer-company') }}" method="POST" class="transfer-company-form">
+                                        @csrf
+                                        <div class="modal-body">
+                                            <div class="alert alert-info">
+                                                Riwayat payroll, absensi, cuti, kasbon, dan dokumen lama tetap berada di perusahaan asal. Akun pegawai akan masuk ke perusahaan tujuan untuk data baru.
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-md-4 mb-3">
+                                                    <label class="form-label">PT Tujuan</label>
+                                                    <select name="destination_company_id" class="form-control transfer-company-select" required>
+                                                        <option value="">Pilih PT</option>
+                                                        @foreach (($companies ?? collect()) as $company)
+                                                            @if((int) $company->id !== (int) $du->company_id)
+                                                                <option value="{{ $company->id }}">{{ $company->code }} - {{ $company->name }}</option>
+                                                            @endif
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-4 mb-3">
+                                                    <label class="form-label">Jabatan Tujuan</label>
+                                                    <select name="destination_jabatan_id" class="form-control transfer-dependent-select" required>
+                                                        <option value="">Pilih Jabatan</option>
+                                                        @foreach (($companyTransferJabatans ?? collect()) as $jabatan)
+                                                            <option value="{{ $jabatan->id }}" data-company-id="{{ $jabatan->company_id }}">{{ $jabatan->nama_jabatan }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-4 mb-3">
+                                                    <label class="form-label">Lokasi Tujuan</label>
+                                                    <select name="destination_lokasi_id" class="form-control transfer-dependent-select" required>
+                                                        <option value="">Pilih Lokasi</option>
+                                                        @foreach (($companyTransferLokasis ?? collect()) as $lokasi)
+                                                            <option value="{{ $lokasi->id }}" data-company-id="{{ $lokasi->company_id }}">{{ $lokasi->nama_lokasi }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Catatan</label>
+                                                <textarea name="notes" class="form-control" rows="3" placeholder="Opsional"></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                            <button type="submit" class="btn btn-primary" onclick="return confirm('Pindahkan pegawai ini ke PT tujuan?')">Pindahkan</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
                     @if(!request('reorder_mode') && method_exists($data_user, 'links'))
                     <div class="d-flex justify-content-end me-4 mt-4">
                         {{ $data_user->links() }}
@@ -278,6 +343,34 @@ $(document).ready(function() {
             }
         });
     }
+
+    function filterTransferOptions($form) {
+        var companyId = $form.find('.transfer-company-select').val();
+
+        $form.find('.transfer-dependent-select').each(function() {
+            var $select = $(this);
+            $select.val('');
+
+            $select.find('option').each(function() {
+                var optionCompanyId = $(this).data('company-id');
+
+                if (!optionCompanyId) {
+                    $(this).prop('hidden', false);
+                    return;
+                }
+
+                $(this).prop('hidden', String(optionCompanyId) !== String(companyId));
+            });
+        });
+    }
+
+    $('.transfer-company-form').each(function() {
+        filterTransferOptions($(this));
+    });
+
+    $('.transfer-company-select').on('change', function() {
+        filterTransferOptions($(this).closest('form'));
+    });
 });
 </script>
 <style>

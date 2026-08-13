@@ -67,6 +67,41 @@
                                             <input type="hidden" name="company_id" value="{{ $karyawan->company_id }}">
                                         </div>
                                     </div>
+                                    @if(($company_transfers ?? collect())->isNotEmpty())
+                                        <div class="row">
+                                            <div class="col mb-4">
+                                                <label>Riwayat Pindah Kantor</label>
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered table-sm">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Tanggal</th>
+                                                                <th>Dari</th>
+                                                                <th>Ke</th>
+                                                                <th>Jabatan</th>
+                                                                <th>Lokasi</th>
+                                                                <th>Admin</th>
+                                                                <th>Catatan</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach($company_transfers as $transfer)
+                                                                <tr>
+                                                                    <td>{{ optional($transfer->transferred_at)->format('d-m-Y H:i') }}</td>
+                                                                    <td>{{ $transfer->sourceCompany->code ?? '-' }} - {{ $transfer->sourceCompany->name ?? '-' }}</td>
+                                                                    <td>{{ $transfer->destinationCompany->code ?? '-' }} - {{ $transfer->destinationCompany->name ?? '-' }}</td>
+                                                                    <td>{{ $transfer->sourceJabatan->nama_jabatan ?? '-' }} &rarr; {{ $transfer->destinationJabatan->nama_jabatan ?? '-' }}</td>
+                                                                    <td>{{ $transfer->sourceLokasi->nama_lokasi ?? '-' }} &rarr; {{ $transfer->destinationLokasi->nama_lokasi ?? '-' }}</td>
+                                                                    <td>{{ $transfer->transferredBy->name ?? '-' }}</td>
+                                                                    <td>{{ $transfer->notes ?? '-' }}</td>
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endif
                                 @endif
                                 <div class="row">
                                     <div class="col mb-4">

@@ -145,6 +145,12 @@
         .form-control::placeholder {
             color: #94a3b8;
         }
+
+        .company-hint {
+            color: #64748b;
+            font-size: 0.78rem;
+            margin-top: 6px;
+        }
         
         .is-invalid {
             border-color: #ef4444 !important;
@@ -308,6 +314,25 @@
             <!-- Login Form -->
             <form action="{{ url('/login-proses') }}" method="POST">
                 @csrf
+
+                @if(($companies ?? collect())->isNotEmpty())
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fa fa-building"></i> Pilih Perusahaan
+                        </label>
+                        <select name="company_id" class="form-control @error('company_id') is-invalid @enderror">
+                            @foreach($companies as $company)
+                                <option value="{{ $company->id }}" {{ (int) old('company_id', $selectedCompanyId ?? '') === (int) $company->id ? 'selected' : '' }}>
+                                    {{ $company->code }} - {{ $company->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <div class="company-hint">Pilihan ini dipakai admin. User biasa otomatis masuk ke PT miliknya.</div>
+                        @error('company_id')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                @endif
                 
                 <div class="form-group">
                     <label class="form-label">

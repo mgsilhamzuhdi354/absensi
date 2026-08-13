@@ -20,10 +20,7 @@ trait BelongsToCompany
             if ($companyId) {
                 $table = $builder->getModel()->getTable();
 
-                $builder->where(function (Builder $query) use ($table, $companyId) {
-                    $query->where($table . '.company_id', $companyId)
-                        ->orWhereNull($table . '.company_id');
-                });
+                $builder->where($table . '.company_id', $companyId);
             }
         });
 

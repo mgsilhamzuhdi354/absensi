@@ -276,6 +276,60 @@
     .login-section {
         animation: fadeInUp 1s ease 0.2s both;
     }
+
+    .company-picker {
+        width: 100%;
+        max-width: 620px;
+        margin: 0 auto 25px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        animation: fadeInUp 1s ease 0.15s both;
+    }
+
+    .company-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        text-decoration: none;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        backdrop-filter: blur(12px);
+        transition: all 0.25s ease;
+    }
+
+    .company-card:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: #fff;
+        transform: translateY(-2px);
+    }
+
+    .company-code {
+        width: 48px;
+        height: 48px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.18);
+        font-weight: 700;
+        flex: 0 0 48px;
+    }
+
+    .company-name {
+        font-size: 0.95rem;
+        font-weight: 600;
+        line-height: 1.25;
+    }
+
+    .company-subtitle {
+        color: rgba(255, 255, 255, 0.65);
+        font-size: 0.78rem;
+        margin-top: 2px;
+    }
     
     .btn-login-main {
         display: inline-flex;
@@ -536,6 +590,20 @@
             <p class="feature-desc">Scan QR untuk absensi</p>
         </a>
     </div>
+
+    @if(($companies ?? collect())->isNotEmpty())
+        <div class="company-picker">
+            @foreach($companies as $company)
+                <a href="{{ url('/login?company_id=' . $company->id) }}" class="company-card">
+                    <span class="company-code">{{ $company->code }}</span>
+                    <span>
+                        <span class="company-name">{{ $company->name }}</span>
+                        <span class="company-subtitle d-block">Masuk dashboard perusahaan</span>
+                    </span>
+                </a>
+            @endforeach
+        </div>
+    @endif
     
     <!-- Login Button -->
     <div class="login-section">

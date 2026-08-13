@@ -15,6 +15,7 @@ use App\Models\Payroll;
 use App\Models\dinasLuar;
 use App\Models\ResetCuti;
 use App\Models\settings;
+use App\Models\EmployeeCompanyTransfer;
 use App\Imports\UsersImport;
 use App\Models\MappingShift;
 use Illuminate\Http\Request;
@@ -22,6 +23,7 @@ use App\Exports\PegawaiExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Storage;
@@ -80,7 +82,10 @@ class karyawanController extends Controller
         if (auth()->user()->is_admin == 'admin') {
             return view('karyawan.index', [
                 'title' => 'Pegawai',
-                'data_user' => $data
+                'data_user' => $data,
+                'companies' => Company::active()->orderBy('name')->get(),
+                'companyTransferJabatans' => Jabatan::withoutGlobalScope('company')->orderBy('nama_jabatan')->get(),
+                'companyTransferLokasis' => Lokasi::withoutGlobalScope('company')->orderBy('nama_lokasi')->get(),
             ]);
         } else {
             return view('karyawan.indexUser', [
@@ -93,7 +98,7 @@ class karyawanController extends Controller
     public function kontrak($id)
     {
 
-        $user = User::find($id);
+        $user = User::forCompany(current_company_id())->findOrFail($id);
         $title = 'List Kontrak';
         $kontraks = Kontrak::where('user_id', $id)
             ->orderBy('tanggal', 'DESC')
@@ -132,7 +137,7 @@ class karyawanController extends Controller
     {
         $title = 'Kartu';
         $qrService = app(EmployeeQrService::class);
-        $user = $qrService->ensure(User::with(['Jabatan', 'Lokasi'])->findOrFail($id));
+        $user = $qrService->ensure(User::with(['Jabatan', 'Lokasi'])->forCompany(current_company_id())->findOrFail($id));
         $settings = settings::first();
         $customInfoItems = $qrService->customInfoItems($user);
         $customInfoIcons = EmployeeQrService::customInfoIconCatalog();
@@ -150,7 +155,7 @@ class karyawanController extends Controller
     public function print($id)
     {
         $qrService = app(EmployeeQrService::class);
-        $user = $qrService->ensure(User::with(['Jabatan', 'Lokasi'])->findOrFail($id));
+        $user = $qrService->ensure(User::with(['Jabatan', 'Lokasi'])->forCompany(current_company_id())->findOrFail($id));
         $settings = settings::first();
         $mode = request()->query('mode', EmployeeQrService::MODE_PROFILE);
         if (!in_array($mode, [EmployeeQrService::MODE_PROFILE, EmployeeQrService::MODE_VCARD, 'both'], true)) {
@@ -180,7 +185,7 @@ class karyawanController extends Controller
             abort(404);
         }
 
-        $user = $qrService->ensure(User::with(['Jabatan', 'Lokasi'])->findOrFail($id));
+        $user = $qrService->ensure(User::with(['Jabatan', 'Lokasi'])->forCompany(current_company_id())->findOrFail($id));
         $path = $qrService->imageForMode($user, $mode);
 
         if (!$path || !Storage::disk('public')->exists($path)) {
@@ -195,14 +200,14 @@ class karyawanController extends Controller
 
     public function regenerateEmployeeQr($id)
     {
-        app(EmployeeQrService::class)->regenerate(User::findOrFail($id));
+        app(EmployeeQrService::class)->regenerate(User::forCompany(current_company_id())->findOrFail($id));
 
         return back()->with('success', 'QR ID Card karyawan berhasil dibuat ulang.');
     }
 
     public function refreshEmployeeQrImage($id)
     {
-        app(EmployeeQrService::class)->refreshImages(User::findOrFail($id));
+        app(EmployeeQrService::class)->refreshImages(User::forCompany(current_company_id())->findOrFail($id));
 
         return back()->with('success', 'Gambar QR berhasil diperbarui tanpa mengganti token.');
     }
@@ -244,7 +249,7 @@ class karyawanController extends Controller
             ];
         }
 
-        User::findOrFail($id)->forceFill([
+        User::forCompany(current_company_id())->findOrFail($id)->forceFill([
             'employee_qr_custom_info' => $items ? json_encode($items, JSON_UNESCAPED_UNICODE) : null,
         ])->save();
 
@@ -269,7 +274,7 @@ class karyawanController extends Controller
 
     public function show($id)
     {
-        $user = User::find($id);
+        $user = User::forCompany(current_company_id())->findOrFail($id);
 
         return view('karyawan.show', [
             'title' => 'Detail Karyawan',
@@ -390,7 +395,7 @@ class karyawanController extends Controller
 
     public function detail($id)
     {
-        $user = User::find($id);
+        $user = User::forCompany(current_company_id())->findOrFail($id);
         return view('karyawan.editkaryawan', [
             'title' => 'Detail Pegawai',
             'karyawan' => $user,
@@ -399,7 +404,58 @@ class karyawanController extends Controller
             "roles" => Role::orderBy('name')->get(),
             'user_roles' => $user->roles->pluck('name')->toArray(),
             "companies" => Company::active()->orderBy('name')->get(),
+            "company_transfers" => EmployeeCompanyTransfer::withoutGlobalScope('company')
+                ->with(['sourceCompany', 'destinationCompany', 'sourceJabatan', 'destinationJabatan', 'sourceLokasi', 'destinationLokasi', 'transferredBy'])
+                ->where('user_id', $user->id)
+                ->latest('transferred_at')
+                ->get(),
         ]);
+    }
+
+    public function transferCompany(Request $request, $id)
+    {
+        $user = User::forCompany(current_company_id())->findOrFail($id);
+
+        $validated = $request->validate([
+            'destination_company_id' => [
+                'required',
+                'exists:companies,id',
+                Rule::notIn([(int) $user->company_id]),
+            ],
+            'destination_jabatan_id' => [
+                'required',
+                Rule::exists('jabatans', 'id')->where('company_id', $request->input('destination_company_id')),
+            ],
+            'destination_lokasi_id' => [
+                'required',
+                Rule::exists('lokasis', 'id')->where('company_id', $request->input('destination_company_id')),
+            ],
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        DB::transaction(function () use ($user, $validated) {
+            EmployeeCompanyTransfer::create([
+                'company_id' => $user->company_id,
+                'user_id' => $user->id,
+                'source_company_id' => $user->company_id,
+                'destination_company_id' => $validated['destination_company_id'],
+                'source_jabatan_id' => $user->jabatan_id,
+                'destination_jabatan_id' => $validated['destination_jabatan_id'],
+                'source_lokasi_id' => $user->lokasi_id,
+                'destination_lokasi_id' => $validated['destination_lokasi_id'],
+                'transferred_by' => auth()->id(),
+                'transferred_at' => now(),
+                'notes' => $validated['notes'] ?? null,
+            ]);
+
+            $user->forceFill([
+                'company_id' => $validated['destination_company_id'],
+                'jabatan_id' => $validated['destination_jabatan_id'],
+                'lokasi_id' => $validated['destination_lokasi_id'],
+            ])->save();
+        });
+
+        return redirect('/pegawai')->with('success', 'Pegawai berhasil dipindahkan ke perusahaan tujuan. Riwayat lama tetap tersimpan di perusahaan asal.');
     }
 
     public function editKaryawanProses(Request $request, $id)
@@ -453,7 +509,7 @@ class karyawanController extends Controller
             'company_id' => 'nullable|exists:companies,id',
         ];
 
-        $user = User::find($id);
+        $user = User::forCompany(current_company_id())->findOrFail($id);
 
         foreach ($user->roles as $r) {
             $user->removeRole($r->name);
@@ -524,7 +580,7 @@ class karyawanController extends Controller
 
     public function deleteKaryawan($id)
     {
-        $delete = User::find($id);
+        $delete = User::forCompany(current_company_id())->findOrFail($id);
         MappingShift::where('user_id', $id)->delete();
         Lembur::where('user_id', $id)->delete();
         Cuti::where('user_id', $id)->delete();
@@ -547,7 +603,7 @@ class karyawanController extends Controller
     {
         return view('karyawan.editpassword', [
             'title' => 'Edit Password',
-            'karyawan' => User::find($id)
+            'karyawan' => User::forCompany(current_company_id())->findOrFail($id)
         ]);
     }
 
@@ -555,7 +611,7 @@ class karyawanController extends Controller
     {
         return view('karyawan.face', [
             'title' => 'Daftar Wajah',
-            'karyawan' => User::find($id)
+            'karyawan' => User::forCompany(current_company_id())->findOrFail($id)
         ]);
     }
 
@@ -623,7 +679,7 @@ class karyawanController extends Controller
             ->withQueryString();
         return view('karyawan.mappingshift', [
             'title' => 'Mapping Shift',
-            'karyawan' => User::find($id),
+            'karyawan' => User::forCompany(current_company_id())->findOrFail($id),
             'shift_karyawan' => $mapping_shift,
             'shift' => Shift::all()
         ]);
@@ -641,7 +697,7 @@ class karyawanController extends Controller
             ->withQueryString();
         return view('karyawan.dinasluar', [
             'title' => 'Mapping Dinas Luar',
-            'karyawan' => User::find($id),
+            'karyawan' => User::forCompany(current_company_id())->findOrFail($id),
             'dinas_luar' => $dinas_luar,
             'shift' => Shift::all()
         ]);

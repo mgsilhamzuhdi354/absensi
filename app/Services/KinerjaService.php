@@ -218,7 +218,8 @@ class KinerjaService
     {
         // RESET points to 0 instead of deleting
         // This keeps the user visible in charts with 0 points
-        LaporanKinerja::where('reference', self::REFERENCE_MAPPING_SHIFT)
+        LaporanKinerja::withoutGlobalScope('company')
+            ->where('reference', self::REFERENCE_MAPPING_SHIFT)
             ->where('reference_id', $mappingShiftId)
             ->update([
                 'nilai' => 0,

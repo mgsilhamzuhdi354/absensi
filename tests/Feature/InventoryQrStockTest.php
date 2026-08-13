@@ -92,7 +92,7 @@ class InventoryQrStockTest extends TestCase
             ->get('/inventory/tambah')
             ->assertOk()
             ->assertSee('IOS/INV/000001')
-            ->assertSee('data-code-preview="CAB2/INV/000001"', false);
+            ->assertSee('data-code-preview="KRB/INV/000001"', false);
 
         $this->actingAs($this->admin)
             ->get('/inventory/tambah')
@@ -1022,7 +1022,7 @@ class InventoryQrStockTest extends TestCase
     {
         Storage::fake('public');
 
-        $secondCompany = Company::where('code', 'CAB2')->firstOrFail();
+        $secondCompany = Company::where('code', 'KRB')->firstOrFail();
         $secondLokasi = Lokasi::create([
             'company_id' => $secondCompany->id,
             'nama_lokasi' => 'Gudang Cabang 2',
@@ -1053,7 +1053,7 @@ class InventoryQrStockTest extends TestCase
         ]);
         $this->assertDatabaseHas('inventories', [
             'nama_barang' => 'Laptop Cabang',
-            'kode_barang' => 'CAB2/INV/000001',
+            'kode_barang' => 'KRB/INV/000001',
         ]);
 
         $this->actingAs($this->admin)
@@ -1082,7 +1082,7 @@ class InventoryQrStockTest extends TestCase
     {
         Storage::fake('public');
 
-        $targetCompany = Company::where('code', 'CAB2')->firstOrFail();
+        $targetCompany = Company::where('code', 'KRB')->firstOrFail();
         $source = Inventory::create($this->inventoryPayload([
             'nama_barang' => 'Printer Transfer',
             'stok' => 4,
@@ -1106,7 +1106,7 @@ class InventoryQrStockTest extends TestCase
 
         $this->assertSame(2.0, (float) $source->fresh()->stok);
         $this->assertSame(2.0, (float) $target->stok);
-        $this->assertSame('CAB2/INV/000001', $target->kode_barang);
+        $this->assertSame('KRB/INV/000001', $target->kode_barang);
         $this->assertSame('Printer Transfer', $target->nama_barang);
 
         $this->assertDatabaseHas('inventory_stock_transactions', [
@@ -1153,14 +1153,14 @@ class InventoryQrStockTest extends TestCase
     {
         Storage::fake('public');
 
-        $targetCompany = Company::where('code', 'CAB2')->firstOrFail();
+        $targetCompany = Company::where('code', 'KRB')->firstOrFail();
         $targetLokasi = Lokasi::create([
             'company_id' => $targetCompany->id,
-            'nama_lokasi' => 'Gudang CAB2',
+            'nama_lokasi' => 'Gudang KRB',
         ]);
         $targetJabatan = Jabatan::create([
             'company_id' => $targetCompany->id,
-            'nama_jabatan' => 'Operasional CAB2',
+            'nama_jabatan' => 'Operasional KRB',
         ]);
 
         $response = $this->actingAs($this->admin)->post('/inventory/store', $this->inventoryPayload([
@@ -1175,7 +1175,7 @@ class InventoryQrStockTest extends TestCase
 
         $response->assertRedirect('/inventory/' . $inventory->id . '/detail');
         $this->assertSame($targetCompany->id, session('active_company_id'));
-        $this->assertSame('CAB2/INV/000001', $inventory->kode_barang);
+        $this->assertSame('KRB/INV/000001', $inventory->kode_barang);
 
         $this->actingAs($this->admin)
             ->get('/inventory')

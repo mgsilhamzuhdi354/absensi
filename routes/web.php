@@ -161,6 +161,7 @@ Route::post('/pegawai/tambah-pegawai-proses', [karyawanController::class, 'tamba
 Route::post('/pegawai/face/ajaxPhoto', [karyawanController::class, 'ajaxPhoto'])->middleware('admin');
 Route::post('/pegawai/face/ajaxDescrip', [karyawanController::class, 'ajaxDescrip'])->middleware('admin');
 Route::post('/pegawai/import', [karyawanController::class, 'importUsers'])->middleware('admin');
+Route::post('/pegawai/{id}/transfer-company', [karyawanController::class, 'transferCompany'])->middleware('admin');
 Route::get('/pegawai/detail/{id}', [karyawanController::class, 'detail'])->middleware('admin');
 Route::get('/pegawai/kontrak/{id}', [karyawanController::class, 'kontrak'])->middleware('admin');
 Route::get('/pegawai/show/{id}', [karyawanController::class, 'show'])->middleware('auth');

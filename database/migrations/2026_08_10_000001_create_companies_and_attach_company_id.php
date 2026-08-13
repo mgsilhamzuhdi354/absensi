@@ -97,9 +97,9 @@ class CreateCompaniesAndAttachCompanyId extends Migration
         );
 
         DB::table('companies')->updateOrInsert(
-            ['code' => 'CAB2'],
+            ['code' => 'KRB'],
             [
-                'name' => 'Perusahaan Cabang 2',
+                'name' => 'PT KRBPRODUCE',
                 'active' => true,
                 'created_at' => now(),
                 'updated_at' => now(),
