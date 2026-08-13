@@ -34,6 +34,24 @@ class MultiCompanyAccessTest extends TestCase
         $this->krb = Company::where('code', 'KRB')->firstOrFail();
     }
 
+    public function test_welcome_requires_company_selection_before_showing_attendance_options(): void
+    {
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('Pilih Perusahaan')
+            ->assertSee($this->ios->name)
+            ->assertSee($this->krb->name)
+            ->assertDontSee('Face Recognition')
+            ->assertDontSee('QR Code');
+
+        $this->get('/?company_id=' . $this->krb->id)
+            ->assertOk()
+            ->assertSee($this->krb->name)
+            ->assertSee('Face Recognition')
+            ->assertSee('QR Code')
+            ->assertSee('/login?company_id=' . $this->krb->id, false);
+    }
+
     public function test_admin_login_uses_selected_company(): void
     {
         $admin = $this->createUser('admin-ios', $this->ios, ['is_admin' => 'admin']);

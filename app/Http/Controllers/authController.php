@@ -50,9 +50,13 @@ class authController extends Controller
 
     public function welcome()
     {
+        $companies = $this->loginCompanies();
+        $selectedCompany = $companies->firstWhere('id', (int) request('company_id'));
+
         return view('auth.welcome', [
             "title" => "Log In",
-            "companies" => $this->loginCompanies(),
+            "companies" => $companies,
+            "selectedCompany" => $selectedCompany,
         ]);
     }
 
@@ -68,8 +72,12 @@ class authController extends Controller
     // Public Attendance - Face Recognition
     public function attendanceFace()
     {
+        $this->rememberPublicCompanyFromRequest(request());
+
         // Get users with face descriptors directly
-        $allUsers = User::select('id', 'name', 'username', 'face_descriptor')->get();
+        $allUsers = User::forCompany(current_company_id())
+            ->select('id', 'name', 'username', 'face_descriptor')
+            ->get();
 
         $usersWithFace = $allUsers->filter(function ($user) {
             return !empty($user->face_descriptor) && strlen($user->face_descriptor) > 100;
@@ -147,8 +155,12 @@ class authController extends Controller
     public function getFaceDescriptors()
     {
         try {
+            $this->rememberPublicCompanyFromRequest(request());
+
             // Get ALL users and filter in PHP
-            $allUsers = User::select('id', 'name', 'username', 'nip', 'face_descriptor')->get();
+            $allUsers = User::forCompany(current_company_id())
+                ->select('id', 'name', 'username', 'nip', 'face_descriptor')
+                ->get();
 
             $users = $allUsers->filter(function ($user) {
                 return !empty($user->face_descriptor) && strlen($user->face_descriptor) > 100;
@@ -172,9 +184,23 @@ class authController extends Controller
     // Public Attendance - QR Code
     public function attendanceQr()
     {
+        $this->rememberPublicCompanyFromRequest(request());
+
         return view('auth.attendance-qr', [
             "title" => "Absensi QR Code",
         ]);
+    }
+
+    private function rememberPublicCompanyFromRequest(Request $request): void
+    {
+        if (!$request->filled('company_id') || !Schema::hasTable('companies')) {
+            return;
+        }
+
+        $companyId = $request->input('company_id');
+        if (Company::whereKey($companyId)->active()->exists()) {
+            session([CompanyContext::SESSION_KEY => (int) $companyId]);
+        }
     }
 
     public function register()

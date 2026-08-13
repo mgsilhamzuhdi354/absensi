@@ -1,699 +1,424 @@
 @extends('templates.login')
+
+@push('style')
+<style>
+    html,
+    body,
+    .login-section,
+    .login-section > div {
+        width: 100% !important;
+        max-width: none !important;
+        min-height: 100vh !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .preload-container {
+        display: none !important;
+    }
+</style>
+@endpush
+
 @section('container')
 <style>
-    /* ============================================
-       LANDING PAGE - MODERN ATTENDANCE SYSTEM
-       ============================================ */
-    
     * {
         box-sizing: border-box;
-        margin: 0;
-        padding: 0;
     }
-    
-    html, body {
+
+    html,
+    body {
         min-height: 100vh;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
         overflow-x: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     }
-    
-    /* Animated Gradient Background */
-    .landing-bg {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(-45deg, #0052CC, #1a73e8, #0066FF, #0052CC);
-        background-size: 400% 400%;
-        animation: gradientShift 15s ease infinite;
-        z-index: -2;
-    }
-    
-    @keyframes gradientShift {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-    
-    /* Floating Particles */
-    .particles {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        z-index: -1;
-    }
-    
-    .particle {
-        position: absolute;
-        width: 6px;
-        height: 6px;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 50%;
-        animation: float 20s infinite;
-    }
-    
-    .particle:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 15s; }
-    .particle:nth-child(2) { left: 20%; animation-delay: 2s; animation-duration: 18s; }
-    .particle:nth-child(3) { left: 30%; animation-delay: 4s; animation-duration: 20s; }
-    .particle:nth-child(4) { left: 40%; animation-delay: 1s; animation-duration: 16s; }
-    .particle:nth-child(5) { left: 50%; animation-delay: 3s; animation-duration: 22s; }
-    .particle:nth-child(6) { left: 60%; animation-delay: 5s; animation-duration: 17s; }
-    .particle:nth-child(7) { left: 70%; animation-delay: 2.5s; animation-duration: 19s; }
-    .particle:nth-child(8) { left: 80%; animation-delay: 1.5s; animation-duration: 21s; }
-    .particle:nth-child(9) { left: 90%; animation-delay: 4.5s; animation-duration: 14s; }
-    .particle:nth-child(10) { left: 15%; animation-delay: 3.5s; animation-duration: 23s; }
-    
-    @keyframes float {
-        0%, 100% {
-            transform: translateY(100vh) rotate(0deg);
-            opacity: 0;
-        }
-        10% {
-            opacity: 1;
-        }
-        90% {
-            opacity: 1;
-        }
-        100% {
-            transform: translateY(-100vh) rotate(720deg);
-            opacity: 0;
-        }
-    }
-    
-    /* Main Container */
-    .landing-container {
+
+    .landing-page {
         min-height: 100vh;
+        width: 100%;
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 20px;
+        padding: 32px 18px;
+        background:
+            linear-gradient(135deg, rgba(7, 54, 116, 0.92), rgba(25, 102, 201, 0.9)),
+            url('{{ asset('images/logo.png') }}');
+        background-size: cover, 420px;
+        background-position: center;
     }
-    
-    /* Header Section */
-    .landing-header {
+
+    .landing-shell {
+        width: min(920px, 100%);
+        color: #fff;
+    }
+
+    .brand-header {
         text-align: center;
-        margin-bottom: 40px;
-        animation: fadeInDown 1s ease;
+        margin-bottom: 26px;
     }
-    
-    @keyframes fadeInDown {
-        from {
-            opacity: 0;
-            transform: translateY(-30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .landing-logo {
-        width: 100px;
-        height: 100px;
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        border-radius: 25px;
-        display: flex;
+
+    .brand-logo {
+        width: 88px;
+        height: 88px;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        margin: 0 auto 20px;
-        border: 2px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        animation: pulse 2s ease-in-out infinite;
+        margin-bottom: 16px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.22);
     }
-    
-    @keyframes pulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.05); }
-    }
-    
-    .landing-logo img {
-        width: 70px;
-        height: 70px;
+
+    .brand-logo img {
+        width: 64px;
+        height: 64px;
         object-fit: contain;
-        border-radius: 15px;
     }
-    
-    .landing-title {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #fff;
-        margin-bottom: 10px;
-        text-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+
+    .brand-title {
+        margin: 0;
+        font-size: clamp(1.45rem, 4vw, 2.2rem);
+        font-weight: 800;
+        line-height: 1.2;
     }
-    
-    .landing-subtitle {
-        font-size: 1rem;
-        color: rgba(255, 255, 255, 0.7);
-        font-weight: 400;
+
+    .brand-subtitle {
+        margin: 8px 0 0;
+        color: rgba(255, 255, 255, 0.78);
+        font-size: 0.98rem;
     }
-    
-    /* Feature Cards Container */
-    .feature-cards {
-        display: flex;
-        gap: 20px;
-        margin-bottom: 30px;
-        flex-wrap: wrap;
-        justify-content: center;
-        max-width: 600px;
-    }
-    
-    /* Feature Card */
-    .feature-card {
-        background: rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(20px);
-        border-radius: 24px;
-        padding: 30px 25px;
-        width: 180px;
-        text-align: center;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        cursor: pointer;
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        text-decoration: none;
-        animation: fadeInUp 1s ease;
-    }
-    
-    .feature-card:nth-child(2) {
-        animation-delay: 0.1s;
-    }
-    
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .feature-card:hover {
-        transform: translateY(-10px) scale(1.03);
-        background: rgba(255, 255, 255, 0.15);
-        border-color: rgba(255, 255, 255, 0.3);
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-    }
-    
-    .feature-card:active {
-        transform: translateY(-5px) scale(1);
-    }
-    
-    .feature-icon {
-        width: 80px;
-        height: 80px;
-        margin: 0 auto 20px;
-        border-radius: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 36px;
-        transition: all 0.3s ease;
-    }
-    
-    .feature-card:hover .feature-icon {
-        transform: scale(1.1) rotate(5deg);
-    }
-    
-    .icon-face {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
-    }
-    
-    .icon-qr {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        box-shadow: 0 10px 30px rgba(17, 153, 142, 0.4);
-    }
-    
-    .feature-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #fff;
-        margin-bottom: 8px;
-    }
-    
-    .feature-desc {
-        font-size: 0.85rem;
-        color: rgba(255, 255, 255, 0.6);
-        line-height: 1.4;
-    }
-    
-    /* Time Display */
+
     .time-display {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        border-radius: 16px;
-        padding: 15px 30px;
-        margin-bottom: 25px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        animation: fadeIn 1s ease 0.3s both;
+        width: fit-content;
+        min-width: 210px;
+        margin: 0 auto 24px;
+        padding: 12px 22px;
+        text-align: center;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.13);
+        border: 1px solid rgba(255, 255, 255, 0.2);
     }
-    
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-    
+
     .current-time {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #fff;
+        font-size: 2rem;
+        font-weight: 800;
+        line-height: 1;
         font-variant-numeric: tabular-nums;
     }
-    
+
     .current-date {
-        font-size: 0.9rem;
-        color: rgba(255, 255, 255, 0.7);
         margin-top: 5px;
-    }
-    
-    /* Login Button */
-    .login-section {
-        animation: fadeInUp 1s ease 0.2s both;
+        color: rgba(255, 255, 255, 0.78);
+        font-size: 0.88rem;
     }
 
-    .company-picker {
-        width: 100%;
-        max-width: 620px;
-        margin: 0 auto 25px;
+    .section-title {
+        margin: 0 0 14px;
+        text-align: center;
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+
+    .company-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 12px;
-        animation: fadeInUp 1s ease 0.15s both;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 14px;
+        margin: 0 auto;
     }
 
-    .company-card {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 14px 16px;
-        background: rgba(255, 255, 255, 0.12);
-        color: #fff;
+    .company-button,
+    .feature-button,
+    .login-button,
+    .back-company-button {
         text-decoration: none;
-        border-radius: 16px;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        backdrop-filter: blur(12px);
-        transition: all 0.25s ease;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background: rgba(255, 255, 255, 0.13);
+        color: #fff;
+        transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
     }
 
-    .company-card:hover {
-        background: rgba(255, 255, 255, 0.2);
+    .company-button:hover,
+    .feature-button:hover,
+    .login-button:hover,
+    .back-company-button:hover {
         color: #fff;
         transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.22);
+        border-color: rgba(255, 255, 255, 0.38);
+    }
+
+    .company-button {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-height: 86px;
+        padding: 16px;
+        border-radius: 18px;
     }
 
     .company-code {
-        width: 48px;
-        height: 48px;
+        width: 58px;
+        height: 54px;
+        flex: 0 0 58px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        border-radius: 14px;
+        padding: 4px;
+        border-radius: 15px;
         background: rgba(255, 255, 255, 0.18);
-        font-weight: 700;
-        flex: 0 0 48px;
+        font-size: clamp(0.62rem, 2vw, 0.82rem);
+        font-weight: 800;
+        line-height: 1.05;
+        text-align: center;
+        overflow-wrap: anywhere;
+    }
+
+    .company-info {
+        min-width: 0;
     }
 
     .company-name {
-        font-size: 0.95rem;
-        font-weight: 600;
-        line-height: 1.25;
+        display: block;
+        font-weight: 800;
+        line-height: 1.2;
+        overflow-wrap: anywhere;
     }
 
-    .company-subtitle {
-        color: rgba(255, 255, 255, 0.65);
-        font-size: 0.78rem;
-        margin-top: 2px;
+    .company-action {
+        display: block;
+        margin-top: 5px;
+        color: rgba(255, 255, 255, 0.75);
+        font-size: 0.82rem;
     }
-    
-    .btn-login-main {
-        display: inline-flex;
+
+    .selected-company {
+        width: fit-content;
+        max-width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 0 auto 22px;
+        padding: 12px 16px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.13);
+        border: 1px solid rgba(255, 255, 255, 0.22);
+    }
+
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 220px));
+        justify-content: center;
+        gap: 18px;
+        margin: 0 auto 24px;
+    }
+
+    .feature-button {
+        display: flex;
+        min-height: 180px;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 10px;
-        padding: 16px 50px;
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
-        color: #fff;
-        font-size: 1rem;
-        font-weight: 600;
-        text-decoration: none;
-        border-radius: 50px;
-        border: 2px solid rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(10px);
-        transition: all 0.3s ease;
-    }
-    
-    .btn-login-main:hover {
-        background: rgba(255, 255, 255, 0.2);
-        border-color: rgba(255, 255, 255, 0.4);
-        transform: translateY(-3px);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        color: #fff;
-    }
-    
-    .btn-login-main i {
-        font-size: 1.2rem;
-    }
-    
-    /* Footer */
-    .landing-footer {
-        margin-top: 40px;
+        padding: 22px;
         text-align: center;
-        color: rgba(255, 255, 255, 0.4);
-        font-size: 0.85rem;
-        animation: fadeIn 1s ease 0.5s both;
+        border-radius: 20px;
     }
-    
-    .landing-footer a {
-        color: rgba(255, 255, 255, 0.6);
-        text-decoration: none;
-    }
-    
-    .landing-footer a:hover {
-        color: #fff;
-    }
-    
-    /* Color Settings Button */
-    .color-settings-btn {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        width: 45px;
-        height: 45px;
-        background: rgba(255, 255, 255, 0.15);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
+
+    .feature-icon {
+        width: 68px;
+        height: 68px;
         display: flex;
         align-items: center;
         justify-content: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        z-index: 1000;
-        color: #fff;
-        font-size: 18px;
+        margin-bottom: 16px;
+        border-radius: 18px;
+        font-size: 30px;
     }
-    .color-settings-btn:hover {
-        background: rgba(255, 255, 255, 0.25);
-        transform: scale(1.1);
+
+    .icon-face {
+        background: linear-gradient(135deg, #5266d8, #8b59c8);
     }
-    
-    .color-panel {
-        position: fixed;
-        top: 75px;
-        right: 20px;
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        border-radius: 16px;
-        padding: 15px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        z-index: 1001;
-        display: none;
-        animation: fadeIn 0.3s ease;
+
+    .icon-qr {
+        background: linear-gradient(135deg, #0fa082, #28c96d);
     }
-    .color-panel.show { display: block; }
-    
-    .color-panel-title {
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: #334155;
-        margin-bottom: 12px;
+
+    .feature-title {
+        display: block;
+        font-weight: 800;
+        font-size: 1rem;
+    }
+
+    .feature-desc {
+        display: block;
+        margin-top: 7px;
+        color: rgba(255, 255, 255, 0.72);
+        font-size: 0.84rem;
+        line-height: 1.35;
+    }
+
+    .action-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+    }
+
+    .login-button,
+    .back-company-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        min-height: 48px;
+        padding: 12px 24px;
+        border-radius: 999px;
+        font-weight: 800;
+    }
+
+    .landing-footer {
+        margin-top: 28px;
         text-align: center;
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.85rem;
     }
-    
-    .color-options {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 8px;
+
+    .landing-footer a {
+        color: rgba(255, 255, 255, 0.78);
+        text-decoration: none;
+        font-weight: 700;
     }
-    
-    .color-option {
-        width: 35px;
-        height: 35px;
-        border-radius: 10px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        border: 2px solid transparent;
-    }
-    .color-option:hover { transform: scale(1.15); }
-    .color-option.active { border-color: #333; box-shadow: 0 0 0 2px #fff; }
-    
-    /* Mobile Responsive */
-    @media (max-width: 450px) {
-        .landing-title {
-            font-size: 1.4rem;
+
+    @media (max-width: 560px) {
+        .landing-page {
+            align-items: flex-start;
+            padding-top: 28px;
         }
-        
-        .feature-cards {
-            flex-direction: column;
-            align-items: center;
+
+        .brand-logo {
+            width: 76px;
+            height: 76px;
         }
-        
-        .feature-card {
-            width: 90%;
-            max-width: 280px;
+
+        .brand-logo img {
+            width: 56px;
+            height: 56px;
         }
-        
+
+        .company-grid,
+        .feature-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .feature-button {
+            min-height: 142px;
+        }
+
         .current-time {
-            font-size: 2rem;
-        }
-    }
-    
-    /* Landscape Mode */
-    @media (max-height: 600px) and (orientation: landscape) {
-        .landing-container {
-            padding: 10px 20px;
-        }
-        
-        .landing-header {
-            margin-bottom: 15px;
-        }
-        
-        .landing-logo {
-            width: 60px;
-            height: 60px;
-            margin-bottom: 10px;
-        }
-        
-        .landing-logo img {
-            width: 40px;
-            height: 40px;
-        }
-        
-        .landing-title {
-            font-size: 1.2rem;
-        }
-        
-        .feature-cards {
-            margin-bottom: 15px;
-        }
-        
-        .feature-card {
-            padding: 15px;
-            width: 150px;
-        }
-        
-        .feature-icon {
-            width: 50px;
-            height: 50px;
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-        
-        .time-display {
-            display: none;
-        }
-        
-        .landing-footer {
-            margin-top: 15px;
+            font-size: 1.7rem;
         }
     }
 </style>
 
-<!-- Color Settings Button -->
-<div class="color-settings-btn" onclick="toggleColorPanel()">
-    <i class="fas fa-palette"></i>
-</div>
-
-<!-- Color Panel -->
-<div class="color-panel" id="colorPanel">
-    <div class="color-panel-title">Pilih Tema Warna</div>
-    <div class="color-options">
-        <div class="color-option" style="background: linear-gradient(135deg, #0052CC, #1a73e8);" data-colors="#0052CC,#1a73e8,#0066FF,#0052CC" title="Biru"></div>
-        <div class="color-option" style="background: linear-gradient(135deg, #667eea, #764ba2);" data-colors="#667eea,#764ba2,#6B73FF,#764ba2" title="Ungu"></div>
-        <div class="color-option" style="background: linear-gradient(135deg, #11998e, #38ef7d);" data-colors="#11998e,#38ef7d,#00c853,#11998e" title="Hijau"></div>
-        <div class="color-option" style="background: linear-gradient(135deg, #ee0979, #ff6a00);" data-colors="#ee0979,#ff6a00,#f857a6,#ff5858" title="Pink-Orange"></div>
-        <div class="color-option" style="background: linear-gradient(135deg, #1a1a2e, #16213e);" data-colors="#1a1a2e,#16213e,#0f3460,#1a1a2e" title="Gelap"></div>
-        <div class="color-option" style="background: linear-gradient(135deg, #0f0c29, #302b63);" data-colors="#0f0c29,#302b63,#24243e,#1a1a2e" title="Ungu Gelap"></div>
-        <div class="color-option" style="background: linear-gradient(135deg, #f093fb, #f5576c);" data-colors="#f093fb,#f5576c,#ff6b6b,#f093fb" title="Pink"></div>
-        <div class="color-option" style="background: linear-gradient(135deg, #4facfe, #00f2fe);" data-colors="#4facfe,#00f2fe,#43e97b,#4facfe" title="Cyan"></div>
-    </div>
-</div>
-
-<!-- Background -->
-<div class="landing-bg" id="landingBg"></div>
-
-<!-- Floating Particles -->
-<div class="particles">
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-</div>
-
-<!-- Main Container -->
-<div class="landing-container">
-    <!-- Header -->
-    <div class="landing-header">
-        <div class="landing-logo">
-            @php
-                $settings = App\Models\settings::first();
-            @endphp
-            <img src="{{ asset('images/logo.png') }}" alt="Logo">
+<div class="landing-page">
+    <div class="landing-shell">
+        <div class="brand-header">
+            <div class="brand-logo">
+                <img src="{{ asset('images/logo.png') }}" alt="Logo">
+            </div>
+            <h1 class="brand-title">PT Indoocean Crew Service</h1>
+            <p class="brand-subtitle">Sistem Absensi Karyawan</p>
         </div>
-        <h1 class="landing-title">PT Indoocean Crew Service</h1>
-        <p class="landing-subtitle">Sistem Absensi Karyawan</p>
-    </div>
-    
-    <!-- Time Display -->
-    <div class="time-display">
-        <div class="current-time" id="currentTime">--:--:--</div>
-        <div class="current-date" id="currentDate">Loading...</div>
-    </div>
-    
-    <!-- Feature Cards -->
-    <div class="feature-cards">
-        <a href="{{ url('/attendance/face') }}" class="feature-card">
-            <div class="feature-icon icon-face">
-                <i class="fas fa-user-circle"></i>
-            </div>
-            <h3 class="feature-title">Face Recognition</h3>
-            <p class="feature-desc">Absen dengan pengenalan wajah</p>
-        </a>
-        
-        <a href="{{ url('/attendance/qr') }}" class="feature-card">
-            <div class="feature-icon icon-qr">
-                <i class="fas fa-qrcode"></i>
-            </div>
-            <h3 class="feature-title">QR Code</h3>
-            <p class="feature-desc">Scan QR untuk absensi</p>
-        </a>
-    </div>
 
-    @if(($companies ?? collect())->isNotEmpty())
-        <div class="company-picker">
-            @foreach($companies as $company)
-                <a href="{{ url('/login?company_id=' . $company->id) }}" class="company-card">
-                    <span class="company-code">{{ $company->code }}</span>
-                    <span>
-                        <span class="company-name">{{ $company->name }}</span>
-                        <span class="company-subtitle d-block">Masuk dashboard perusahaan</span>
-                    </span>
+        <div class="time-display">
+            <div class="current-time" id="currentTime">--:--:--</div>
+            <div class="current-date" id="currentDate">Loading...</div>
+        </div>
+
+        @if($selectedCompany)
+            <div class="selected-company">
+                <span class="company-code">{{ $selectedCompany->code }}</span>
+                <span class="company-info">
+                    <span class="company-name">{{ $selectedCompany->name }}</span>
+                    <span class="company-action">Perusahaan aktif</span>
+                </span>
+            </div>
+
+            <div class="feature-grid">
+                <a href="{{ url('/attendance/face?company_id=' . $selectedCompany->id) }}" class="feature-button">
+                    <span class="feature-icon icon-face"><i class="fas fa-user-circle"></i></span>
+                    <span class="feature-title">Face Recognition</span>
+                    <span class="feature-desc">Absen dengan pengenalan wajah</span>
                 </a>
-            @endforeach
+
+                <a href="{{ url('/attendance/qr?company_id=' . $selectedCompany->id) }}" class="feature-button">
+                    <span class="feature-icon icon-qr"><i class="fas fa-qrcode"></i></span>
+                    <span class="feature-title">QR Code</span>
+                    <span class="feature-desc">Scan QR untuk absensi</span>
+                </a>
+            </div>
+
+            <div class="action-row">
+                <a href="{{ route('welcome') }}" class="back-company-button">
+                    <i class="fas fa-building"></i>
+                    <span>Pilih PT Lain</span>
+                </a>
+                <a href="{{ url('/login?company_id=' . $selectedCompany->id) }}" class="login-button">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span>Login Dashboard</span>
+                </a>
+            </div>
+        @else
+            <h2 class="section-title">Pilih Perusahaan</h2>
+            <div class="company-grid">
+                @forelse(($companies ?? collect()) as $company)
+                    <a href="{{ route('welcome', ['company_id' => $company->id]) }}" class="company-button">
+                        <span class="company-code">{{ $company->code }}</span>
+                        <span class="company-info">
+                            <span class="company-name">{{ $company->name }}</span>
+                            <span class="company-action">Buka menu absensi</span>
+                        </span>
+                    </a>
+                @empty
+                    <a href="{{ url('/attendance/face') }}" class="company-button">
+                        <span class="company-code">FACE</span>
+                        <span class="company-info">
+                            <span class="company-name">Face Recognition</span>
+                            <span class="company-action">Buka absensi wajah</span>
+                        </span>
+                    </a>
+                    <a href="{{ url('/attendance/qr') }}" class="company-button">
+                        <span class="company-code">QR</span>
+                        <span class="company-info">
+                            <span class="company-name">QR Code</span>
+                            <span class="company-action">Buka absensi QR</span>
+                        </span>
+                    </a>
+                @endforelse
+            </div>
+        @endif
+
+        <div class="landing-footer">
+            <p>&copy; {{ date('Y') }} PT Indoocean Crew Service</p>
+            <a href="{{ asset('app/absensi.apk') }}" download>
+                <i class="fab fa-android"></i> Download App Android
+            </a>
         </div>
-    @endif
-    
-    <!-- Login Button -->
-    <div class="login-section">
-        <a href="{{ url('/login') }}" class="btn-login-main">
-            <i class="fas fa-sign-in-alt"></i>
-            <span>Login Dashboard</span>
-        </a>
-    </div>
-    
-    <!-- Footer -->
-    <div class="landing-footer">
-        <p>&copy; {{ date('Y') }} PT Indoocean Crew Service</p>
-        <a href="{{ asset('app/absensi.apk') }}" download style="display: inline-flex; align-items: center; gap: 5px; margin-top: 10px;">
-            <i class="fab fa-android"></i> Download App Android
-        </a>
     </div>
 </div>
 
 <script>
-    // Real-time Clock
     function updateClock() {
         const now = new Date();
-        
-        // Time
         const hours = String(now.getHours()).padStart(2, '0');
         const minutes = String(now.getMinutes()).padStart(2, '0');
         const seconds = String(now.getSeconds()).padStart(2, '0');
         document.getElementById('currentTime').textContent = `${hours}:${minutes}:${seconds}`;
-        
-        // Date
+
         const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-        const dayName = days[now.getDay()];
-        const date = now.getDate();
-        const month = months[now.getMonth()];
-        const year = now.getFullYear();
-        document.getElementById('currentDate').textContent = `${dayName}, ${date} ${month} ${year}`;
+        document.getElementById('currentDate').textContent = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
     }
-    
+
     updateClock();
     setInterval(updateClock, 1000);
-    
-    // Color Settings
-    function toggleColorPanel() {
-        document.getElementById('colorPanel').classList.toggle('show');
-    }
-    
-    // Close panel when clicking outside
-    document.addEventListener('click', function(e) {
-        const panel = document.getElementById('colorPanel');
-        const btn = document.querySelector('.color-settings-btn');
-        if (!panel.contains(e.target) && !btn.contains(e.target)) {
-            panel.classList.remove('show');
-        }
-    });
-    
-    // Color options click handler
-    document.querySelectorAll('.color-option').forEach(option => {
-        option.addEventListener('click', function() {
-            const colors = this.dataset.colors;
-            applyTheme(colors);
-            
-            // Update active state
-            document.querySelectorAll('.color-option').forEach(o => o.classList.remove('active'));
-            this.classList.add('active');
-            
-            // Save to localStorage
-            localStorage.setItem('landingTheme', colors);
-        });
-    });
-    
-    function applyTheme(colors) {
-        const bg = document.getElementById('landingBg');
-        bg.style.background = `linear-gradient(-45deg, ${colors})`;
-        bg.style.backgroundSize = '400% 400%';
-    }
-    
-    // Load saved theme
-    const savedTheme = localStorage.getItem('landingTheme');
-    if (savedTheme) {
-        applyTheme(savedTheme);
-        // Mark active option
-        document.querySelectorAll('.color-option').forEach(option => {
-            if (option.dataset.colors === savedTheme) {
-                option.classList.add('active');
-            }
-        });
-    } else {
-        // Default active
-        document.querySelector('.color-option').classList.add('active');
-    }
 </script>
 @endsection

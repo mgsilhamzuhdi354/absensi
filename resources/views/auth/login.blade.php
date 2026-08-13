@@ -151,6 +151,71 @@
             font-size: 0.78rem;
             margin-top: 6px;
         }
+
+        .company-button-list {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 9px;
+        }
+
+        .company-choice {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            background: #f8fafc;
+            color: #1e293b;
+            text-align: left;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .company-choice.active {
+            border-color: #667eea;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.16);
+        }
+
+        .company-choice-code {
+            width: 46px;
+            height: 42px;
+            flex: 0 0 46px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            border-radius: 11px;
+            background: #e9eefb;
+            color: #5266d8;
+            font-size: 0.68rem;
+            font-weight: 800;
+            line-height: 1.05;
+            overflow-wrap: anywhere;
+            text-align: center;
+        }
+
+        .company-choice-text {
+            min-width: 0;
+        }
+
+        .company-choice-name {
+            display: block;
+            color: #1e293b;
+            font-size: 0.88rem;
+            font-weight: 700;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
+        }
+
+        .company-choice-note {
+            display: block;
+            margin-top: 2px;
+            color: #64748b;
+            font-size: 0.75rem;
+        }
         
         .is-invalid {
             border-color: #ef4444 !important;
@@ -320,13 +385,23 @@
                         <label class="form-label">
                             <i class="fa fa-building"></i> Pilih Perusahaan
                         </label>
-                        <select name="company_id" class="form-control @error('company_id') is-invalid @enderror">
+                        @php
+                            $activeCompanyId = (int) old('company_id', $selectedCompanyId ?? optional($companies->first())->id);
+                        @endphp
+                        <input type="hidden" name="company_id" id="company_id" value="{{ $activeCompanyId }}">
+                        <div class="company-button-list" role="group" aria-label="Pilih perusahaan">
                             @foreach($companies as $company)
-                                <option value="{{ $company->id }}" {{ (int) old('company_id', $selectedCompanyId ?? '') === (int) $company->id ? 'selected' : '' }}>
-                                    {{ $company->code }} - {{ $company->name }}
-                                </option>
+                                <button type="button"
+                                        class="company-choice {{ $activeCompanyId === (int) $company->id ? 'active' : '' }}"
+                                        data-company-id="{{ $company->id }}">
+                                    <span class="company-choice-code">{{ $company->code }}</span>
+                                    <span class="company-choice-text">
+                                        <span class="company-choice-name">{{ $company->name }}</span>
+                                        <span class="company-choice-note">Masuk sebagai PT aktif</span>
+                                    </span>
+                                </button>
                             @endforeach
-                        </select>
+                        </div>
                         <div class="company-hint">Pilihan ini dipakai admin. User biasa otomatis masuk ke PT miliknya.</div>
                         @error('company_id')
                             <div class="invalid-feedback">{{ $message }}</div>
@@ -403,5 +478,17 @@
                 toggleIcon.classList.add('fa-eye');
             }
         }
+
+        document.querySelectorAll('.company-choice').forEach((button) => {
+            button.addEventListener('click', function () {
+                const companyInput = document.getElementById('company_id');
+                companyInput.value = this.dataset.companyId;
+
+                document.querySelectorAll('.company-choice').forEach((item) => {
+                    item.classList.remove('active');
+                });
+                this.classList.add('active');
+            });
+        });
     </script>
 @endsection

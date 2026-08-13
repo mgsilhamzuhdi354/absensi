@@ -31,6 +31,13 @@ class CompanyContext
             }
         }
 
+        if (!$user) {
+            $selected = session(self::SESSION_KEY);
+            if ($selected && Company::whereKey($selected)->active()->exists()) {
+                return (int) $selected;
+            }
+        }
+
         if ($user && $user->company_id) {
             return (int) $user->company_id;
         }
