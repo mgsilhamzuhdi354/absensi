@@ -5,12 +5,22 @@ namespace App\Http\Controllers;
 use App\Models\Company;
 use App\Services\CompanyContext;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class CompanyController extends Controller
 {
     public function index()
     {
+        if (!Schema::hasTable('companies')) {
+            return view('companies.index', [
+                'title' => 'Perusahaan',
+                'companies' => new LengthAwarePaginator([], 0, 10),
+                'migrationWarning' => 'Data perusahaan belum siap. Jalankan php artisan migrate --force di server agar menu ini bisa digunakan.',
+            ]);
+        }
+
         return view('companies.index', [
             'title' => 'Perusahaan',
             'companies' => Company::orderBy('name')->paginate(10)->withQueryString(),

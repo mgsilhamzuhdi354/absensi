@@ -16,6 +16,12 @@
         </div>
 
         <div class="col-md-12">
+            @if (!empty($migrationWarning))
+                <div class="alert alert-warning">
+                    {{ $migrationWarning }}
+                </div>
+            @endif
+
             <div class="card">
                 <div class="card-body">
                     <div class="table-responsive">
