@@ -1,510 +1,57 @@
-@extends('templates.login')
-
-@push('style')
-<style>
-    html,
-    body,
-    .login-section,
-    .login-section > div {
-        width: 100% !important;
-        max-width: none !important;
-        min-height: 100vh !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    .preload-container {
-        display: none !important;
-    }
-</style>
-@endpush
-
-@section('container')
-<style>
-    * {
-        box-sizing: border-box;
-    }
-
-    html,
-    body {
-        min-height: 100vh;
-        overflow-x: hidden;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-    }
-
-    .landing-page {
-        min-height: 100vh;
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 32px 18px;
-        background:
-            linear-gradient(135deg, rgba(9, 42, 75, 0.96), rgba(20, 113, 135, 0.94) 58%, rgba(225, 169, 70, 0.88) 145%),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-            linear-gradient(0deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-        background-size: cover, 46px 46px, 46px 46px;
-        background-position: center;
-    }
-
-    .landing-shell {
-        width: min(920px, 100%);
-        color: #fff;
-    }
-
-    .brand-header {
-        text-align: center;
-        margin-bottom: 22px;
-    }
-
-    .brand-logo {
-        width: 82px;
-        height: 82px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 16px;
-        border-radius: 22px;
-        background: rgba(255, 255, 255, 0.14);
-        border: 1px solid rgba(255, 255, 255, 0.22);
-    }
-
-    .brand-logo img {
-        width: 60px;
-        height: 60px;
-        object-fit: contain;
-    }
-
-    .brand-kicker {
-        width: fit-content;
-        max-width: 100%;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        margin: 0 auto 12px;
-        padding: 7px 12px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.12);
-        color: rgba(255, 255, 255, 0.84);
-        font-size: 0.82rem;
-        font-weight: 700;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .brand-title {
-        margin: 0;
-        color: #fff;
-        font-size: clamp(1.75rem, 4.5vw, 3rem);
-        font-weight: 800;
-        line-height: 1.2;
-        text-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
-    }
-
-    .brand-subtitle {
-        margin: 8px 0 0;
-        color: rgba(255, 255, 255, 0.78);
-        font-size: 0.98rem;
-    }
-
-    .time-display {
-        width: fit-content;
-        min-width: 210px;
-        margin: 0 auto 24px;
-        padding: 12px 22px;
-        text-align: center;
-        border-radius: 18px;
-        background: rgba(255, 255, 255, 0.13);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 18px 45px rgba(6, 28, 56, 0.18);
-    }
-
-    .current-time {
-        font-size: 2rem;
-        font-weight: 800;
-        line-height: 1;
-        font-variant-numeric: tabular-nums;
-    }
-
-    .current-date {
-        margin-top: 5px;
-        color: rgba(255, 255, 255, 0.78);
-        font-size: 0.88rem;
-    }
-
-    .section-title {
-        margin: 0 0 14px;
-        text-align: center;
-        color: #fff;
-        font-size: 1.18rem;
-        font-weight: 800;
-    }
-
-    .company-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 12px;
-        width: min(720px, 100%);
-        margin: 0 auto;
-    }
-
-    .company-button,
-    .feature-button,
-    .login-button,
-    .back-company-button {
-        text-decoration: none;
-        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-    }
-
-    .company-button:hover,
-    .feature-button:hover,
-    .login-button:hover,
-    .back-company-button:hover {
-        transform: translateY(-3px);
-    }
-
-    .company-button {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        min-height: 92px;
-        padding: 16px 18px;
-        border: 1px solid rgba(255, 255, 255, 0.85);
-        border-left: 6px solid #e1a946;
-        border-radius: 14px;
-        background: rgba(255, 255, 255, 0.96);
-        color: #132238;
-        box-shadow: 0 18px 40px rgba(6, 28, 56, 0.22);
-    }
-
-    .company-button:hover {
-        color: #132238;
-        border-color: #fff;
-        border-left-color: #f1c15c;
-        box-shadow: 0 24px 54px rgba(6, 28, 56, 0.28);
-    }
-
-    .company-code {
-        width: 62px;
-        height: 56px;
-        flex: 0 0 62px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 4px;
-        border-radius: 14px;
-        background: #0d4d7a;
-        color: #fff;
-        font-size: clamp(0.62rem, 2vw, 0.82rem);
-        font-weight: 800;
-        line-height: 1.05;
-        text-align: center;
-        overflow-wrap: anywhere;
-    }
-
-    .company-info {
-        min-width: 0;
-    }
-
-    .company-name {
-        display: block;
-        font-weight: 800;
-        line-height: 1.2;
-        overflow-wrap: anywhere;
-        color: #132238;
-    }
-
-    .company-action {
-        display: block;
-        margin-top: 5px;
-        color: #5c6b7a;
-        font-size: 0.82rem;
-        font-weight: 700;
-    }
-
-    .company-arrow {
-        width: 38px;
-        height: 38px;
-        flex: 0 0 38px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        margin-left: auto;
-        border-radius: 999px;
-        background: #eef5fb;
-        color: #0d4d7a;
-        font-size: 0.95rem;
-    }
-
-    .selected-company {
-        width: fit-content;
-        max-width: 100%;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin: 0 auto 20px;
-        padding: 12px 16px;
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.96);
-        border: 1px solid rgba(255, 255, 255, 0.86);
-        color: #132238;
-        box-shadow: 0 18px 40px rgba(6, 28, 56, 0.2);
-    }
-
-    .feature-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 240px));
-        justify-content: center;
-        gap: 18px;
-        margin: 0 auto 24px;
-    }
-
-    .feature-button {
-        display: flex;
-        min-height: 190px;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 22px;
-        text-align: center;
-        border: 1px solid rgba(255, 255, 255, 0.9);
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.96);
-        color: #132238;
-        box-shadow: 0 20px 48px rgba(6, 28, 56, 0.22);
-    }
-
-    .feature-button:hover {
-        color: #132238;
-        box-shadow: 0 26px 62px rgba(6, 28, 56, 0.3);
-    }
-
-    .feature-icon {
-        width: 68px;
-        height: 68px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 16px;
-        border-radius: 18px;
-        font-size: 30px;
-    }
-
-    .icon-face {
-        background: linear-gradient(135deg, #5266d8, #8b59c8);
-    }
-
-    .icon-qr {
-        background: linear-gradient(135deg, #0fa082, #28c96d);
-    }
-
-    .feature-title {
-        display: block;
-        font-weight: 800;
-        font-size: 1.05rem;
-        color: #132238;
-    }
-
-    .feature-desc {
-        display: block;
-        margin-top: 7px;
-        color: #5c6b7a;
-        font-size: 0.84rem;
-        line-height: 1.35;
-    }
-
-    .action-row {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 12px;
-    }
-
-    .login-button,
-    .back-company-button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 9px;
-        min-height: 48px;
-        padding: 12px 24px;
-        border-radius: 999px;
-        font-weight: 800;
-        border: 1px solid rgba(255, 255, 255, 0.82);
-        box-shadow: 0 14px 34px rgba(6, 28, 56, 0.18);
-    }
-
-    .login-button {
-        background: #e1a946;
-        color: #102033;
-        border-color: #f0c96f;
-    }
-
-    .login-button:hover {
-        color: #102033;
-        box-shadow: 0 18px 44px rgba(6, 28, 56, 0.25);
-    }
-
-    .back-company-button {
-        background: rgba(255, 255, 255, 0.16);
-        color: #fff;
-    }
-
-    .back-company-button:hover {
-        color: #fff;
-    }
-
-    .landing-footer {
-        margin-top: 28px;
-        text-align: center;
-        color: rgba(255, 255, 255, 0.6);
-        font-size: 0.85rem;
-    }
-
-    .landing-footer a {
-        color: rgba(255, 255, 255, 0.78);
-        text-decoration: none;
-        font-weight: 700;
-    }
-
-    @media (max-width: 560px) {
-        .landing-page {
-            align-items: flex-start;
-            padding-top: 28px;
-        }
-
-        .brand-logo {
-            width: 76px;
-            height: 76px;
-        }
-
-        .brand-logo img {
-            width: 56px;
-            height: 56px;
-        }
-
-        .company-grid,
-        .feature-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .feature-button {
-            min-height: 142px;
-        }
-
-        .current-time {
-            font-size: 1.7rem;
-        }
-    }
-</style>
-
-<div class="landing-page">
-    <div class="landing-shell">
-        <div class="brand-header">
-            <div class="brand-logo">
-                <img src="{{ asset('images/logo.png') }}" alt="Logo">
+@extends('templates.auth')
+@section('page-title', 'Selamat datang')
+@section('content')
+    <div class="auth-layout">
+        @include('auth.partials.intro')
+        <section class="auth-card auth-welcome-card" aria-labelledby="welcome-title">
+            <div class="auth-card-top">
+                <span class="auth-eyebrow">SELAMAT DATANG</span>
+                <div class="auth-clock"><i class="far fa-clock" aria-hidden="true"></i><time data-clock>{{ now()->format('H:i') }}</time></div>
             </div>
-            <div class="brand-kicker">
-                <i class="fas fa-building"></i>
-                <span>{{ $selectedCompany ? 'Perusahaan Terpilih' : 'PT Indoocean Crew Service' }}</span>
-            </div>
-            <h1 class="brand-title">{{ $selectedCompany ? $selectedCompany->name : 'Pilih Perusahaan' }}</h1>
-            <p class="brand-subtitle">{{ $selectedCompany ? 'Menu absensi untuk ' . $selectedCompany->name : 'Pilih PT terlebih dahulu untuk membuka menu absensi' }}</p>
-        </div>
-
-        <div class="time-display">
-            <div class="current-time" id="currentTime">--:--:--</div>
-            <div class="current-date" id="currentDate">Loading...</div>
-        </div>
-
-        @if($selectedCompany)
-            <div class="selected-company" aria-label="Perusahaan aktif">
-                <span class="company-code">{{ $selectedCompany->code }}</span>
-                <span class="company-info">
-                    <span class="company-name">{{ $selectedCompany->name }}</span>
-                    <span class="company-action">Perusahaan aktif</span>
-                </span>
-            </div>
-
-            <div class="feature-grid">
-                <a href="{{ url('/attendance/face?company_id=' . $selectedCompany->id) }}" class="feature-button">
-                    <span class="feature-icon icon-face"><i class="fas fa-user-circle"></i></span>
-                    <span class="feature-title">Face Recognition</span>
-                    <span class="feature-desc">Absen dengan pengenalan wajah</span>
-                </a>
-
-                <a href="{{ url('/attendance/qr?company_id=' . $selectedCompany->id) }}" class="feature-button">
-                    <span class="feature-icon icon-qr"><i class="fas fa-qrcode"></i></span>
-                    <span class="feature-title">QR Code</span>
-                    <span class="feature-desc">Scan QR untuk absensi</span>
-                </a>
-            </div>
-
-            <div class="action-row">
-                <a href="{{ route('welcome') }}" class="back-company-button">
-                    <i class="fas fa-building"></i>
-                    <span>Pilih PT Lain</span>
-                </a>
-                <a href="{{ url('/login?company_id=' . $selectedCompany->id) }}" class="login-button">
-                    <i class="fas fa-sign-in-alt"></i>
-                    <span>Login Dashboard</span>
-                </a>
-            </div>
-        @else
-            <h2 class="section-title">Pilih Perusahaan</h2>
-            <div class="company-grid">
-                @forelse(($companies ?? collect()) as $company)
-                    <a href="{{ route('welcome', ['company_id' => $company->id]) }}" class="company-button">
-                        <span class="company-code">{{ $company->code }}</span>
-                        <span class="company-info">
-                            <span class="company-name">{{ $company->name }}</span>
-                            <span class="company-action">Buka menu absensi</span>
-                        </span>
-                        <span class="company-arrow"><i class="fas fa-chevron-right"></i></span>
+            <ol class="auth-steps" aria-label="Langkah absensi">
+                <li class="{{ $selectedCompany ? 'is-complete' : 'is-current' }}" @if(!$selectedCompany) aria-current="step" @endif><span>1</span> Perusahaan</li>
+                <li class="{{ $selectedCompany ? 'is-current' : '' }}" @if($selectedCompany) aria-current="step" @endif><span>2</span> Mulai aktivitas</li>
+            </ol>
+            @if($selectedCompany)
+                <h1 class="auth-title" id="welcome-title">Siap memulai hari?</h1>
+                <p class="auth-description">Pilih cara absensi atau masuk ke dashboard Anda.</p>
+                <div class="auth-selected-company">
+                    <span class="auth-company-icon"><i class="far fa-building" aria-hidden="true"></i></span>
+                    <span><small>Perusahaan Anda</small><strong>{{ $selectedCompany->name }}</strong></span>
+                    <a href="{{ route('welcome') }}" class="auth-change">Ganti<span class="auth-sr-only"> perusahaan</span></a>
+                </div>
+                <div class="auth-methods">
+                    <a href="{{ url('/attendance/face?company_id=' . $selectedCompany->id) }}" class="auth-method">
+                        <span class="auth-method-icon"><i class="fas fa-user-circle" aria-hidden="true"></i></span>
+                        <span><strong>Face Recognition</strong><small>Absen dengan pengenalan wajah</small></span>
+                        <i class="fas fa-arrow-right auth-arrow" aria-hidden="true"></i>
                     </a>
-                @empty
-                    <a href="{{ url('/attendance/face') }}" class="company-button">
-                        <span class="company-code">FACE</span>
-                        <span class="company-info">
-                            <span class="company-name">Face Recognition</span>
-                            <span class="company-action">Buka absensi wajah</span>
-                        </span>
-                        <span class="company-arrow"><i class="fas fa-chevron-right"></i></span>
+                    <a href="{{ url('/attendance/qr?company_id=' . $selectedCompany->id) }}" class="auth-method auth-method-teal">
+                        <span class="auth-method-icon"><i class="fas fa-qrcode" aria-hidden="true"></i></span>
+                        <span><strong>QR Code</strong><small>Pindai kode untuk mencatat kehadiran</small></span>
+                        <i class="fas fa-arrow-right auth-arrow" aria-hidden="true"></i>
                     </a>
-                    <a href="{{ url('/attendance/qr') }}" class="company-button">
-                        <span class="company-code">QR</span>
-                        <span class="company-info">
-                            <span class="company-name">QR Code</span>
-                            <span class="company-action">Buka absensi QR</span>
-                        </span>
-                        <span class="company-arrow"><i class="fas fa-chevron-right"></i></span>
-                    </a>
-                @endforelse
-            </div>
-        @endif
-
-        <div class="landing-footer">
-            <p>&copy; {{ date('Y') }} PT Indoocean Crew Service</p>
-            <a href="{{ asset('app/absensi.apk') }}" download>
-                <i class="fab fa-android"></i> Download App Android
-            </a>
-        </div>
+                </div>
+                <div class="auth-divider"><span>Akses akun Anda</span></div>
+                <a href="{{ url('/login?company_id=' . $selectedCompany->id) }}" class="auth-submit">Masuk ke Dashboard <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+            @else
+                <h1 class="auth-title" id="welcome-title">Pilih Perusahaan</h1>
+                <p class="auth-description">Mulai dengan memilih perusahaan tempat Anda bekerja.</p>
+                <div class="auth-companies">
+                    @forelse(($companies ?? collect()) as $company)
+                        <a href="{{ route('welcome', ['company_id' => $company->id]) }}" class="auth-company">
+                            <span class="auth-company-icon"><i class="far fa-building" aria-hidden="true"></i></span>
+                            <span class="auth-company-copy"><strong>{{ $company->name }}</strong><small>Lanjut ke menu absensi</small></span>
+                            <i class="fas fa-chevron-right auth-arrow" aria-hidden="true"></i>
+                        </a>
+                    @empty
+                        <a href="{{ url('/attendance/face') }}" class="auth-company"><span class="auth-company-icon"><i class="fas fa-user-circle" aria-hidden="true"></i></span><span class="auth-company-copy"><strong>Face Recognition</strong><small>Absen dengan pengenalan wajah</small></span><i class="fas fa-chevron-right auth-arrow" aria-hidden="true"></i></a>
+                        <a href="{{ url('/attendance/qr') }}" class="auth-company"><span class="auth-company-icon"><i class="fas fa-qrcode" aria-hidden="true"></i></span><span class="auth-company-copy"><strong>QR Code</strong><small>Absen dengan memindai kode</small></span><i class="fas fa-chevron-right auth-arrow" aria-hidden="true"></i></a>
+                    @endforelse
+                </div>
+                <div class="auth-help"><i class="fas fa-info-circle" aria-hidden="true"></i><p>Gunakan akun karyawan untuk melihat riwayat absensi dan mengakses dashboard.</p></div>
+                <a href="{{ route('login') }}" class="auth-submit auth-submit-secondary">Masuk ke Dashboard <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+            @endif
+        </section>
     </div>
-</div>
-
-<script>
-    function updateClock() {
-        const now = new Date();
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        document.getElementById('currentTime').textContent = `${hours}:${minutes}:${seconds}`;
-
-        const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-        const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-        document.getElementById('currentDate').textContent = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-    }
-
-    updateClock();
-    setInterval(updateClock, 1000);
-</script>
 @endsection

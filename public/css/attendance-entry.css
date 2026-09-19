@@ -1,0 +1,42 @@
+/* Shared public attendance skin; specificity keeps legacy view styles scoped. */
+body.public-login { background: #f4f7fa; }
+.public-login .landing-bg { background: #f4f7fa; pointer-events: none; }
+.public-login .attendance-container { padding: 30px 20px; }
+.public-login .attendance-card { max-width: 460px; background: #fff; border: 1px solid #e0e7ee; border-radius: 22px; box-shadow: 0 12px 40px rgba(16,47,80,.06); padding: 26px; }
+.public-login .back-link { min-height: 44px; margin-bottom: 14px; color: #65758a; font-size: 13px; }
+.public-login .back-link:hover { color: #1765ad; }
+.public-login .page-title { color: #18344f; font-size: 25px; line-height: 1.35; letter-spacing: -.5px; }
+.public-login .page-title > i { margin-right: 6px; }
+.public-login .page-subtitle { color: #65758a; font-size: 13px; font-weight: 400; line-height: 1.7; }
+.public-login .instruction { background: #edf6f4; border-color: #d0e6e0; color: #296f61; font-size: 12px; }
+.public-login .scanner-container, .public-login .video-container { background: #102f50; border-radius: 14px; }
+.public-login .video-container { min-height: 220px; }
+.public-login .scan-overlay { border-color: #79c9b6; box-shadow: none; animation: none; max-width: calc(100% - 32px); }
+.public-login .scan-line { background: linear-gradient(90deg, transparent, #79c9b6, transparent); }
+.public-login .attendance-card .btn { min-height: 48px; border-radius: 10px; font-size: 13px; font-weight: 600; padding: 12px; white-space: normal; }
+.public-login .attendance-card .btn-masuk { color: #fff; background: #1765ad; }
+.public-login .attendance-card .btn-pulang { color: #fff; background: #0d807a; }
+.public-login .attendance-card .btn-masuk:hover { color: #fff; background: #104e87; transform: none; box-shadow: none; }
+.public-login .attendance-card .btn-pulang:hover { color: #fff; background: #096c66; transform: none; box-shadow: none; }
+.public-login .attendance-card .btn:disabled { opacity: .5; }
+.public-login .attendance-card .btn-group > .btn { border-radius: 10px; }
+.public-login .manual-form .form-control { min-height: 50px; padding: 12px; font-size: 16px; font-weight: 400; }
+.public-login .manual-form > label { display: block; margin-bottom: 8px; font-size: 12px; color: #18344f; font-weight: 600; }
+.public-login .manual-form .btn { width: 100%; }
+.public-login .scanned-user { background: #f1f6fc; border-color: #d5e3f2; }
+.public-login .scanned-user .name { color: #235a8b; font-size: 15px; overflow-wrap: anywhere; }
+.public-login .ml-badge { color: #286f63; background: #edf6f4; border-radius: 8px; padding: 7px 12px; }
+.public-login .searching { color: #235a8b; background: #edf4fb; }
+.public-login .status-message { font-size: 13px; }
+.public-login .attendance-card :focus-visible { outline: 3px solid #399dce; outline-offset: 3px; }
+@media (max-width: 390px) {
+    .public-login .attendance-container { padding: 16px 12px; }
+    .public-login .attendance-card { padding: 20px 16px; border-radius: 18px; }
+    .public-login .page-title { font-size: 23px; }
+    .public-login .scanner-container { height: 260px; }
+    .public-login .scanner-controls, .public-login .btn-action { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .public-login .scan-line { animation: none; }
+    .public-login .attendance-card * { transition: none; }
+}

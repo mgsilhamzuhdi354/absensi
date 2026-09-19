@@ -1,4 +1,7 @@
 @extends('templates.login')
+@push('style')
+    <link rel="stylesheet" href="{{ asset('css/attendance-entry.css') }}?v={{ filemtime(public_path('css/attendance-entry.css')) }}">
+@endpush
 @section('container')
     <style>
         * {
@@ -215,7 +218,7 @@
 
     <div class="attendance-container">
         <div class="attendance-card">
-            <a href="{{ url('/') }}" class="back-link">
+            <a href="{{ route('welcome', request()->only('company_id')) }}" class="back-link">
                 <i class="fas fa-arrow-left"></i> Kembali
             </a>
 
@@ -226,7 +229,7 @@
 
             <div class="text-center">
                 <span class="ml-badge">
-                    <i class="fas fa-brain"></i> Auto-Detect ML
+                    <i class="fas fa-camera" aria-hidden="true"></i> Deteksi wajah otomatis
                 </span>
             </div>
 
@@ -256,7 +259,7 @@
                 </button>
             </div>
 
-            <div class="status-message" id="statusMessage"></div>
+            <div class="status-message" id="statusMessage" role="status" aria-live="polite"></div>
 
             <input type="hidden" id="lat">
             <input type="hidden" id="long">

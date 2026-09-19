@@ -46,8 +46,7 @@ class MultiCompanyAccessTest extends TestCase
 
         $this->get('/?company_id=' . $this->krb->id)
             ->assertOk()
-            ->assertSee('<h1 class="brand-title">' . $this->krb->name . '</h1>', false)
-            ->assertDontSee('<h1 class="brand-title">PT Indoocean Crew Service</h1>', false)
+            ->assertSee('Siap memulai hari?')
             ->assertSee($this->krb->name)
             ->assertSee('Face Recognition')
             ->assertSee('QR Code')
@@ -58,16 +57,16 @@ class MultiCompanyAccessTest extends TestCase
     {
         $this->get('/login?company_id=' . $this->krb->id)
             ->assertOk()
-            ->assertSee('<h1 class="login-title">' . $this->krb->name . '</h1>', false)
-            ->assertSee('Perusahaan Aktif')
-            ->assertSee('name="company_id"', false)
+            ->assertSee('Senang Anda kembali.')
+            ->assertSee('Perusahaan aktif')
+            ->assertSee('<input type="hidden" name="company_id" id="company_id"', false)
             ->assertSee('value="' . $this->krb->id . '"', false)
-            ->assertDontSee('Pilih Perusahaan')
+            ->assertDontSee('<select class="auth-input" name="company_id"', false)
             ->assertDontSee($this->ios->name);
 
         $this->get('/login')
             ->assertOk()
-            ->assertSee('Pilih Perusahaan')
+            ->assertSee('<select class="auth-input" name="company_id" id="company_id"', false)
             ->assertSee($this->ios->name)
             ->assertSee($this->krb->name);
     }

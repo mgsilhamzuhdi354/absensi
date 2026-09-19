@@ -1,4 +1,7 @@
 @extends('templates.login')
+@push('style')
+    <link rel="stylesheet" href="{{ asset('css/attendance-entry.css') }}?v={{ filemtime(public_path('css/attendance-entry.css')) }}">
+@endpush
 @section('container')
     <style>
         * {
@@ -288,7 +291,7 @@
 
     <div class="attendance-container">
         <div class="attendance-card">
-            <a href="{{ url('/') }}" class="back-link">
+            <a href="{{ route('welcome', request()->only('company_id')) }}" class="back-link">
                 <i class="fas fa-arrow-left"></i> Kembali
             </a>
 
@@ -317,7 +320,8 @@
             </div>
 
             <form id="manualScanForm" class="manual-form">
-                <input type="text" id="manualUsername" class="form-control" placeholder="Masukkan username / isi QR">
+                <label for="manualUsername">Username / isi QR</label>
+                <input type="text" id="manualUsername" class="form-control" placeholder="Masukkan username / isi QR" autocomplete="off" autocapitalize="none" spellcheck="false">
                 <button class="btn btn-masuk" type="submit">
                     <i class="fas fa-check"></i> Gunakan Data Ini
                 </button>
@@ -337,7 +341,7 @@
                 </button>
             </div>
 
-            <div class="status-message" id="statusMessage"></div>
+            <div class="status-message" id="statusMessage" role="status" aria-live="polite"></div>
 
             <input type="hidden" id="lat">
             <input type="hidden" id="long">
