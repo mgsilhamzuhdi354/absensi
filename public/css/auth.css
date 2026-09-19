@@ -194,6 +194,13 @@ div.auth-help > p { margin: 0; font-size: 11px; }
     .auth-footer a { justify-content: center; }
 }
 
+@media (max-width: 520px) {
+    .auth-methods { grid-template-columns: 1fr; }
+    .auth-method { flex-direction: row; align-items: center; gap: 12px; padding: 16px; }
+    .auth-method > span:nth-child(2) { flex: 1; min-width: 0; }
+    .auth-method > i:last-child { margin-left: auto; }
+}
+
 @media (max-width: 390px) {
     .auth-shell { width: calc(100% - 24px); }
     .auth-header { gap: 10px; padding-right: 2px; padding-left: 2px; }
