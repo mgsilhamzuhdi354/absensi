@@ -100,7 +100,7 @@ class KunjunganExport implements FromQuery, WithColumnFormatting, WithMapping, W
         $mulai = request()->input('mulai');
         $akhir = request()->input('akhir');
         $user_id = request()->input('user_id');
-        $users = User::orderBy('name')->get();
+        $users = User::activeEmployment()->orderBy('name')->get();
         $kunjungan = Kunjungan::when($mulai && $akhir, function ($query) use ($mulai, $akhir) {
                         $query->whereBetween('tanggal', [$mulai, $akhir]);
                     })

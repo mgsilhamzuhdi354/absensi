@@ -39,6 +39,7 @@
                             </div>
                         </div>
                         <a href="{{ url('/pegawai/export') }}{{ $_GET?'?'.$_SERVER['QUERY_STRING']: '' }}" class="btn btn-sm btn-success me-2"><i class="fa fa-file-excel me-2"></i> Export</a>
+                        <a href="{{ url('/exit') }}" class="btn btn-sm btn-outline-danger me-2"><i class="fas fa-user-slash me-2"></i>Pegawai Keluar</a>
                         @if(request('reorder_mode'))
                             <a href="{{ url('/pegawai') }}" class="btn btn-sm btn-secondary"><i class="fas fa-times me-2"></i>Selesai Atur</a>
                         @else
@@ -51,6 +52,9 @@
         <div class="col-sm-12">
             <div class="card">
                 <div class="card-header pb-0">
+                    <div class="alert alert-light border mb-3 py-2">
+                        Daftar ini hanya menampilkan pegawai aktif. Pegawai PHK atau keluar yang sudah disetujui tersimpan di menu <a href="{{ url('/exit') }}">Pegawai Keluar</a>.
+                    </div>
                     <form action="{{ url('/pegawai') }}">
                         <div class="row mb-2">
                             <div class="col-10">

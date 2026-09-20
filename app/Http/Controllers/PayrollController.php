@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Payroll;
 use App\Models\StatusPtkp;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class PayrollController extends Controller
@@ -15,7 +16,13 @@ class PayrollController extends Controller
         $bulan = request()->input('bulan');
         $tahun = request()->input('tahun');
         if (auth()->user()->is_admin == 'admin') {
-            $data = Payroll::when($bulan, function ($query) use ($bulan) {
+            $pegawaiStatus = request()->input('pegawai_status') === 'keluar' ? 'keluar' : 'aktif';
+            $data = Payroll::whereHas('user', function ($query) use ($pegawaiStatus) {
+                                $pegawaiStatus === 'keluar'
+                                    ? $query->exitedEmployment()
+                                    : $query->activeEmployment();
+                            })
+                            ->when($bulan, function ($query) use ($bulan) {
                                 return $query->where('bulan', $bulan);
                             })
                             ->when($tahun, function ($query) use ($tahun) {
@@ -24,7 +31,8 @@ class PayrollController extends Controller
                             ->orderBy('no_gaji', 'DESC');
 
             return view('payroll.index', [
-                'title' => 'Payroll',
+                'title' => $pegawaiStatus === 'keluar' ? 'Riwayat Payroll Pegawai Keluar' : 'Payroll Pegawai Aktif',
+                'pegawai_status' => $pegawaiStatus,
                 'data' => $data->paginate(10)->withQueryString()
             ]);
         } else {
@@ -50,7 +58,7 @@ class PayrollController extends Controller
     {
         return view('payroll.tambah', [
             'title' => 'Tambah Data Penggajian Karyawan',
-            'data_user' => User::select('id', 'name')->orderBy('name', 'ASC')->get(),
+            'data_user' => User::activeEmployment()->select('id', 'name')->orderBy('name', 'ASC')->get(),
             'data_status' => StatusPtkp::select('id', 'name')->orderBy('name', 'ASC')->get()
         ]);
     }
@@ -58,7 +66,7 @@ class PayrollController extends Controller
     public function tambahProses(Request $request)
     {
         $validated = $request->validate([
-            'user_id' => 'required',
+            'user_id' => 'required|integer|exists:users,id',
             'status_id' => 'required',
             'bulan' => 'required',
             'tahun' => 'required',
@@ -73,6 +81,12 @@ class PayrollController extends Controller
             'pot_lainnya' => 'nullable',
             'lembur' => 'nullable'
         ]);
+
+        if (!User::activeEmployment()->whereKey($validated['user_id'])->exists()) {
+            throw ValidationException::withMessages([
+                'user_id' => 'Pegawai ini sudah keluar dan tidak dapat dimasukkan ke payroll baru.',
+            ]);
+        }
 
         if(!$validated['gaji']){
             $validated['gaji'] = 0;

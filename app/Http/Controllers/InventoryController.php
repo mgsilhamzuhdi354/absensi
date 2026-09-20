@@ -205,7 +205,7 @@ class InventoryController extends Controller
         $deletedStockTransactions = $this->deletedStockTransactions($inventory, $inventoryReturnTablesReady);
         $currentHolderTransaction = $this->currentHolderTransaction($inventory);
         $lokasi = Lokasi::forCompany($inventory->company_id)->orderBy('nama_lokasi')->get();
-        $users = User::with('Jabatan')->forCompany($inventory->company_id)->orderBy('name')->get();
+        $users = User::activeEmployment()->with('Jabatan')->forCompany($inventory->company_id)->orderBy('name')->get();
         $transferCompanies = Company::active()
             ->where('id', '!=', $inventory->company_id)
             ->orderBy('name')

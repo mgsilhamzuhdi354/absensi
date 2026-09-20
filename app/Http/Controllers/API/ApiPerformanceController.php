@@ -49,7 +49,7 @@ class ApiPerformanceController extends Controller
             $year = $request->input('year', date('Y'));
 
             // Get all users with their all-time running score AND monthly score
-            $summary = User::select('users.id', 'users.name', 'users.jabatan_id')
+            $summary = User::activeEmployment()->select('users.id', 'users.name', 'users.jabatan_id')
                 ->with('Jabatan')
                 ->leftJoin('laporan_kinerjas', 'users.id', '=', 'laporan_kinerjas.user_id')
                 ->selectRaw('

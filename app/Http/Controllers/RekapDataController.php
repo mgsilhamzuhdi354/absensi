@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use App\Services\AttendanceRecapService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use RealRashid\SweetAlert\Facades\Alert;
+use Illuminate\Validation\ValidationException;
 
 class RekapDataController extends Controller
 {
@@ -33,7 +34,7 @@ class RekapDataController extends Controller
 
         date_default_timezone_set('Asia/Jakarta');
 
-        $user = User::orderBy('name', 'ASC')->paginate(10)->withQueryString();
+        $user = User::activeEmployment()->orderBy('name', 'ASC')->paginate(10)->withQueryString();
 
         $mulai = request()->input('mulai');
         $akhir = request()->input('akhir');
@@ -62,7 +63,7 @@ class RekapDataController extends Controller
 
     public function payroll($id)
     {
-        $user = User::find($id);
+        $user = User::activeEmployment()->findOrFail($id);
         $mulai = request()->input('mulai');
         $akhir = request()->input('akhir');
         $counter = Counter::where('name', 'Gaji')->first();
@@ -82,6 +83,12 @@ class RekapDataController extends Controller
 
     public function tambahPayroll(Request $request)
     {
+        if (!User::activeEmployment()->whereKey($request->input('user_id'))->exists()) {
+            throw ValidationException::withMessages([
+                'user_id' => 'Pegawai ini sudah keluar dan tidak dapat dibuatkan payroll baru.',
+            ]);
+        }
+
         $cek = Payroll::where('user_id', $request['user_id'])->where('bulan', $request['bulan'])->where('tahun', $request['tahun'])->first();
         if ($cek) {
             Alert::error('Failed', 'Sudah Ada Data Pada Bulan Dan Tahun Tersebut!');
@@ -226,7 +233,7 @@ class RekapDataController extends Controller
 
     public function rekapPdf()
     {
-        $data = User::orderBy('name', 'ASC')->get();
+        $data = User::activeEmployment()->orderBy('name', 'ASC')->get();
         $mulai = request()->input('mulai');
         $akhir = request()->input('akhir');
 

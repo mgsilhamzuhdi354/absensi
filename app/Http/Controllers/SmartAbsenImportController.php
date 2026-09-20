@@ -33,7 +33,7 @@ class SmartAbsenImportController extends Controller
         return view('absen.smart-import', [
             'title'  => 'Smart Import Absensi',
             'shifts' => Shift::all(),
-            'users'  => User::orderBy('name', 'ASC')->get(),
+            'users'  => User::activeEmployment()->orderBy('name', 'ASC')->get(),
         ]);
     }
 
@@ -63,7 +63,7 @@ class SmartAbsenImportController extends Controller
                 ], 422);
             }
 
-            $users = User::orderBy('name', 'ASC')->get();
+            $users = User::activeEmployment()->orderBy('name', 'ASC')->get();
             $machineType = $parser->machineFileType($rows);
             $workbookTypes = $this->workbookTypes($parser, $fullPaths);
             $machineMode = $this->isMachineMode($fullPaths, $machineType, $workbookTypes);

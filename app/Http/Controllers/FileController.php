@@ -21,7 +21,7 @@ class FileController extends Controller
     {
         return view('file.upload', [
             'title' => 'Upload File',
-            'data_user' => User::all()
+            'data_user' => User::activeEmployment()->get()
         ]);
     }
 
@@ -45,7 +45,7 @@ class FileController extends Controller
     {
         return view('file.edit', [
             'title' => "Edit Data File",
-            'data_user' => User::all(),
+            'data_user' => User::activeEmployment()->get(),
             'data' => File::findOrFail($id)
         ]);
     }

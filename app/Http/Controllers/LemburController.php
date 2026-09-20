@@ -298,7 +298,7 @@ class LemburController extends Controller
 
         return view('lembur.datalembur', [
             'title' => 'Data Lembur',
-            'user' => User::select('id', 'name')->get(),
+            'user' => User::activeEmployment()->select('id', 'name')->get(),
             'data_lembur' => $data_lembur->paginate(10)->withQueryString()
         ]);
     }

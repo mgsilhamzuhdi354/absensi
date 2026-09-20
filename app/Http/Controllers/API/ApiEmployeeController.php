@@ -16,7 +16,7 @@ class ApiEmployeeController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = User::with(['Jabatan', 'Lokasi']);
+            $query = User::activeEmployment()->with(['Jabatan', 'Lokasi']);
 
             // Filter by jabatan_id
             if ($request->has('jabatan_id')) {
@@ -61,10 +61,10 @@ class ApiEmployeeController extends Controller
     {
         try {
             $stats = [
-                'total' => User::count(),
-                'admin' => User::where('is_admin', 'admin')->count(),
-                'user' => User::where('is_admin', 'user')->count(),
-                'by_jabatan' => User::selectRaw('jabatan_id, COUNT(*) as count')
+                'total' => User::activeEmployment()->count(),
+                'admin' => User::activeEmployment()->where('is_admin', 'admin')->count(),
+                'user' => User::activeEmployment()->where('is_admin', 'user')->count(),
+                'by_jabatan' => User::activeEmployment()->selectRaw('jabatan_id, COUNT(*) as count')
                     ->with('Jabatan')
                     ->whereNotNull('jabatan_id')
                     ->groupBy('jabatan_id')

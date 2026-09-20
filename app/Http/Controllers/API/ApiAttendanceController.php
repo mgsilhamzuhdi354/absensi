@@ -52,7 +52,7 @@ class ApiAttendanceController extends Controller
             $month = $request->input('month', date('m'));
             $year = $request->input('year', date('Y'));
 
-            $summary = User::select('users.id', 'users.name', 'users.jabatan_id')
+            $summary = User::activeEmployment()->select('users.id', 'users.name', 'users.jabatan_id')
                 ->with('Jabatan')
                 ->leftJoin('mapping_shifts', function ($join) use ($month, $year) {
                     $join->on('users.id', '=', 'mapping_shifts.user_id')

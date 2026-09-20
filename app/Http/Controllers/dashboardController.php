@@ -42,7 +42,7 @@ class dashboardController extends Controller
             $has_kpi_period_data = LaporanKinerja::whereBetween('tanggal', [$kpi_tgl_mulai, $kpi_tgl_akhir])->exists();
 
             // KPI Data - Top 10 Performers (berdasarkan total nilai kinerja bulan ini)
-            $top_performers = User::with(['jabatan'])
+            $top_performers = User::activeEmployment()->with(['jabatan'])
                 ->get()
                 ->map(function($user) use ($kpi_tgl_mulai, $kpi_tgl_akhir) {
                     // Hitung total nilai kinerja bulan ini
@@ -64,7 +64,7 @@ class dashboardController extends Controller
             $kpi_baik = 0;
             $kpi_belum_ada_data = 0;
             
-            $all_users = User::all();
+            $all_users = User::activeEmployment()->get();
             foreach($all_users as $user) {
                 // Cek apakah user memiliki data kinerja bulan ini
                 $has_kinerja = LaporanKinerja::where('user_id', $user->id)
@@ -132,7 +132,7 @@ class dashboardController extends Controller
 
             return view('dashboard.index', [
                 'title' => 'Dashboard',
-                'jumlah_user' => User::count(),
+                'jumlah_user' => User::activeEmployment()->count(),
                 'jumlah_masuk' => MappingShift::where('tanggal', $tgl_skrg)->where('status_absen', 'Masuk')->count(),
                 'jumlah_libur' => MappingShift::where('tanggal', $tgl_skrg)->where('status_absen', 'Libur')->count(),
                 'jumlah_cuti' => MappingShift::where('tanggal', $tgl_skrg)->where('status_absen', 'Cuti')->count(),

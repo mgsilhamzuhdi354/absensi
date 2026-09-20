@@ -247,7 +247,7 @@ class DinasLuar extends Controller
 
         return view('dinasluar.dataabsendinas', [
             'title' => 'Data Dinas Luar',
-            'user' => User::select('id', 'name')->get(),
+            'user' => User::activeEmployment()->select('id', 'name')->get(),
             'data_absen' => $data_absen->paginate(10)->withQueryString()
         ]);
     }

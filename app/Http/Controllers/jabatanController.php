@@ -31,7 +31,7 @@ class jabatanController extends Controller
     {
         return view('jabatan.create', [
             'title' => 'Tambah Data Divisi',
-            'users' => User::select('id', 'name')->forCompany(current_company_id())->orderBy('name')->get(),
+            'users' => User::activeEmployment()->select('id', 'name')->forCompany(current_company_id())->orderBy('name')->get(),
             'companies' => Company::active()->orderBy('name')->get(),
         ]);
     }
@@ -57,7 +57,7 @@ class jabatanController extends Controller
         return view('jabatan.edit', [
             'title' => 'Edit Data Divisi',
             'data_jabatan' => Jabatan::findOrFail($id),
-            'users' => User::select('id', 'name')->forCompany(Jabatan::findOrFail($id)->company_id)->orderBy('name')->get(),
+            'users' => User::activeEmployment()->select('id', 'name')->forCompany(Jabatan::findOrFail($id)->company_id)->orderBy('name')->get(),
             'companies' => Company::active()->orderBy('name')->get(),
         ]);
     }

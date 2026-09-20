@@ -13,7 +13,7 @@ class KinerjaPegawaiController extends Controller
     {
         $title = 'Laporan Kinerja';
         $search = request()->input('search');
-        $users = User::when($search, function ($query) use ($search) {
+        $users = User::activeEmployment()->when($search, function ($query) use ($search) {
                         return $query->where('name', 'LIKE', '%' . $search . '%');
                     })
                     ->orderBy('name', 'ASC')

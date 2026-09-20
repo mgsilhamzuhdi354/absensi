@@ -85,7 +85,7 @@ class CutiController extends Controller
             $cuti = Cuti::create($validatedData);
         }
 
-        $admin_users = User::where('is_admin', 'admin')->get();
+        $admin_users = User::activeEmployment()->where('is_admin', 'admin')->get();
 
         foreach ($admin_users as $user) {
             $type = 'Approval';
@@ -142,7 +142,7 @@ class CutiController extends Controller
 
         $cuti->update($validatedData);
 
-        $admin_users = User::where('is_admin', 'admin')->get();
+        $admin_users = User::activeEmployment()->where('is_admin', 'admin')->get();
 
         foreach ($admin_users as $user) {
             $type = 'Approval';
@@ -173,7 +173,7 @@ class CutiController extends Controller
             'is_admin' => 'admin'
         ]);
 
-        $users = User::when(auth()->user()->hasRole('kepala_cabang'), function ($query) {
+        $users = User::activeEmployment()->when(auth()->user()->hasRole('kepala_cabang'), function ($query) {
             return $query->where('lokasi_id', auth()->user()->lokasi_id);
         })
             ->orderBy('name')
@@ -203,7 +203,7 @@ class CutiController extends Controller
 
     public function tambahAdmin()
     {
-        $users = User::when(auth()->user()->hasRole('kepala_cabang'), function ($query) {
+        $users = User::activeEmployment()->when(auth()->user()->hasRole('kepala_cabang'), function ($query) {
             return $query->where('lokasi_id', auth()->user()->lokasi_id);
         })
             ->orderBy('name')
@@ -304,7 +304,7 @@ class CutiController extends Controller
             $cuti = Cuti::create($validatedData);
         }
 
-        $admin_users = User::where('is_admin', 'admin')->get();
+        $admin_users = User::activeEmployment()->where('is_admin', 'admin')->get();
 
         foreach ($admin_users as $user) {
             $type = 'Approval';

@@ -36,7 +36,7 @@ class RapatController extends Controller
     public function tambah()
     {
         $title = 'Rapat';
-        $users = User::orderBy('name')->get();
+        $users = User::activeEmployment()->orderBy('name')->get();
         return view('rapat.tambah', compact(
             'title',
             'users',
@@ -95,7 +95,7 @@ class RapatController extends Controller
     public function edit($id)
     {
         $title = 'Rapat';
-        $users = User::orderBy('name')->get();
+        $users = User::activeEmployment()->orderBy('name')->get();
         $rapat = Rapat::find($id);
         $user_id = RapatPegawai::where('rapat_id', $rapat->id)->pluck('user_id')->toArray();
 

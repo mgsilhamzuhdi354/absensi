@@ -81,7 +81,7 @@ class TargetKinerjaController extends Controller
     public function tambah()
     {
         $title = 'Target Kinerja';
-        $users = User::orderBy('name')->get();
+        $users = User::activeEmployment()->orderBy('name')->get();
         $jabatans = Jabatan::orderBy('nama_jabatan')->get();
         if (!old('nomor')) {
             $counter = Counter::where('name', 'Target Kinerja')->first();
@@ -143,7 +143,7 @@ class TargetKinerjaController extends Controller
     public function edit($id)
     {
         $title = 'Target Kinerja';
-        $users = User::orderBy('name')->get();
+        $users = User::activeEmployment()->orderBy('name')->get();
         $jabatans = Jabatan::orderBy('nama_jabatan')->get();
         $target_kinerja = TargetKinerja::find($id);
 

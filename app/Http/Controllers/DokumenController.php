@@ -31,7 +31,7 @@ class DokumenController extends Controller
     {
         return view('dokumen.tambah', [
             'title' => 'Tambah Data Dokumen',
-            'data_user' => User::all()
+            'data_user' => User::activeEmployment()->get()
         ]);
     }
     
@@ -56,7 +56,7 @@ class DokumenController extends Controller
     {
         return view('dokumen.edit', [
             'title' => "Edit Data Dokumen",
-            'data_user' => User::all(),
+            'data_user' => User::activeEmployment()->get(),
             'data_dokumen' => Sip::findOrFail($id)
         ]);
     }

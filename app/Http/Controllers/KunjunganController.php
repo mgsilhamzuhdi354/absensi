@@ -15,7 +15,7 @@ class KunjunganController extends Controller
         $mulai = request()->input('mulai');
         $akhir = request()->input('akhir');
         $user_id = request()->input('user_id');
-        $users = User::orderBy('name')->get();
+        $users = User::activeEmployment()->orderBy('name')->get();
         $kunjungan = Kunjungan::when($mulai && $akhir, function ($query) use ($mulai, $akhir) {
                         $query->whereBetween('tanggal', [$mulai, $akhir]);
                     })
@@ -46,7 +46,7 @@ class KunjunganController extends Controller
     public function tambah()
     {
         $title = 'Visit In';
-        $user = User::orderBy('name', 'ASC')->get();
+        $user = User::activeEmployment()->orderBy('name', 'ASC')->get();
         if (auth()->user()->is_admin == 'admin') {
             return view('kunjungan.tambah', compact(
                 'title',
@@ -84,7 +84,7 @@ class KunjunganController extends Controller
     public function visitOut($id)
     {
         $title = 'Visit Out';
-        $user = User::orderBy('name', 'ASC')->get();
+        $user = User::activeEmployment()->orderBy('name', 'ASC')->get();
         $kunjungan = Kunjungan::find($id);
         if (auth()->user()->is_admin == 'admin') {
             return view('kunjungan.visitOut', compact(
@@ -125,7 +125,7 @@ class KunjunganController extends Controller
     public function edit($id)
     {
         $title = 'Kunjungan';
-        $user = User::orderBy('name', 'ASC')->get();
+        $user = User::activeEmployment()->orderBy('name', 'ASC')->get();
         $kunjungan = Kunjungan::find($id);
         if (auth()->user()->is_admin == 'admin') {
             return view('kunjungan.edit', compact(

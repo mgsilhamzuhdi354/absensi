@@ -46,7 +46,7 @@ class ReimbursementController extends Controller
     public function tambah()
     {
         $title = 'Reimbursement';
-        $user = User::orderBy('name', 'ASC')->get();
+        $user = User::activeEmployment()->orderBy('name', 'ASC')->get();
         $kategori = Kategori::orderBy('name', 'ASC')->where('active', 1)->get();
         if (auth()->user()->is_admin == 'admin') {
             return view('reimbursement.tambah', compact(
@@ -106,7 +106,7 @@ class ReimbursementController extends Controller
             $user_pengaju = User::find($validated['user_id']);
             $total_formatted = number_format($reimbursement->total, 0, ',', '.');
             
-            $admin_users = User::where('is_admin', 'admin')->get();
+            $admin_users = User::activeEmployment()->where('is_admin', 'admin')->get();
 
             foreach ($admin_users as $user) {
                 $type = 'Approval';
@@ -146,7 +146,7 @@ class ReimbursementController extends Controller
     {
         $reimbursement = Reimbursement::find($id);
         $title = 'Reimbursement';
-        $user = User::orderBy('name', 'ASC')->get();
+        $user = User::activeEmployment()->orderBy('name', 'ASC')->get();
         $kategori = Kategori::orderBy('name', 'ASC')->where('active', 1)->get();
         if (auth()->user()->is_admin == 'admin') {
             return view('reimbursement.edit', compact(

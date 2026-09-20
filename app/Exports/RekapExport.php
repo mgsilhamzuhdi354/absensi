@@ -101,7 +101,7 @@ class RekapExport implements FromQuery, WithColumnFormatting, WithMapping, WithH
 
     public function query()
     {
-        return User::orderBy('name', 'ASC');
+        return User::activeEmployment()->orderBy('name', 'ASC');
     }
 
     private function summaryFor(int $userId): array
@@ -110,7 +110,7 @@ class RekapExport implements FromQuery, WithColumnFormatting, WithMapping, WithH
             $tanggalMulai = $this->filters['mulai'] ?? request()->input('mulai');
             $tanggalAkhir = $this->filters['akhir'] ?? request()->input('akhir');
             $this->summaries = app(AttendanceRecapService::class)
-                ->summariesForUsers(User::pluck('id'), $tanggalMulai, $tanggalAkhir);
+                ->summariesForUsers(User::activeEmployment()->pluck('id'), $tanggalMulai, $tanggalAkhir);
         }
 
         $tanggalMulai = $this->filters['mulai'] ?? request()->input('mulai');

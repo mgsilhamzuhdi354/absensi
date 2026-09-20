@@ -51,12 +51,12 @@ class KasbonController extends Controller
         if (auth()->user()->is_admin == 'admin') {
             return view('kasbon.tambah', [
                 'title' => 'Tambah Data Kasbon',
-                'data_user' => User::orderBy('name', 'asc')->get()
+                'data_user' => User::activeEmployment()->orderBy('name', 'asc')->get()
             ]);
         } else {
             return view('kasbon.tambahuser', [
                 'title' => 'Tambah Data Kasbon',
-                'data_user' => User::orderBy('name', 'asc')->get()
+                'data_user' => User::activeEmployment()->orderBy('name', 'asc')->get()
             ]);
         }
 
@@ -81,7 +81,7 @@ class KasbonController extends Controller
             $user_pengaju = User::find($validated['user_id']);
             $nominal_formatted = number_format($kasbon->nominal, 0, ',', '.');
             
-            $admin_users = User::where('is_admin', 'admin')->get();
+            $admin_users = User::activeEmployment()->where('is_admin', 'admin')->get();
 
             foreach ($admin_users as $user) {
                 $type = 'Approval';
@@ -125,13 +125,13 @@ class KasbonController extends Controller
         if (auth()->user()->is_admin == 'admin') {
             return view('kasbon.edit', [
                 'title' => 'Edit Data Kasbon',
-                'data_user' => User::orderBy('name', 'asc')->get(),
+                'data_user' => User::activeEmployment()->orderBy('name', 'asc')->get(),
                 'kasbon' => Kasbon::find($id),
             ]);
         } else {
             return view('kasbon.edituser', [
                 'title' => 'Edit Data Kasbon',
-                'data_user' => User::orderBy('name', 'asc')->get(),
+                'data_user' => User::activeEmployment()->orderBy('name', 'asc')->get(),
                 'kasbon' => Kasbon::find($id),
             ]);
         }

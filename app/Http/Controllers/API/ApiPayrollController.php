@@ -17,7 +17,13 @@ class ApiPayrollController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Payroll::with(['user', 'user.Jabatan', 'user.Lokasi']);
+            $pegawaiStatus = $request->input('pegawai_status') === 'keluar' ? 'keluar' : 'aktif';
+            $query = Payroll::with(['user', 'user.Jabatan', 'user.Lokasi'])
+                ->whereHas('user', function ($query) use ($pegawaiStatus) {
+                    $pegawaiStatus === 'keluar'
+                        ? $query->exitedEmployment()
+                        : $query->activeEmployment();
+                });
 
             // Filter by month/year
             if ($request->has('bulan') && $request->has('tahun')) {
@@ -50,6 +56,7 @@ class ApiPayrollController extends Controller
             $tahun = $request->input('tahun', date('Y'));
 
             $payrolls = Payroll::with(['user', 'user.Jabatan', 'user.Lokasi'])
+                ->whereHas('user', fn ($query) => $query->activeEmployment())
                 ->where('bulan', $bulan)
                 ->where('tahun', $tahun)
                 ->get();

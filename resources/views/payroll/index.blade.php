@@ -9,6 +9,11 @@
                     </div>
                     <div class="col-md-6 p-0">
                         <a href="{{ url('/rekap-data') }}" class="btn btn-primary">+ Tambah</a>
+                        @if(($pegawai_status ?? 'aktif') === 'keluar')
+                            <a href="{{ url('/payroll') }}" class="btn btn-outline-primary">Payroll Aktif</a>
+                        @else
+                            <a href="{{ url('/payroll?pegawai_status=keluar') }}" class="btn btn-outline-danger">Riwayat Pegawai Keluar</a>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -96,6 +101,7 @@
                                     @endforeach
                                 </select>
                             </div>
+                            <input type="hidden" name="pegawai_status" value="{{ $pegawai_status ?? 'aktif' }}">
                             <div class="col-3">
                                 <button type="submit" id="search"class="border-0 mt-3" style="background-color: transparent;"><i class="fas fa-search"></i></button>
                             </div>

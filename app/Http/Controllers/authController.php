@@ -80,6 +80,7 @@ class authController extends Controller
 
         // Get users with face descriptors directly
         $allUsers = User::forCompany(current_company_id())
+            ->activeEmployment()
             ->select('id', 'name', 'username', 'face_descriptor')
             ->get();
 
@@ -105,7 +106,7 @@ class authController extends Controller
     {
         date_default_timezone_set('Asia/Jakarta');
         $currentDate = date('Y-m-d');
-        $user = User::where('username', $username)->first();
+        $user = User::activeEmployment()->where('username', $username)->first();
 
         if (!$user) {
             return response()->json(['status' => 'noUser']);
@@ -133,7 +134,7 @@ class authController extends Controller
     {
         date_default_timezone_set('Asia/Jakarta');
         $currentDate = date('Y-m-d');
-        $user = User::where('username', $request['username'])->first();
+        $user = User::activeEmployment()->where('username', $request['username'])->first();
 
         if (!$user) {
             return response()->json('noUser');
@@ -163,6 +164,7 @@ class authController extends Controller
 
             // Get ALL users and filter in PHP
             $allUsers = User::forCompany(current_company_id())
+                ->activeEmployment()
                 ->select('id', 'name', 'username', 'nip', 'face_descriptor')
                 ->get();
 
@@ -256,7 +258,7 @@ class authController extends Controller
         date_default_timezone_set('Asia/Jakarta');
         $currentDate = date('Y-m-d');
         $username = $this->normalizeScannedUsername($request->input('username'));
-        $user = $username ? User::where('username', $username)->first() : null;
+        $user = $username ? User::activeEmployment()->where('username', $username)->first() : null;
         if ($user) {
             $ms = MappingShift::where('user_id', $user->id)->where('tanggal', $currentDate)->first();
             if ($ms) {
@@ -377,7 +379,7 @@ class authController extends Controller
         date_default_timezone_set('Asia/Jakarta');
         $currentDate = date('Y-m-d');
         $username = $this->normalizeScannedUsername($request->input('username'));
-        $user = $username ? User::where('username', $username)->first() : null;
+        $user = $username ? User::activeEmployment()->where('username', $username)->first() : null;
         if ($user) {
             $ms = MappingShift::where('user_id', $user->id)->where('tanggal', $currentDate)->first();
             if ($ms) {
@@ -541,7 +543,7 @@ class authController extends Controller
         date_default_timezone_set('Asia/Jakarta');
         $currentDate = date('Y-m-d');
         $username = $this->normalizeScannedUsername($request->input('username'));
-        $user = $username ? User::where('username', $username)->first() : null;
+        $user = $username ? User::activeEmployment()->where('username', $username)->first() : null;
         if ($user) {
             $ms = MappingShift::where('user_id', $user->id)->where('tanggal', $currentDate)->first();
             if ($ms) {
@@ -733,7 +735,7 @@ class authController extends Controller
         date_default_timezone_set('Asia/Jakarta');
         $currentDate = date('Y-m-d');
         $username = $this->normalizeScannedUsername($request->input('username'));
-        $user = $username ? User::where('username', $username)->first() : null;
+        $user = $username ? User::activeEmployment()->where('username', $username)->first() : null;
         if ($user) {
             $ms = MappingShift::where('user_id', $user->id)->where('tanggal', $currentDate)->first();
             if ($ms) {
@@ -972,7 +974,7 @@ class authController extends Controller
         ]);
         $attemptCredentials = $request->only('username', 'password');
 
-        $user = User::where('username', $request->username)->first();
+        $user = User::activeEmployment()->where('username', $request->username)->first();
 
         if ($user) {
             if ($user->masa_berlaku && $user->masa_berlaku <= date('Y-m-d')) {
@@ -1018,7 +1020,7 @@ class authController extends Controller
         ]);
         $attemptCredentials = $request->only('username', 'password');
 
-        $user = User::where('username', $request->username)->first();
+        $user = User::activeEmployment()->where('username', $request->username)->first();
 
         if ($user) {
             if ($user->masa_berlaku && $user->masa_berlaku <= date('Y-m-d')) {

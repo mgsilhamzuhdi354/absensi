@@ -132,7 +132,7 @@ class PengajuanDinasLuarController extends Controller
     // ========================
     private function notifyAdmins(Request $request, PengajuanDinasLuar $pengajuan)
     {
-        $admin_users = User::where('is_admin', 'admin')->get();
+        $admin_users = User::activeEmployment()->where('is_admin', 'admin')->get();
         foreach ($admin_users as $admin) {
             $type  = 'Approval';
             $notif = 'Pengajuan Dinas Luar dari ' . auth()->user()->name . ' (' . $pengajuan->tanggal_mulai . ' s/d ' . $pengajuan->tanggal_akhir . ') menunggu approval Anda.';
@@ -193,7 +193,7 @@ class PengajuanDinasLuarController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $users = User::orderBy('name')->get();
+        $users = User::activeEmployment()->orderBy('name')->get();
 
         return view('pengajuan-dinas-luar.admin', [
             'title' => 'Data Pengajuan Dinas Luar',
@@ -259,7 +259,7 @@ class PengajuanDinasLuarController extends Controller
     public function manualForm()
     {
         $shifts = Shift::orderBy('nama_shift')->get();
-        $users  = User::orderBy('name')->get();
+        $users  = User::activeEmployment()->orderBy('name')->get();
 
         return view('pengajuan-dinas-luar.manual', [
             'title'  => 'Input Dinas Luar Manual',

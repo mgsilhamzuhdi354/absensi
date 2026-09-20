@@ -15,6 +15,7 @@ use App\Services\LayananAsetPegawaiKeluar;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PegawaiKeluarController extends Controller
 {
@@ -71,7 +72,7 @@ class PegawaiKeluarController extends Controller
     public function tambah()
     {
         $title = 'Pegawai Keluar';
-        $users = User::orderBy('name')->get();
+        $users = User::activeEmployment()->orderBy('name')->get();
         $exitTypes = MasterLookup::getByType(MasterLookup::TYPE_EXIT);
 
         return view($this->adminOrUserView('pegawai-keluar.tambah', 'pegawai-keluar.tambahUser'), compact(
@@ -95,9 +96,11 @@ class PegawaiKeluarController extends Controller
     public function edit($id)
     {
         $title = 'Pegawai Keluar';
-        $users = User::orderBy('name')->get();
         $pegawai_keluar = PegawaiKeluar::with('user.Jabatan.man')->findOrFail($id);
         abort_unless($this->canModify($pegawai_keluar), 403);
+        $users = User::where(function ($query) use ($pegawai_keluar) {
+            $query->activeEmployment()->orWhereKey($pegawai_keluar->user_id);
+        })->orderBy('name')->get();
 
         $exitTypes = MasterLookup::getByType(MasterLookup::TYPE_EXIT);
 
@@ -162,7 +165,7 @@ class PegawaiKeluarController extends Controller
         $pegawai_keluar = PegawaiKeluar::with(['user.Jabatan', 'approvedBy'])->findOrFail($id);
         $clearances = $this->layananAset->syncClearances($pegawai_keluar);
         $lokasi = Lokasi::orderBy('nama_lokasi')->get();
-        $users = User::with('Jabatan')->orderBy('name')->get();
+        $users = User::activeEmployment()->with('Jabatan')->orderBy('name')->get();
 
         return view('pegawai-keluar.aset', compact('title', 'pegawai_keluar', 'clearances', 'lokasi', 'users'));
     }
@@ -408,6 +411,15 @@ class PegawaiKeluarController extends Controller
 
         if (!$isAdmin) {
             $validated['user_id'] = $pegawaiKeluar ? $pegawaiKeluar->user_id : auth()->id();
+        }
+
+        $keepsCurrentHistoricalUser = $pegawaiKeluar
+            && (int) $pegawaiKeluar->user_id === (int) $validated['user_id'];
+
+        if (!$keepsCurrentHistoricalUser && !User::activeEmployment()->whereKey($validated['user_id'])->exists()) {
+            throw ValidationException::withMessages([
+                'user_id' => 'Pegawai ini sudah tercatat keluar.',
+            ]);
         }
 
         if ($request->hasFile('pegawai_keluar_file_path')) {

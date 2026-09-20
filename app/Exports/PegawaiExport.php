@@ -157,15 +157,19 @@ class PegawaiExport implements FromQuery, WithColumnFormatting, WithMapping, Wit
     public function query()
     {
         $search = request()->input('search');
-        $data = User::when($search, function ($query) use ($search) {
-            $query->where('name', 'LIKE', '%' . $search . '%')
-                ->orWhere('email', 'LIKE', '%' . $search . '%')
-                ->orWhere('telepon', 'LIKE', '%' . $search . '%')
-                ->orWhere('username', 'LIKE', '%' . $search . '%')
-                ->orWhereHas('Jabatan', function ($query) use ($search) {
-                    $query->where('nama_jabatan', 'LIKE', '%' . $search . '%');
+        $data = User::forCompany(current_company_id())
+            ->activeEmployment()
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('name', 'LIKE', '%' . $search . '%')
+                        ->orWhere('email', 'LIKE', '%' . $search . '%')
+                        ->orWhere('telepon', 'LIKE', '%' . $search . '%')
+                        ->orWhere('username', 'LIKE', '%' . $search . '%')
+                        ->orWhereHas('Jabatan', function ($query) use ($search) {
+                            $query->where('nama_jabatan', 'LIKE', '%' . $search . '%');
+                        });
                 });
-        })
+            })
             ->orderBy('name', 'ASC');
 
         return $data;

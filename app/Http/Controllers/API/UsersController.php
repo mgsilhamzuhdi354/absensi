@@ -13,7 +13,7 @@ class UsersController extends Controller
 {
     public function index()
     {
-        $data = User::all();
+        $data = User::activeEmployment()->get();
 
         if($data){
             return ApiFormatter::createApi(200, 'Success', $data);

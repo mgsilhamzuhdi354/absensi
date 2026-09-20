@@ -38,7 +38,7 @@
             @yield('content')
         </main>
         <footer class="auth-footer">
-            <span>&copy; {{ date('Y') }} PT Indoocean Crew Service</span>
+            <span>&copy; {{ date('Y') }} {{ optional($selectedCompany ?? null)->name ?? 'PT Indoocean Crew Service' }}</span>
             @if(file_exists(public_path('app/absensi.apk')))
                 <a href="{{ asset('app/absensi.apk') }}" download><i class="fab fa-android" aria-hidden="true"></i> Unduh aplikasi Android <i class="fas fa-arrow-down" aria-hidden="true"></i></a>
             @else

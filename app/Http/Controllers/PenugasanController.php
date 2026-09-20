@@ -39,7 +39,7 @@ class PenugasanController extends Controller
     public function tambah()
     {
         $title = 'Penugasaan';
-        $users = User::orderBy('name')->get();
+        $users = User::activeEmployment()->orderBy('name')->get();
         return view('penugasan.tambah', compact(
             'title',
             'users',
@@ -99,7 +99,7 @@ class PenugasanController extends Controller
     public function edit($id)
     {
         $title = 'Penugasaan';
-        $users = User::orderBy('name')->get();
+        $users = User::activeEmployment()->orderBy('name')->get();
         $penugasan = Penugasan::find($id);
 
         return view('penugasan.edit', compact(

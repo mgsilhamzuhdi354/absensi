@@ -92,6 +92,30 @@ class User extends Authenticatable
         return $this->belongsTo(Company::class);
     }
 
+    public function pegawaiKeluars()
+    {
+        return $this->hasMany(PegawaiKeluar::class);
+    }
+
+    /**
+     * Pegawai aktif adalah pegawai yang belum memiliki pengajuan keluar
+     * berstatus APPROVED. Riwayat user tetap disimpan agar dokumen lama,
+     * absensi lama, dan slip gaji lama tetap dapat dibuka.
+     */
+    public function scopeActiveEmployment(Builder $query)
+    {
+        return $query->whereDoesntHave('pegawaiKeluars', function (Builder $query) {
+            $query->where('status', PegawaiKeluar::STATUS_APPROVED);
+        });
+    }
+
+    public function scopeExitedEmployment(Builder $query)
+    {
+        return $query->whereHas('pegawaiKeluars', function (Builder $query) {
+            $query->where('status', PegawaiKeluar::STATUS_APPROVED);
+        });
+    }
+
     public function scopeForCompany(Builder $query, $companyId)
     {
         return $companyId ? $query->where('company_id', $companyId) : $query;

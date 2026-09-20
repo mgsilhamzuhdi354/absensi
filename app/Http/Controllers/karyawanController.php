@@ -58,15 +58,18 @@ class karyawanController extends Controller
         $sortOrder = in_array($sortOrder, ['asc', 'desc']) ? $sortOrder : 'asc';
 
         $data = User::forCompany(current_company_id())
+            ->activeEmployment()
             ->when($search, function ($query) use ($search) {
-            $query->where('name', 'LIKE', '%' . $search . '%')
-                ->orWhere('email', 'LIKE', '%' . $search . '%')
-                ->orWhere('telepon', 'LIKE', '%' . $search . '%')
-                ->orWhere('username', 'LIKE', '%' . $search . '%')
-                ->orWhereHas('Jabatan', function ($query) use ($search) {
-                    $query->where('nama_jabatan', 'LIKE', '%' . $search . '%');
+                $query->where(function ($query) use ($search) {
+                    $query->where('name', 'LIKE', '%' . $search . '%')
+                        ->orWhere('email', 'LIKE', '%' . $search . '%')
+                        ->orWhere('telepon', 'LIKE', '%' . $search . '%')
+                        ->orWhere('username', 'LIKE', '%' . $search . '%')
+                        ->orWhereHas('Jabatan', function ($query) use ($search) {
+                            $query->where('nama_jabatan', 'LIKE', '%' . $search . '%');
+                        });
                 });
-        })
+            })
             ->orderBy($sortBy, $sortOrder);
 
         // Check if reorder mode (show all without pagination)

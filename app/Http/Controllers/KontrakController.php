@@ -38,7 +38,7 @@ class KontrakController extends Controller
     public function tambah()
     {
         $title = 'Kontrak Kerja';
-        $users = User::orderBy('name')->get();
+        $users = User::activeEmployment()->orderBy('name')->get();
         return view('kontrak.tambah', compact(
             'title',
             'users',
@@ -87,7 +87,7 @@ class KontrakController extends Controller
     public function edit($id)
     {
         $title = 'Kontrak Kerja';
-        $users = User::orderBy('name')->get();
+        $users = User::activeEmployment()->orderBy('name')->get();
         $kontrak = Kontrak::find($id);
 
         return view('kontrak.edit', compact(
